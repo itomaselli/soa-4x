@@ -1,6 +1,6 @@
 [package]
 name = "biker4x"
-version = "0.2.0"
+version = "0.3.0"
 description = "Biker 4X: 4X por turnos sobre un club de motoqueros"
 authors = ["itomaselli"]
 license = ""
