@@ -1,0 +1,12 @@
+[
+  { "id": "task_guard_zone", "stat": "strength", "heat": 0 },
+  { "id": "task_collect_protection", "stat": "charm", "heat": 3 },
+  { "id": "task_intimidate", "stat": "strength", "heat": 5 },
+  { "id": "task_steal_bikes", "stat": "cunning", "heat": 6 },
+  { "id": "task_work_garage", "stat": "hands", "heat": 0 },
+  { "id": "task_gun_run", "stat": "cunning", "heat": 10 },
+  { "id": "task_attack_business", "stat": "strength", "heat": 15 },
+  { "id": "task_bribe", "stat": "charm", "heat": 0 },
+  { "id": "task_recruit", "stat": "charm", "heat": 0 },
+  { "id": "task_lie_low", "stat": null, "heat": -5 }
+]

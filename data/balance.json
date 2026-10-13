@@ -1,0 +1,28 @@
+{
+  "ranges": {
+    "stat": { "min": 1, "max": 10 },
+    "loyalty": { "min": 0, "max": 100 },
+    "control": { "min": 0, "max": 100 },
+    "heat": { "min": 0, "max": 100 },
+    "wealth": { "min": 1, "max": 5 },
+    "policePresence": { "min": 0, "max": 5 },
+    "businessSlots": { "min": 0, "max": 3 },
+    "relation": { "min": -100, "max": 100 },
+    "federalInvestigation": { "min": 0, "max": 100 }
+  },
+  "control": { "ownerMinimum": 50, "ownerLeadMargin": 20 },
+  "heat": { "weeklyDecay": 5, "patrolThreshold": 30, "raidThreshold": 60, "crackdownThreshold": 85 },
+  "club": {
+    "startingMembers": 6,
+    "startingProspects": 2,
+    "memberCap": 15,
+    "prospectStatPenalty": 2,
+    "lowLoyaltyThreshold": 20
+  },
+  "council": { "impeachmentAverageLoyalty": 35, "impeachmentWeeks": 3 },
+  "laundering": { "federalAttentionCapacityRatio": 0.7 },
+  "market": { "priceVariance": 0.2 },
+  "federal": { "visibleFrom": 50 },
+  "victory": { "zonesToControl": 12, "weeksHeld": 4 },
+  "defeat": { "minActiveMembers": 3 }
+}

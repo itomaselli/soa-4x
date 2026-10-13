@@ -1,0 +1,46 @@
+[
+  {
+    "id": "member_jack_harlan",
+    "name": "Jack Harlan",
+    "nickname": "Preacher",
+    "factionId": "faction_iron_saints",
+    "rank": "president",
+    "trait": "traditionalist",
+    "stats": { "strength": 6, "cunning": 6, "hands": 4, "charm": 7 },
+    "loyalty": 100,
+    "glyph": "@"
+  },
+  {
+    "id": "member_dale_brody",
+    "name": "Dale Brody",
+    "nickname": "Tank",
+    "factionId": "faction_iron_saints",
+    "rank": "vice_president",
+    "trait": "ambitious",
+    "stats": { "strength": 7, "cunning": 5, "hands": 3, "charm": 6 },
+    "loyalty": 60,
+    "glyph": "V"
+  },
+  {
+    "id": "member_luis_ortega",
+    "name": "Luis Ortega",
+    "nickname": "Llave",
+    "factionId": "faction_iron_saints",
+    "rank": "member",
+    "trait": "loyal",
+    "stats": { "strength": 4, "cunning": 5, "hands": 8, "charm": 3 },
+    "loyalty": 75,
+    "glyph": "m"
+  },
+  {
+    "id": "member_cody_reese",
+    "name": "Cody Reese",
+    "nickname": "Kid",
+    "factionId": "faction_iron_saints",
+    "rank": "prospect",
+    "trait": "greedy",
+    "stats": { "strength": 3, "cunning": 4, "hands": 3, "charm": 2 },
+    "loyalty": 50,
+    "glyph": "p"
+  }
+]

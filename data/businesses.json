@@ -1,0 +1,6 @@
+[
+  { "id": "business_garage", "legal": true, "glyph": "T" },
+  { "id": "business_club_bar", "legal": true, "glyph": "Y" },
+  { "id": "business_chop_shop", "legal": false, "glyph": "D" },
+  { "id": "business_warehouse", "legal": false, "glyph": "W" }
+]

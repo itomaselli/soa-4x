@@ -1,0 +1,61 @@
+{
+  "app.title": "Biker 4X",
+  "app.phase0_ok": "Datos cargados y validados: {zones} zonas, {members} miembros, {factions} facciones.",
+  "app.week": "Semana {week}",
+
+  "cli.seed": "Semilla {seed} → estado inicial del RNG {rngState}.",
+  "cli.invariants_ok": "Invariantes del estado inicial: OK.",
+  "cli.invariants_failed": "El estado inicial viola invariantes:",
+  "cli.turns_not_implemented": "La resolución de turnos todavía no existe (Fase 1). Se pidieron {weeks} semanas; no se simuló ninguna.",
+
+  "zone_type.town": "Pueblo",
+  "zone_type.road": "Ruta",
+  "zone_type.port": "Puerto",
+  "zone_type.rural": "Rural",
+  "zone_type.industrial": "Industrial",
+
+  "rank.prospect": "Prospecto",
+  "rank.member": "Miembro",
+  "rank.sergeant_at_arms": "Sargento de Armas",
+  "rank.treasurer": "Tesorero",
+  "rank.vice_president": "Vicepresidente",
+  "rank.president": "Presidente",
+
+  "trait.traditionalist": "Tradicionalista",
+  "trait.greedy": "Codicioso",
+  "trait.violent": "Violento",
+  "trait.cautious": "Cauto",
+  "trait.loyal": "Leal",
+  "trait.ambitious": "Ambicioso",
+
+  "status.active": "Activo",
+  "status.wounded": "Herido",
+  "status.jailed": "Preso",
+  "status.dead": "Muerto",
+
+  "stat.strength": "Fuerza",
+  "stat.cunning": "Astucia",
+  "stat.hands": "Manos",
+  "stat.charm": "Labia",
+
+  "task.task_guard_zone": "Custodiar zona",
+  "task.task_collect_protection": "Cobrar protección",
+  "task.task_intimidate": "Intimidar",
+  "task.task_steal_bikes": "Robar motos",
+  "task.task_work_garage": "Trabajar en taller",
+  "task.task_gun_run": "Corrida de armas",
+  "task.task_attack_business": "Atacar negocio rival",
+  "task.task_bribe": "Sobornar",
+  "task.task_recruit": "Reclutar",
+  "task.task_lie_low": "Bajo perfil",
+
+  "good.good_stolen_bike": "Moto robada",
+  "good.good_parts": "Piezas",
+  "good.good_custom_bike": "Moto custom",
+  "good.good_gun_crate": "Caja de armas",
+
+  "business.business_garage": "Taller mecánico",
+  "business.business_club_bar": "Bar del club",
+  "business.business_chop_shop": "Desarmadero",
+  "business.business_warehouse": "Depósito"
+}

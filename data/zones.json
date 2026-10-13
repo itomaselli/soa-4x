@@ -1,0 +1,38 @@
+[
+  {
+    "id": "zone_redwater",
+    "name": "Redwater",
+    "type": "town",
+    "glyph": "R",
+    "adjacent": ["zone_route9_north"],
+    "wealth": 3,
+    "policePresence": 1,
+    "businessSlots": 3,
+    "initialHeat": 0,
+    "initialControl": { "faction_iron_saints": 70 }
+  },
+  {
+    "id": "zone_route9_north",
+    "name": "Ruta 9 Norte",
+    "type": "road",
+    "glyph": "=",
+    "adjacent": ["zone_redwater", "zone_millbrook"],
+    "wealth": 1,
+    "policePresence": 1,
+    "businessSlots": 1,
+    "initialHeat": 0,
+    "initialControl": { "faction_iron_saints": 20, "faction_grim_wolves": 20 }
+  },
+  {
+    "id": "zone_millbrook",
+    "name": "Millbrook",
+    "type": "town",
+    "glyph": "M",
+    "adjacent": ["zone_route9_north"],
+    "wealth": 3,
+    "policePresence": 1,
+    "businessSlots": 3,
+    "initialHeat": 0,
+    "initialControl": { "faction_grim_wolves": 70 }
+  }
+]

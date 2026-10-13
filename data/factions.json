@@ -1,0 +1,47 @@
+[
+  {
+    "id": "faction_iron_saints",
+    "name": "Iron Saints MC",
+    "kind": "club",
+    "glyph": "S",
+    "hqZoneId": "zone_redwater",
+    "startingMoney": { "clean": 1000, "dirty": 500 },
+    "initialRelations": {}
+  },
+  {
+    "id": "faction_grim_wolves",
+    "name": "Grim Wolves MC",
+    "kind": "club",
+    "glyph": "W",
+    "hqZoneId": "zone_millbrook",
+    "startingMoney": { "clean": 1000, "dirty": 500 },
+    "initialRelations": {}
+  },
+  {
+    "id": "faction_cartel_valdes",
+    "name": "Cartel Valdés",
+    "kind": "cartel",
+    "glyph": "C",
+    "hqZoneId": null,
+    "startingMoney": { "clean": 0, "dirty": 0 },
+    "initialRelations": {}
+  },
+  {
+    "id": "faction_sheriff",
+    "name": "Oficina del Sheriff de Ash Valley",
+    "kind": "sheriff",
+    "glyph": "*",
+    "hqZoneId": null,
+    "startingMoney": { "clean": 0, "dirty": 0 },
+    "initialRelations": {}
+  },
+  {
+    "id": "faction_federals",
+    "name": "Federales",
+    "kind": "federal",
+    "glyph": "F",
+    "hqZoneId": null,
+    "startingMoney": { "clean": 0, "dirty": 0 },
+    "initialRelations": {}
+  }
+]
