@@ -13,6 +13,8 @@ export interface ZoneLook {
   labelColor: string;
   /** Show a heat marker next to the zone. */
   heatWarning: boolean;
+  /** Up to 3 businesses, drawn on the top edge of the box in their owner's color. */
+  businesses: { glyph: string; color: string }[];
 }
 
 export interface MapViewModel {
@@ -29,7 +31,13 @@ const FONT_NAME = "ascii-tiles";
 const BOX = { corner: "+", horizontal: "-", vertical: "|" };
 const HEAT_GLYPH = "!";
 
-export async function createMapView(host: HTMLElement, data: GameData, onZoneClick: (zoneId: string) => void): Promise<MapView> {
+export interface MapCallbacks {
+  onZoneClick: (zoneId: string) => void;
+  /** Called with the zone under the pointer (or null) and the pointer position in page pixels. */
+  onZoneHover?: (zoneId: string | null, pageX: number, pageY: number) => void;
+}
+
+export async function createMapView(host: HTMLElement, data: GameData, callbacks: MapCallbacks): Promise<MapView> {
   const ui: UiConfig = data.ui;
   const t = ui.tileSize;
   const layout: MapLayout = buildMapLayout(data);
@@ -58,12 +66,21 @@ export async function createMapView(host: HTMLElement, data: GameData, onZoneCli
     textureStyle: { scaleMode: "nearest" },
   });
 
+  const place = (text: BitmapText, x: number, y: number) => {
+    text.x = x * t + Math.round((t - text.width) / 2);
+    text.y = y * t + Math.round((t - text.height) / 2);
+  };
   const glyph = (ch: string, x: number, y: number, color: string): BitmapText => {
     const text = new BitmapText({ text: ch, style: { fontFamily: FONT_NAME, fontSize: ui.font.size } });
     text.tint = color;
-    text.x = x * t + Math.round((t - text.width) / 2);
-    text.y = y * t + Math.round((t - text.height) / 2);
+    place(text, x, y);
     return text;
+  };
+  /** Changes a sprite's character (re-centering it) only when it actually changes. */
+  const setChar = (text: BitmapText, ch: string, x: number, y: number) => {
+    if (text.text === ch) return;
+    text.text = ch;
+    place(text, x, y);
   };
 
   // Everything is created once; updates only change colors, text and visibility.
@@ -114,12 +131,16 @@ export async function createMapView(host: HTMLElement, data: GameData, onZoneCli
   app.stage.on("pointertap", (event) => {
     const tile = { x: Math.floor(event.global.x / (t * scale)), y: Math.floor(event.global.y / (t * scale)) };
     const zoneId = zoneAt(layout, tile);
-    if (zoneId) onZoneClick(zoneId);
+    if (zoneId) callbacks.onZoneClick(zoneId);
   });
   app.stage.on("pointermove", (event) => {
     const tile = { x: Math.floor(event.global.x / (t * scale)), y: Math.floor(event.global.y / (t * scale)) };
-    app.canvas.style.cursor = zoneAt(layout, tile) ? "pointer" : "default";
+    const zoneId = zoneAt(layout, tile);
+    app.canvas.style.cursor = zoneId ? "pointer" : "default";
+    const rect = app.canvas.getBoundingClientRect();
+    callbacks.onZoneHover?.(zoneId, rect.left + window.scrollX + event.global.x, rect.top + window.scrollY + event.global.y);
   });
+  app.stage.on("pointerleave", () => callbacks.onZoneHover?.(null, 0, 0));
 
   return {
     update(model) {
@@ -129,10 +150,16 @@ export async function createMapView(host: HTMLElement, data: GameData, onZoneCli
         if (!look || !sp) continue;
         const selected = model.selectedZoneId === z.id;
         for (const b of sp.border) b.tint = selected ? ui.colors.selected : look.borderColor;
-        if (sp.center.text !== look.glyph) {
-          sp.center.text = look.glyph;
-          sp.center.x = z.center.x * t + Math.round((t - sp.center.width) / 2);
+        // Top edge (the first three border sprites): business glyphs, or the plain box edge.
+        for (let i = 0; i < 3; i++) {
+          const sprite = sp.border[i];
+          if (!sprite) continue;
+          const business = look.businesses[i];
+          const plain = i === 1 ? BOX.horizontal : BOX.corner;
+          setChar(sprite, business?.glyph ?? plain, z.center.x - 1 + i, z.center.y - 1);
+          if (business) sprite.tint = business.color;
         }
+        setChar(sp.center, look.glyph, z.center.x, z.center.y);
         sp.center.tint = look.glyphColor;
         sp.heat.visible = look.heatWarning;
         for (const l of sp.label) l.tint = selected ? ui.colors.selected : look.labelColor;

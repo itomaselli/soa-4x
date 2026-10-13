@@ -103,6 +103,8 @@ Requieren voto: declarar guerra o tregua, aceptar un trato con el cartel, abrir 
 Sube con pagos regulares, victorias y respetar el voto de la mesa. Baja con miembros muertos o presos, deudas, ignorar a la mesa, guerras largas y contradecir el rasgo del miembro.
 Por debajo de 20, un miembro puede **desertar** o **volverse informante** (ver §10).
 
+**Tope de lealtad pasiva (Fase 6):** el sueldo y el bar no suben la lealtad por encima de 70. Más arriba solo se llega con victorias, ascensos, respetar a la mesa o eventos. Así la lealtad alta se gana.
+
 **Valores semanales (Fase 4, en `balance.json`):** sueldo cobrado +1 · sin cobrar −10 · cada zona ganada +3 y cada zona perdida −3 (para todos) · cada hermano preso esa semana −2 (para todos) · guerra de 8 semanas o más −1 por semana · tarea que le gusta al rasgo +1 · tarea que detesta −3 (gustos en `data/traits.json`). La lealtad del presidente no cambia.
 Con lealtad menor a 20, cada semana: 15% de desertar o 10% de volverse informante en secreto. Si hay un informante, cada semana hay 25% de que corra un rumor.
 
@@ -276,7 +278,7 @@ Ejemplos:
 ## 14. Victoria y derrota
 
 - **Victoria:** controlar 12 de las 18 zonas durante 4 semanas seguidas, **o** expulsar a los Grim Wolves del condado (que no les quede control en ninguna zona).
-- **Derrota:** destitución en la mesa, investigación federal al 100%, quedarte con menos de 3 miembros activos, **perder el control de todas las zonas**, o que **un club rival cumpla la victoria por territorio** (12 zonas durante 4 semanas).
+- **Derrota:** destitución en la mesa, investigación federal al 100%, quedarte con menos de 3 miembros activos (Fase 6: "activos" significa que siguen en el club, aunque estén presos o heridos; no cuentan los muertos, los desertores ni los expulsados), **perder el control de todas las zonas**, o que **un club rival cumpla la victoria por territorio** (12 zonas durante 4 semanas).
 
 ## 15. Interfaz y arte
 
@@ -287,6 +289,11 @@ Ejemplos:
   - **Zona:** datos, control por facción, vecinas y nuestras tareas ahí.
   - **Informe:** lo que pasó en la semana, por etapa.
 - Las órdenes de la semana anterior se conservan si siguen siendo válidas. La partida se guarda sola en el navegador al terminar cada semana.
+- **Fase 6 (hecha):**
+  - **Guardar y cargar:** «Guardar» descarga la partida como `.json` y «Cargar» la abre. Al cargar se valida el formato y que coincida con los datos actuales del juego; si no coincide, se explica por qué.
+  - **Mapa:** los negocios se dibujan en el borde superior de cada zona con el color del dueño, las zonas con tareas planeadas se resaltan, al pasar el mouse se ve un resumen y hay una leyenda debajo.
+  - **Partida:** ayuda «Cómo se juega» (botón «?»), pantalla de fin de partida y Enter para avanzar la semana.
+  - **Arte:** ASCII con color por tipo de zona (pueblo, ruta, puerto, rural, industrial). Los colores están en `data/ui.json`.
 - **Arte:** tiles de 16×16, escalado entero (×2, ×3), paleta limitada.
   - **Fase inicial:** glifos ASCII de una fuente bitmap, estilo Dwarf Fortress.
   - **Después:** tileset CC0 (por ejemplo el *1-Bit Pack* de Kenney) o arte propio. Decisión pendiente.
@@ -351,11 +358,16 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Cuándo rinde "trabajar en taller"? (Fase 5) | Las tareas se resuelven después de la producción, así que el trabajo suma capacidad para la semana siguiente. |
 | ¿Quién paga sueldos? (Fase 5) | Solo los clubs. El cartel no paga sueldos ni tiene mesa. |
 | ¿Eventos para la IA? (Fase 5) | No por ahora: solo el jugador tiene eventos. |
+| ¿Ventaja de los Grim Wolves? (Fase 6) | Se igualó la Fuerza total de los dos clubs (40 cada uno). Con +3 de Fuerza, los Wolves ganaban casi siempre en la simulación. |
+| ¿"Menos de 3 miembros activos"? (Fase 6) | Cuenta a los que siguen en el club, aunque estén presos o heridos. Una racha de arrestos ya no termina la partida. |
+| ¿La lealtad sube sola sin límite? (Fase 6) | No: el sueldo y el bar la suben hasta 70 como mucho. |
+| ¿Cuántos miembros recluta la IA? (Fase 6) | Hasta el tope de 15. Con menos, no le alcanzaba la gente para cobrar en todas sus zonas y además expandirse. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas
 
-- Arte: ¿ASCII definitivo, tileset CC0 o arte propio?
+- Arte: ¿ASCII definitivo, tileset CC0 o arte propio? (El render ya toma el glifo y los colores de los datos: cambiar a un tileset no toca la lógica.)
+- Balance: entre dos IA parejas la partida tiende a trabarse (ninguna consolida zonas). ¿Hace falta un mecanismo que rompa el empate, como la pérdida de control en zonas sin presencia?
 - ¿Nombre final del juego y del club?
 - ¿El presidente puede morir? ¿Hay sucesión?
 - ¿Agregar una tercera cadena (contrabando de alcohol o tabaco) en la fase 5?

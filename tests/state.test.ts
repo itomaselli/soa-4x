@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadGameData } from "../src/data/load";
 import { checkInvariants } from "../src/sim/invariants";
 import { createRng } from "../src/sim/rng";
-import { deserializeState, serializeState } from "../src/sim/save";
+import { deserializeState, loadSave, saveDataProblems, serializeState } from "../src/sim/save";
 import { createInitialState } from "../src/sim/setup";
 import { GameStateSchema } from "../src/sim/state";
 
@@ -95,5 +95,24 @@ describe("guardar y cargar", () => {
   it("rechaza partidas de otra versión del formato", () => {
     const other = { ...newGame(), schemaVersion: 999 };
     expect(() => deserializeState(JSON.stringify(other))).toThrow(/schemaVersion/);
+  });
+});
+
+describe("guardar y cargar contra los datos del juego", () => {
+  it("una partida guardada con los datos actuales se carga sin problemas", () => {
+    expect(loadSave(serializeState(newGame()), data)).toEqual(newGame());
+  });
+
+  it("si cambiaron los datos (por ejemplo, se borró una zona), la carga lo explica en lugar de romperse después", () => {
+    const state = newGame();
+    const fewerZones = { ...data, zones: data.zones.filter((z) => z.id !== "zone_lone_pine") };
+    expect(saveDataProblems(state, fewerZones)).toContainEqual("zona desconocida: zone_lone_pine");
+    expect(() => loadSave(serializeState(state), fewerZones)).toThrow(/no coincide con los datos/);
+  });
+
+  it("detecta negocios de un tipo que ya no existe", () => {
+    const state = newGame();
+    state.businesses.push({ id: "biz_1", typeId: "business_casino", zoneId: "zone_redwater", ownerFactionId: PLAYER, raidWarned: false, builtWeek: 1, suspended: false, workCapacity: 0 });
+    expect(saveDataProblems(state, data)).toContainEqual("biz_1: tipo de negocio desconocido business_casino");
   });
 });

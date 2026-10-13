@@ -9,7 +9,7 @@ import { parseArgs } from "node:util";
 import { loadGameData } from "../data/load";
 import type { GameData } from "../data/schemas";
 import { availableTasks, reachableZones, type Assignment } from "../sim/orders";
-import { deserializeState, serializeState } from "../sim/save";
+import { loadSave, serializeState } from "../sim/save";
 import { createInitialState } from "../sim/setup";
 import type { GameState } from "../sim/state";
 import { allAiOrders } from "../sim/systems/ai";
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
 
   let state: GameState;
   if (values.load) {
-    state = deserializeState(readFileSync(values.load, "utf8"));
+    state = loadSave(readFileSync(values.load, "utf8"), data);
     console.log(t(s, "play.loaded", { path: values.load }));
   } else {
     state = createInitialState(data, { seed: Number(values.seed), playerFactionId: DEFAULT_PLAYER_FACTION });

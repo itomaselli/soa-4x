@@ -26,7 +26,8 @@ select:disabled { opacity: 0.4; }
 .outcome.victory { background: var(--ok); color: #111; }
 .outcome.defeat { background: var(--danger); color: #111; }
 main { flex: 1; display: flex; min-height: 0; }
-#map-host { flex: 1; overflow: auto; padding: 8px; min-width: 0; }
+#map-column { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: auto; }
+#map-host { padding: 8px; }
 #map-host canvas { display: block; }
 #sidebar { width: 520px; max-width: 100%; border-left: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
 .tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--border); }
@@ -60,7 +61,8 @@ h3 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); text-transform: u
 #status.error { color: var(--danger); padding: 16px; white-space: pre-wrap; }
 @media (max-width: 1000px) {
   main { flex-direction: column; }
-  #map-host { flex: none; overflow-x: auto; }
+  #map-column { flex: none; }
+  #map-host { overflow-x: auto; }
   #sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); }
 }
 .stat.warn, .warn { color: var(--danger); }
@@ -81,3 +83,15 @@ table.goods td { padding: 4px; border-bottom: 1px solid var(--border); }
 .event h3 { color: var(--accent); margin-top: 0; }
 .event label { display: flex; margin: 4px 0; }
 .warn-chip { background: #3a2a10; border-color: var(--accent); color: var(--accent); }
+label.button { display: inline-block; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+label.button:hover { border-color: var(--muted); }
+.notice { padding: 6px 16px; background: #1d2a1d; color: var(--ok); white-space: pre-wrap; font-size: 13px; }
+.notice.error { background: #2a1616; color: var(--danger); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 12px 12px; color: var(--muted); font-size: 12px; }
+#tooltip { position: absolute; z-index: 10; pointer-events: none; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 12px; line-height: 1.5; box-shadow: 0 4px 16px #0008; }
+#overlay { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 20; padding: 16px; }
+#overlay[hidden] { display: none; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; max-width: 560px; max-height: 90vh; overflow: auto; }
+.modal.victory h2 { color: var(--ok); }
+.modal.defeat h2 { color: var(--danger); }
+.modal p { margin: 8px 0; }

@@ -16,7 +16,14 @@ import { marketPrice } from "../sim/systems/economy";
 import { canAfford } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
 
-export function mapViewModel(state: GameState, data: GameData, viewer: string, selectedZoneId: string | null): MapViewModel {
+export function mapViewModel(
+  state: GameState,
+  data: GameData,
+  viewer: string,
+  selectedZoneId: string | null,
+  plannedZoneIds: readonly string[] = [],
+): MapViewModel {
+  const planned = new Set(plannedZoneIds);
   const reachable = new Set(reachableZones(state, data, viewer));
   const { colors } = data.ui;
   const zones: MapViewModel["zones"] = {};
@@ -27,7 +34,14 @@ export function mapViewModel(state: GameState, data: GameData, viewer: string, s
     zones[def.id] = {
       borderColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? colors.neutral) : colors.neutral,
       glyph: def.glyph,
-      glyphColor: colors.glyph,
+      glyphColor: planned.has(def.id) ? colors.planned : data.ui.zoneTypeColors[def.type] ?? colors.glyph,
+      businesses: state.businesses
+        .filter((b) => b.zoneId === def.id)
+        .slice(0, 3)
+        .map((b) => ({
+          glyph: businessDef(data, b.typeId)?.glyph ?? "?",
+          color: data.factions.find((f) => f.id === b.ownerFactionId)?.color ?? colors.neutral,
+        })),
       labelColor: reachable.has(def.id) ? colors.label : colors.labelDim,
       heatWarning: zone.heat >= data.balance.heat.patrolThreshold,
     };
@@ -298,4 +312,29 @@ export function zoneBusinesses(state: GameState, data: GameData, zoneId: string)
       const owner = data.factions.find((f) => f.id === b.ownerFactionId);
       return { typeKey: `business.${b.typeId}`, owner: owner?.name ?? b.ownerFactionId, color: owner?.color ?? data.ui.colors.neutral };
     });
+}
+
+export interface ZoneTooltip {
+  name: string;
+  typeKey: string;
+  owner: { name: string; color: string } | null;
+  ourControl: number;
+  heat: number;
+  patrols: boolean;
+  businesses: number;
+}
+
+/** Short summary for the hover tooltip on the map. */
+export function zoneTooltip(state: GameState, data: GameData, zoneId: string, viewer: string): ZoneTooltip | null {
+  const d = zoneDetails(state, data, zoneId, viewer);
+  if (!d) return null;
+  return {
+    name: d.name,
+    typeKey: d.typeKey,
+    owner: d.owner,
+    ourControl: state.zones[zoneId]?.control[viewer] ?? 0,
+    heat: d.heat,
+    patrols: d.patrols,
+    businesses: state.businesses.filter((b) => b.zoneId === zoneId).length,
+  };
 }

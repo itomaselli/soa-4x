@@ -13,6 +13,7 @@ import {
   topBarModel,
   votePreview,
   zoneDetails,
+  zoneTooltip,
 } from "../src/ui/viewModel";
 import { addBusiness } from "../src/sim/systems/businesses";
 import { stanceKey } from "../src/sim/systems/diplomacy";
@@ -167,6 +168,30 @@ describe("interfaz: datos para mostrar", () => {
       expect.objectContaining({ id: "pay", affordable: false, isDefault: false }),
       expect.objectContaining({ id: "refuse", affordable: true, isDefault: true }),
     ]);
+  });
+
+  it("el mapa muestra los negocios de cada zona con el color de su dueño", () => {
+    const state = newState();
+    addBusiness(state, baseData, PLAYER, "business_club_bar", "zone_redwater");
+    const vm = mapViewModel(state, baseData, PLAYER, null);
+    const saints = baseData.factions.find((f) => f.id === PLAYER)!.color;
+    expect(vm.zones["zone_redwater"]?.businesses).toEqual([{ glyph: "Y", color: saints }]);
+  });
+
+  it("las zonas con tareas planeadas se resaltan", () => {
+    const vm = mapViewModel(newState(), baseData, PLAYER, null, ["zone_crossing"]);
+    expect(vm.zones["zone_crossing"]?.glyphColor).toBe(baseData.ui.colors.planned);
+    expect(vm.zones["zone_redwater"]?.glyphColor).toBe(baseData.ui.zoneTypeColors.town);
+  });
+
+  it("el resumen al pasar el mouse muestra dueño, nuestro control, calor y negocios", () => {
+    expect(zoneTooltip(newState(), baseData, "zone_redwater", PLAYER)).toMatchObject({
+      name: "Redwater",
+      ourControl: 70,
+      heat: 0,
+      businesses: 0,
+      owner: { name: "Iron Saints MC" },
+    });
   });
 });
 

@@ -151,8 +151,8 @@
     "rank": "vice_president",
     "trait": "ambitious",
     "stats": {
-      "strength": 8,
-      "cunning": 4,
+      "strength": 7,
+      "cunning": 5,
       "hands": 3,
       "charm": 5
     },
@@ -167,7 +167,7 @@
     "rank": "sergeant_at_arms",
     "trait": "violent",
     "stats": {
-      "strength": 8,
+      "strength": 7,
       "cunning": 3,
       "hands": 4,
       "charm": 3
@@ -215,7 +215,7 @@
     "rank": "member",
     "trait": "traditionalist",
     "stats": {
-      "strength": 6,
+      "strength": 5,
       "cunning": 4,
       "hands": 6,
       "charm": 3

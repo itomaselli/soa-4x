@@ -7,8 +7,9 @@ import type { GameState } from "../src/sim/state";
 import { resolveTurn } from "../src/sim/turn";
 import { baseData, dataWith, member, newState, PLAYER, SERGEANT, VP, WOLVES, zone } from "./helpers";
 
-const WOLF_A = "member_wolves_rex_hollis"; // strength 8
-const WOLF_B = "member_wolves_jed_sutter"; // strength 8
+const WOLF_A = "member_wolves_rex_hollis"; // strength 7
+const WOLF_B = "member_wolves_jed_sutter"; // strength 7
+const WOLF_C = "member_wolves_cole_maddox"; // strength 7
 
 const calm = (patch: (d: GameData) => void = () => {}) =>
   dataWith((d) => {
@@ -60,10 +61,10 @@ describe("combate (GDD §11)", () => {
     const state = saintsBar();
     const { report } = resolveTurn(
       state,
-      { assignments: [...attack([WOLF_A, WOLF_B]), { memberId: SERGEANT, taskId: "task_guard_zone", zoneId: "zone_route9_south" }, { memberId: VP, taskId: "task_guard_zone", zoneId: "zone_route9_south" }] },
+      { assignments: [...attack([WOLF_A, WOLF_B, WOLF_C]), { memberId: SERGEANT, taskId: "task_guard_zone", zoneId: "zone_route9_south" }, { memberId: VP, taskId: "task_guard_zone", zoneId: "zone_route9_south" }] },
       calm(),
     );
-    // 8 + 8 = 16 against 8 + 7 = 15
+    // 7 + 7 + 7 = 21 against 8 + 7 = 15
     expect(keys(report)).toContain("report.combat.attacker_won");
     expect(report.filter((e) => e.key.startsWith("report.combat."))).toHaveLength(1);
   });

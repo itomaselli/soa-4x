@@ -13,7 +13,7 @@ import { resolveTurn } from "../sim/turn";
 import { h } from "./dom";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draft";
 import { reportSections } from "./report";
-import { clearAutosave, loadAutosave, saveAutosave } from "./storage";
+import { clearAutosave, exportSave, importSave, loadAutosave, saveAutosave } from "./storage";
 import { t } from "./strings";
 import {
   buildableZones,
@@ -29,6 +29,7 @@ import {
   votePreview,
   zoneBusinesses,
   zoneDetails,
+  zoneTooltip,
 } from "./viewModel";
 import { validateManagement, type ManagementOrder } from "../sim/management";
 
@@ -51,6 +52,9 @@ export interface AppElements {
   topBar: HTMLElement;
   mapHost: HTMLElement;
   sidebar: HTMLElement;
+  legend: HTMLElement;
+  tooltip: HTMLElement;
+  overlay: HTMLElement;
 }
 
 /** Random seed for a new game. UI code may use the browser's randomness; the sim never does. */
@@ -64,7 +68,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   const s = data.strings;
   const tr = (key: string, params: Record<string, string | number> = {}) => t(s, key, params);
 
-  let state: GameState = loadAutosave() ?? createInitialState(data, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
+  let state: GameState = loadAutosave(data) ?? createInitialState(data, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
   let report: ReportEntry[] = [];
   let draft: Draft = {};
   let tab: Tab = "club";
@@ -78,16 +82,71 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   let launderAmount = 0;
   let gunQuantity = 1;
   const sellAmounts: Record<string, number> = {};
+  let notice: { text: string; error: boolean } | null = null;
+  let showHelp = false;
+  let outcomeDismissed = false;
 
-  const map: MapView = await createMapView(els.mapHost, data, (zoneId) => {
-    selectedZoneId = zoneId;
-    const entry = focusedMemberId ? draft[focusedMemberId] : undefined;
-    if (focusedMemberId && entry && reachableZones(state, data, state.playerFactionId).includes(zoneId)) {
-      draft = { ...draft, [focusedMemberId]: { ...entry, zoneId } };
-    } else if (tab !== "club") {
-      tab = "zone";
+  const map: MapView = await createMapView(els.mapHost, data, {
+    onZoneClick: (zoneId) => {
+      selectedZoneId = zoneId;
+      const entry = focusedMemberId ? draft[focusedMemberId] : undefined;
+      if (focusedMemberId && entry && reachableZones(state, data, state.playerFactionId).includes(zoneId)) {
+        draft = { ...draft, [focusedMemberId]: { ...entry, zoneId } };
+      } else if (tab !== "club") {
+        tab = "zone";
+      }
+      render();
+    },
+    onZoneHover: (zoneId, x, y) => showTooltip(zoneId, x, y),
+  });
+
+  function showTooltip(zoneId: string | null, x: number, y: number): void {
+    const tip = zoneId ? zoneTooltip(state, data, zoneId, state.playerFactionId) : null;
+    if (!tip) {
+      els.tooltip.hidden = true;
+      return;
+    }
+    els.tooltip.replaceChildren(
+      h("strong", {}, [tip.name]),
+      h("div", { class: "muted" }, [tr(tip.typeKey)]),
+      h("div", {}, [tr("ui.tip.owner"), " ", tip.owner ? h("span", { style: `color:${tip.owner.color}` }, [tip.owner.name]) : tr("ui.zone.no_owner")]),
+      h("div", {}, [tr("ui.tip.control", { value: tip.ourControl })]),
+      h("div", { class: tip.patrols ? "warn" : "" }, [tr("ui.tip.heat", { value: tip.heat })]),
+      tip.businesses > 0 ? h("div", {}, [tr("ui.tip.businesses", { count: tip.businesses })]) : "",
+    );
+    els.tooltip.style.left = `${x + 14}px`;
+    els.tooltip.style.top = `${y + 14}px`;
+    els.tooltip.hidden = false;
+  }
+
+  function saveToFile(): void {
+    exportSave(state, `biker4x-semana-${state.week}.json`);
+    notice = { text: tr("ui.saved_file"), error: false };
+    render();
+  }
+
+  async function loadFromFile(file: File): Promise<void> {
+    try {
+      state = await importSave(file, data);
+      report = [];
+      draft = {};
+      proposals = [];
+      management = [];
+      eventChoices = {};
+      outcomeDismissed = false;
+      saveAutosave(state);
+      notice = { text: tr("ui.loaded_file", { week: state.week }), error: false };
+    } catch (error) {
+      notice = { text: `${tr("ui.load_failed")}\n${(error as Error).message}`, error: true };
     }
     render();
+  }
+
+  // Enter advances the week when the focus isn't on a form control.
+  document.addEventListener("keydown", (e) => {
+    const target = e.target as HTMLElement | null;
+    if (e.key !== "Enter" || !target || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName)) return;
+    advanceWeek();
   });
 
   function advanceWeek(): void {
@@ -113,6 +172,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     draft = carryOverDraft(draft, state, data);
     focusedMemberId = null;
     tab = "report";
+    notice = null;
     saveAutosave(state);
     render();
   }
@@ -127,6 +187,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     management = [];
     eventChoices = {};
     tab = "club";
+    outcomeDismissed = false;
+    notice = null;
     saveAutosave(state);
     render();
   }
@@ -159,7 +221,21 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       outcome
         ? h("div", { class: `outcome ${outcome.result}` }, [tr(outcome.reasonKey)])
         : h("button", { class: "primary", onclick: advanceWeek }, [tr("ui.advance_week")]),
+      h("button", { onclick: saveToFile, title: tr("ui.save_file_hint") }, [tr("ui.save_file")]),
+      h("label", { class: "button", title: tr("ui.load_file_hint") }, [
+        tr("ui.load_file"),
+        h("input", {
+          type: "file",
+          accept: "application/json,.json",
+          hidden: true,
+          onchange: (e: Event) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) void loadFromFile(file);
+          },
+        }),
+      ]),
       h("button", { onclick: newGame }, [tr("ui.new_game")]),
+      h("button", { onclick: () => { showHelp = true; render(); }, title: tr("ui.help") }, ["?"]),
     ]);
   }
 
@@ -678,8 +754,53 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
 
   // ---------- Layout ----------
 
+  function renderLegend(): HTMLElement {
+    const { colors } = data.ui;
+    const sw = (color: string, ch: string) => h("span", { class: "mono", style: `color:${color}` }, [ch]);
+    return h("div", { class: "legend" }, [
+      ...data.factions
+        .filter((f) => f.kind === "club" || f.kind === "cartel")
+        .map((f) => h("span", {}, [sw(f.color, "+-+"), " ", f.name])),
+      h("span", {}, [sw(colors.neutral, "+-+"), " ", tr("ui.legend.no_owner")]),
+      h("span", {}, [sw(colors.selected, "+-+"), " ", tr("ui.legend.selected")]),
+      h("span", {}, [sw(colors.planned, "R"), " ", tr("ui.legend.planned")]),
+      h("span", {}, [sw(colors.heat, "!"), " ", tr("ui.legend.patrols")]),
+      h("span", {}, [...data.businesses.map((b) => sw(colors.label, b.glyph)), " ", tr("ui.legend.businesses")]),
+    ]);
+  }
+
+  function renderOverlay(): HTMLElement | null {
+    if (showHelp) {
+      return h("div", { class: "modal" }, [
+        h("h2", {}, [tr("ui.help.title")]),
+        ...["ui.help.goal", "ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose"].map((k) => h("p", {}, [tr(k)])),
+        h("button", { class: "primary", onclick: () => { showHelp = false; render(); } }, [tr("ui.close")]),
+      ]);
+    }
+    if (state.outcome && !outcomeDismissed) {
+      const m = topBarModel(state, data, state.playerFactionId);
+      return h("div", { class: `modal ${state.outcome.result}` }, [
+        h("h2", {}, [tr(state.outcome.result === "victory" ? "ui.end.victory" : "ui.end.defeat")]),
+        h("p", {}, [tr(state.outcome.reasonKey)]),
+        h("p", { class: "muted" }, [tr("ui.end.summary", { week: state.outcome.week, owned: m.owned, clean: m.clean, dirty: m.dirty })]),
+        h("div", { class: "row" }, [
+          h("button", { class: "primary", onclick: newGame }, [tr("ui.new_game")]),
+          h("button", { onclick: () => { outcomeDismissed = true; render(); } }, [tr("ui.end.look")]),
+        ]),
+      ]);
+    }
+    return null;
+  }
+
   function render(): void {
-    els.topBar.replaceChildren(renderTopBar());
+    els.topBar.replaceChildren(
+      renderTopBar(),
+      notice ? h("div", { class: notice.error ? "notice error" : "notice" }, [notice.text]) : "",
+    );
+    els.legend.replaceChildren(renderLegend());
+    const overlay = renderOverlay();
+    els.overlay.replaceChildren(...(overlay ? [overlay] : []));
+    els.overlay.hidden = overlay === null;
     const tabs = h(
       "nav",
       { class: "tabs" },
@@ -698,7 +819,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
               ? renderZone()
               : renderReport();
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
-    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId));
+    const planned = Object.values(draft).map((e) => e.zoneId).filter((z): z is string => z !== null);
+    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned));
   }
 
   render();

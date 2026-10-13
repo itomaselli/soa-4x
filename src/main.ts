@@ -14,7 +14,14 @@ const byId = (id: string): HTMLElement => {
 try {
   const data = loadGameData();
   document.title = t(data.strings, "app.title");
-  await startApp(data, { topBar: byId("topbar"), mapHost: byId("map-host"), sidebar: byId("sidebar") });
+  await startApp(data, {
+    topBar: byId("topbar"),
+    mapHost: byId("map-host"),
+    sidebar: byId("sidebar"),
+    legend: byId("legend"),
+    tooltip: byId("tooltip"),
+    overlay: byId("overlay"),
+  });
 } catch (error) {
   const status = byId("status");
   status.classList.add("error");

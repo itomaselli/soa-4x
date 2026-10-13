@@ -173,7 +173,8 @@
     "desertChance": 0.15,
     "informantChance": 0.1,
     "informantHintChance": 0.25,
-    "deathPenalty": 5
+    "deathPenalty": 5,
+    "passiveCap": 70
   },
   "relations": {
     "intimidatedPenalty": 5,

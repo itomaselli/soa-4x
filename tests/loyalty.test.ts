@@ -61,7 +61,8 @@ describe("lealtad semanal (GDD §6)", () => {
     ]);
     expect(keys(report)).toContain("report.loyalty.trait_dislike");
     expect(member(next, LEDGER).loyalty).toBe(member(state, LEDGER).loyalty + L.paidBonus - L.traitDislikePenalty);
-    expect(member(next, SERGEANT).loyalty).toBe(member(state, SERGEANT).loyalty + L.paidBonus + L.traitLikeBonus);
+    // Hammer starts at 70, the passive cap: wages don't raise him further, the task he likes does.
+    expect(member(next, SERGEANT).loyalty).toBe(member(state, SERGEANT).loyalty + L.traitLikeBonus);
   });
 
   it("una guerra larga (8 semanas o más) desgasta a todos", () => {
@@ -71,6 +72,22 @@ describe("lealtad semanal (GDD §6)", () => {
     const { state: next, report } = turn(state);
     expect(keys(report)).toContain("report.loyalty.long_war");
     expect(member(next, VP).loyalty).toBe(member(state, VP).loyalty + L.paidBonus - L.warWeeklyPenalty);
+  });
+});
+
+describe("tope de lealtad pasiva", () => {
+  it("el sueldo no sube la lealtad por encima de 70", () => {
+    const state = newState();
+    member(state, VP).loyalty = 70;
+    expect(member(turn(state).state, VP).loyalty).toBe(70);
+  });
+
+  it("ganar una zona sí puede subirla por encima de 70", () => {
+    const state = newState();
+    member(state, VP).loyalty = 70;
+    zone(state, "zone_dry_creek").control = { [PLAYER]: 49 };
+    const next = turn(state, [{ memberId: SERGEANT, taskId: "task_guard_zone", zoneId: "zone_dry_creek" }]).state;
+    expect(member(next, VP).loyalty).toBe(70 + L.zoneGainedBonus);
   });
 });
 

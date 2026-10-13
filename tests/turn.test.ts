@@ -209,11 +209,19 @@ describe("victoria y derrota (GDD §14)", () => {
     expect(next.outcome).toMatchObject({ result: "victory", reasonKey: "outcome.victory.rival_expelled" });
   });
 
-  it("quedarse con menos de 3 miembros activos es derrota", () => {
+  it("quedarse con menos de 3 miembros en el club es derrota", () => {
     const state = newState();
-    benchAllExcept(state, [PRESIDENT, VP]);
+    for (const m of Object.values(state.members)) {
+      if (m.factionId === PLAYER && m.id !== PRESIDENT && m.id !== VP) m.status = "dead";
+    }
     const next = resolveTurn(state, empty, baseData).state;
     expect(next.outcome).toMatchObject({ result: "defeat", reasonKey: "outcome.defeat.too_few_members" });
+  });
+
+  it("los presos y heridos siguen contando: una mala racha de arrestos no termina la partida", () => {
+    const state = newState();
+    benchAllExcept(state, [PRESIDENT, VP]);
+    expect(resolveTurn(state, empty, baseData).state.outcome).toBeNull();
   });
 
   it("perder el control de todas las zonas es derrota", () => {

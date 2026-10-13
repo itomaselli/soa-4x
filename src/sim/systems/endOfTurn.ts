@@ -5,7 +5,7 @@ import { factionName, type TurnContext } from "../context";
 import type { GameState, Outcome } from "../state";
 import { controlOf, ownedZones } from "./control";
 import { decayMarket } from "./economy";
-import { activeMembers, memberLabel } from "./members";
+import { livingMembers, memberLabel } from "./members";
 
 export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
   advanceStatuses(state, ctx);
@@ -74,7 +74,8 @@ export function checkOutcome(state: GameState, ctx: TurnContext): Outcome | null
   if ((state.factions[player]?.federal ?? 0) >= balance.ranges.federalInvestigation.max) {
     return { result: "defeat", reasonKey: "outcome.defeat.federal_raid", week };
   }
-  if (activeMembers(state, player).length < balance.defeat.minActiveMembers) {
+  // "Activos" = still in the club: jailed and wounded members count, the dead and the deserters don't.
+  if (livingMembers(state, player).length < balance.defeat.minActiveMembers) {
     return { result: "defeat", reasonKey: "outcome.defeat.too_few_members", week };
   }
   if (Object.values(state.zones).every((z) => controlOf(z, player) <= balance.ranges.control.min)) {

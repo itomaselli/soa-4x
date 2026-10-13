@@ -61,14 +61,12 @@ function weeklyLoyalty(state: GameState, ctx: TurnContext, factionId: string): v
     0,
   );
   const shared =
-    gained * l.zoneGainedBonus -
-    lost * l.zoneLostPenalty -
-    arrests * l.arrestPenalty -
-    deaths * l.deathPenalty -
-    longWars * l.warWeeklyPenalty +
-    barBonus;
+    gained * l.zoneGainedBonus - lost * l.zoneLostPenalty - arrests * l.arrestPenalty - deaths * l.deathPenalty - longWars * l.warWeeklyPenalty;
   for (const m of members) {
-    change(m, shared + (unpaid.has(m.id) ? -l.unpaidPenalty : l.paidBonus), ctx);
+    // Wages and the bar keep members content, but on their own they don't make them devoted.
+    const passive = unpaid.has(m.id) ? 0 : l.paidBonus + barBonus;
+    const passiveGain = Math.max(0, Math.min(passive, l.passiveCap - m.loyalty));
+    change(m, shared + passiveGain - (unpaid.has(m.id) ? l.unpaidPenalty : 0), ctx);
     const task = ctx.scratch.memberTasks[m.id];
     const affinity = ctx.data.traits.tasks[m.trait];
     if (task && affinity?.likes.includes(task.taskId)) change(m, l.traitLikeBonus, ctx);

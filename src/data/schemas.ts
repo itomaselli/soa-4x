@@ -198,6 +198,8 @@ export const BalanceSchema = z.object({
   loyalty: z.object({
     unpaidPenalty: z.number().nonnegative(),
     paidBonus: z.number().nonnegative(),
+    /** Weekly passive bonuses (wages, bar) don't raise loyalty above this. Victories, promotions and events can. */
+    passiveCap: z.number(),
     zoneGainedBonus: z.number().nonnegative(),
     zoneLostPenalty: z.number().nonnegative(),
     /** Lost by every other member for each member of the club arrested this week. */
@@ -483,7 +485,11 @@ export const UiSchema = z.object({
     labelDim: HexColorSchema,
     selected: HexColorSchema,
     heat: HexColorSchema,
+    /** Center glyph of zones where we planned tasks this week. */
+    planned: HexColorSchema,
   }),
+  /** Color of each zone's center glyph by type. */
+  zoneTypeColors: z.record(ZoneTypeSchema, HexColorSchema),
 });
 export type UiConfig = z.infer<typeof UiSchema>;
 
