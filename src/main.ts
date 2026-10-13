@@ -15,11 +15,14 @@ try {
   const data = loadGameData();
   document.title = t(data.strings, "app.title");
   await startApp(data, {
-    mapBar: byId("map-bar"),
     topBar: byId("topbar"),
+    nav: byId("nav"),
+    countyView: byId("county-view"),
+    mapBar: byId("map-bar"),
     mapHost: byId("map-host"),
-    sidebar: byId("sidebar"),
     legend: byId("legend"),
+    inspector: byId("inspector"),
+    panel: byId("panel"),
     tooltip: byId("tooltip"),
     overlay: byId("overlay"),
   });
