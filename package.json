@@ -1,6 +1,6 @@
 {
   "name": "biker-4x",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "description": "Juego 4X por turnos semanales sobre un club de motoqueros",
   "scripts": {
     "dev": "vite",
