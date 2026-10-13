@@ -69,7 +69,6 @@ export function resolveFactionTasks(state: GameState, assignments: readonly Assi
 
 function rollArrest(run: TaskRun): boolean {
   const { ctx, member, zone, params } = run;
-  const { balance } = ctx.data;
   const chance = memberArrestChance(zone, member, ctx.data);
   if (!ctx.rng.chance(chance)) return false;
   jail(member, ctx);
@@ -255,6 +254,12 @@ const bribe: TaskHandler = ({ state, ctx, member, zone, params }) => {
   );
 };
 
+/** Chance a recruiting member brings someone in: base + Charm × perCharm (GDD §7). */
+export function recruitChance(member: MemberState, balance: Balance): number {
+  const rule = balance.tasks.recruit;
+  return rule.baseChance + effectiveStat(member, "charm", balance) * rule.perCharm;
+}
+
 const recruit: TaskHandler = ({ state, ctx, member, params }) => {
   const { balance, names } = ctx.data;
   const rule = balance.tasks.recruit;
@@ -262,7 +267,7 @@ const recruit: TaskHandler = ({ state, ctx, member, params }) => {
     ctx.report("report.task.recruit_full", { ...params, cap: balance.club.memberCap }, member.factionId);
     return;
   }
-  const chance = rule.baseChance + effectiveStat(member, "charm", balance) * rule.perCharm;
+  const chance = recruitChance(member, balance);
   if (!ctx.rng.chance(chance)) {
     ctx.report("report.task.recruit_failed", { ...params, chance: Math.round(chance * 100) }, member.factionId);
     return;

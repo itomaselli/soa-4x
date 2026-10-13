@@ -369,7 +369,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       );
       const rule = business ? businessDef(data, business.typeId)?.workshop : undefined;
       if (!business || !rule) return null;
-      const byHands = Math.floor(effectiveStat(member, "hands", balance) / rule.handsPerExtraUnit);
+      const byHands = workExtra(member, rule.handsPerExtraUnit, taskId, data);
       const spare =
         rule.inputGoodId && rule.inputPerUnit > 0
           ? Math.floor((faction.stock[rule.inputGoodId] ?? 0) / rule.inputPerUnit) - rule.baseOutput - business.workCapacity
