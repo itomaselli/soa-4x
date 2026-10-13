@@ -484,5 +484,15 @@
   "ui.new.patch_hint": "Elegí el parche que van a llevar en la espalda:",
   "ui.new.start": "Empezar",
   "ui.new.cancel": "Cancelar",
-  "ui.new.warning": "La partida actual se pierde (si no la guardaste)."
+  "ui.new.warning": "La partida actual se pierde (si no la guardaste).",
+  "ui.sheet.open": "Ver ficha",
+  "ui.sheet.title": "Ficha del miembro",
+  "ui.sheet.loyalty": "Lealtad",
+  "ui.sheet.likes": "Le gusta:",
+  "ui.sheet.dislikes": "No le gusta:",
+  "ui.sheet.nothing": "nada en particular",
+  "ui.sheet.plan": "Esta semana:",
+  "ui.sheet.no_plan": "sin órdenes",
+  "gallery.title": "Galería de retratos (depuración)",
+  "gallery.hint": "100 retratos generados a partir del id de cada miembro: el rango define el chaleco y el estado agrega vendaje, rejas o escala de grises. Los primeros son los miembros reales del inicio de partida."
 }

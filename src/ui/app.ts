@@ -12,6 +12,7 @@ import { allAiOrders } from "../sim/systems/ai";
 import { resolveTurn } from "../sim/turn";
 import { h } from "./dom";
 import { patchCanvas } from "./patchCanvas";
+import { portraitCanvas } from "./portraitCanvas";
 import { patchNameParts } from "../render/patch";
 import { CLUB_NAME_MAX_LENGTH, withIdentities } from "../sim/identity";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draft";
@@ -35,6 +36,7 @@ import {
   zoneTooltip,
   localViewModel,
   lotDetails,
+  memberSheet,
 } from "./viewModel";
 import { validateManagement, type ManagementOrder } from "../sim/management";
 
@@ -104,6 +106,8 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
   /** District shown zoomed in on the map (phase 10), or null for the county view. */
   let localZoneId: string | null = null;
   let selectedLot: number | null = null;
+  /** Member whose sheet is open (window over the game), or null. */
+  let sheetMemberId: string | null = null;
 
   const enterZone = (zoneId: string) => {
     localZoneId = zoneId;
@@ -195,8 +199,21 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
     render();
   }
 
+  // Clicking outside the member sheet closes it.
+  els.overlay.addEventListener("click", (e) => {
+    if (e.target === els.overlay && sheetMemberId) {
+      sheetMemberId = null;
+      render();
+    }
+  });
+
   // Enter advances the week when the focus isn't on a form control.
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && sheetMemberId) {
+      sheetMemberId = null;
+      render();
+      return;
+    }
     const target = e.target as HTMLElement | null;
     if (e.key !== "Enter" || !target || ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName)) return;
     advanceWeek();
@@ -377,12 +394,27 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
         },
       },
       [
-        h("td", {}, [
-          h("strong", {}, [member.nickname || member.name]),
-          " ",
-          h("span", { class: "muted" }, [member.name]),
-          h("div", { class: "muted" }, [tr(`rank.${member.rank}`), " · ", tr(`trait.${member.trait}`), " · ", statusText]),
-        ]),
+        h(
+          "td",
+          {
+            class: "member-cell",
+            title: tr("ui.sheet.open"),
+            onclick: (e: Event) => {
+              e.stopPropagation();
+              sheetMemberId = member.id;
+              render();
+            },
+          },
+          [
+            portraitCanvas(data, member, data.factions.find((f) => f.id === member.factionId)?.patchId ?? null, 2),
+            h("div", {}, [
+              h("strong", {}, [member.nickname || member.name]),
+              " ",
+              h("span", { class: "muted" }, [member.name]),
+              h("div", { class: "muted" }, [tr(`rank.${member.rank}`), " · ", tr(`trait.${member.trait}`), " · ", statusText]),
+            ]),
+          ],
+        ),
         h("td", { class: "mono" }, [
           tr("ui.stats", { strength: member.stats.strength, cunning: member.stats.cunning, hands: member.stats.hands, charm: member.stats.charm }),
           h("div", { class: member.loyalty < data.balance.club.lowLoyaltyThreshold ? "error" : "muted" }, [
@@ -949,8 +981,61 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
     ]);
   }
 
+  function renderMemberSheet(memberId: string): HTMLElement | null {
+    const entry = draft[memberId];
+    const sheet = memberSheet(state, data, memberId, entry ? { taskId: entry.taskId, zoneId: entry.zoneId } : null);
+    if (!sheet) return null;
+    const { member } = sheet;
+    const close = () => {
+      sheetMemberId = null;
+      render();
+    };
+    const status = tr(`status.${member.status}`);
+    const bar = (value: number, max: number, low = false) =>
+      h("div", { class: low ? "bar low" : "bar" }, [h("div", { class: "fill", style: `width: ${Math.round((100 * value) / max)}%` })]);
+    const taskList = (ids: string[]) => (ids.length > 0 ? ids.map((id) => tr(`task.${id}`)).join(", ") : tr("ui.sheet.nothing"));
+    const zoneName = (id: string | null) => (id ? (data.zones.find((z) => z.id === id)?.name ?? id) : tr("ui.pick_zone"));
+    return h("div", { class: "modal member-sheet", role: "dialog", "aria-label": tr("ui.sheet.title") }, [
+      h("div", { class: "sheet-head" }, [
+        portraitCanvas(data, member, sheet.patchId, 6),
+        h("div", {}, [
+          h("h2", {}, [member.nickname || member.name]),
+          h("div", {}, [member.name]),
+          h("div", { class: "muted" }, [tr(`rank.${member.rank}`), " · ", tr(`trait.${member.trait}`)]),
+          h("div", { class: member.status === "active" ? "muted" : "error" }, [
+            member.statusWeeks > 0 ? tr("play.member_status_weeks", { status, weeks: member.statusWeeks }) : status,
+          ]),
+        ]),
+      ]),
+      h("table", { class: "sheet-stats" }, [
+        h("tbody", {}, [
+          ...sheet.stats.map((st) => h("tr", {}, [h("th", {}, [tr(`stat.${st.key}`)]), h("td", { class: "mono" }, [String(st.value)]), h("td", {}, [bar(st.value, st.max)])])),
+          h("tr", {}, [
+            h("th", {}, [tr("ui.sheet.loyalty")]),
+            h("td", { class: "mono" }, [String(Math.round(sheet.loyalty.value))]),
+            h("td", {}, [bar(sheet.loyalty.value, sheet.loyalty.max, sheet.loyalty.low)]),
+          ]),
+        ]),
+      ]),
+      sheet.loyalty.low ? h("p", { class: "error" }, [tr("ui.loyalty_danger")]) : null,
+      h("p", {}, [h("strong", {}, [tr("ui.sheet.likes")]), " ", taskList(sheet.likes)]),
+      h("p", {}, [h("strong", {}, [tr("ui.sheet.dislikes")]), " ", taskList(sheet.dislikes)]),
+      h("p", {}, [
+        h("strong", {}, [tr("ui.sheet.plan")]),
+        " ",
+        sheet.plan ? `${tr(`task.${sheet.plan.taskId}`)} · ${zoneName(sheet.plan.zoneId)}` : tr("ui.sheet.no_plan"),
+      ]),
+      h("button", { class: "primary", onclick: close }, [tr("ui.close")]),
+    ]);
+  }
+
   function renderOverlay(): HTMLElement | null {
     if (newGameForm) return renderNewGame(newGameForm);
+    if (sheetMemberId) {
+      const sheet = renderMemberSheet(sheetMemberId);
+      if (sheet) return sheet;
+      sheetMemberId = null;
+    }
     if (showHelp) {
       return h("div", { class: "modal" }, [
         h("h2", {}, [tr("ui.help.title")]),

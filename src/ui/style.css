@@ -109,3 +109,21 @@ input.club-name { font: inherit; color: var(--text); background: var(--panel-2);
 @media (max-width: 700px) { .patch-grid { grid-template-columns: repeat(5, 1fr); } }
 .club-header { margin-bottom: 8px; }
 .club-header h2 { margin: 0; }
+
+/* Member portraits and sheet */
+canvas.portrait { display: block; flex: none; border-radius: 3px; }
+td.member-cell { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+td.member-cell:hover strong { text-decoration: underline; }
+.member-sheet { min-width: 360px; }
+.sheet-head { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+.sheet-head h2 { margin: 0 0 4px; }
+.sheet-stats { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.sheet-stats th { text-align: left; font-weight: normal; width: 7em; padding: 2px 0; }
+.sheet-stats td.mono { width: 3em; text-align: right; padding-right: 8px; }
+.bar { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); }
+.bar.low .fill { background: var(--danger); }
+
+/* Debug gallery (portraits.html) */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 16px; }
+.gallery figure { margin: 0; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; display: grid; justify-items: center; gap: 4px; font-size: 11px; text-align: center; }

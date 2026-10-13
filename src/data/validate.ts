@@ -235,6 +235,30 @@ export function validateGameData(data: GameData): string[] {
   for (const k of Object.keys(patches.emblems)) if (!(`patch_emblem.${k}` in data.strings)) errors.push(`strings.es.json: falta el texto "patch_emblem.${k}"`);
   for (const k of Object.keys(patches.palettes)) if (!(`patch_palette.${k}` in data.strings)) errors.push(`strings.es.json: falta el texto "patch_palette.${k}"`);
 
+  // Portraits: every piece is size×size with "#" and ".", known inks, vests and tabs; the patch fits
+  const { portraits } = data;
+  const pieceProblem = (where: string, rows: string[]): void => {
+    if (rows.length !== portraits.size || rows.some((r) => r.length !== portraits.size || /[^#.]/.test(r))) {
+      errors.push(`portraits.json › ${where}: tiene que ser de ${portraits.size}×${portraits.size} con "#" y "."`);
+    }
+  };
+  for (const layer of [...portraits.under, ...portraits.over]) {
+    if (!(layer.ink in portraits.inks)) errors.push(`portraits.json › capa "${layer.id}": tinta desconocida "${layer.ink}"`);
+    if (Object.keys(layer.pieces).length === 0) errors.push(`portraits.json › capa "${layer.id}": no tiene piezas`);
+    for (const [id, rows] of Object.entries(layer.pieces)) pieceProblem(`capa "${layer.id}" › pieza "${id}"`, rows);
+  }
+  if (!(portraits.vestInk in portraits.inks)) errors.push(`portraits.json › vestInk: tinta desconocida "${portraits.vestInk}"`);
+  for (const [id, rows] of Object.entries(portraits.vests)) pieceProblem(`chaleco "${id}"`, rows);
+  for (const [id, rows] of Object.entries(portraits.tabs)) pieceProblem(`insignia "${id}"`, rows);
+  for (const [status, overlay] of Object.entries(portraits.status.overlays)) pieceProblem(`estado "${status}"`, overlay.pixels);
+  for (const [rank, def] of Object.entries(portraits.ranks)) {
+    if (!(def.vest in portraits.vests)) errors.push(`portraits.json › rango ${rank}: chaleco desconocido "${def.vest}"`);
+    if (def.tab !== null && !(def.tab in portraits.tabs)) errors.push(`portraits.json › rango ${rank}: insignia desconocida "${def.tab}"`);
+    if ((def.tab === null) !== (def.tabInk === null)) errors.push(`portraits.json › rango ${rank}: tab y tabInk van juntos`);
+  }
+  const slot = portraits.patchSlot;
+  if (slot.x + slot.size > portraits.size || slot.y + slot.size > portraits.size) errors.push("portraits.json › patchSlot: el parche se sale del retrato");
+
   // Trait task lists point to real tasks
   const taskIds = new Set(data.tasks.map((t) => t.id));
   for (const [trait, affinity] of Object.entries(data.traits.tasks)) {

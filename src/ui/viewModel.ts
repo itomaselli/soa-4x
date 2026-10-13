@@ -4,7 +4,7 @@
 import type { GameData } from "../data/schemas";
 import type { LocalViewModel, MapViewModel, RenderMode } from "../render/map";
 import { reachableZones } from "../sim/orders";
-import { RANKS, type GameState, type MemberState } from "../sim/state";
+import { RANKS, STAT_KEYS, type GameState, type MemberState, type StatKey } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
 import { chanceWithPresident, voters } from "../sim/systems/council";
 import { diplomaticState, getStance } from "../sim/systems/diplomacy";
@@ -157,6 +157,40 @@ export function memberRows(state: GameState, viewer: string): MemberState[] {
   return factionMembers(state, viewer)
     .filter((m) => m.status !== "dead")
     .sort((a, b) => RANKS.indexOf(b.rank) - RANKS.indexOf(a.rank) || a.name.localeCompare(b.name));
+}
+
+/** Everything the member sheet shows (window opened from a row of the Club tab). */
+export interface MemberSheet {
+  member: MemberState;
+  /** Patch on the vest: the club's current patch. */
+  patchId: string | null;
+  stats: { key: StatKey; value: number; max: number }[];
+  loyalty: { value: number; max: number; low: boolean };
+  likes: string[];
+  dislikes: string[];
+  /** Order planned this week, if any. */
+  plan: { taskId: string; zoneId: string | null } | null;
+}
+
+export function memberSheet(
+  state: GameState,
+  data: GameData,
+  memberId: string,
+  plan: { taskId: string; zoneId: string | null } | null,
+): MemberSheet | null {
+  const member = state.members[memberId];
+  if (!member) return null;
+  const { ranges } = data.balance;
+  const affinity = data.traits.tasks[member.trait];
+  return {
+    member,
+    patchId: data.factions.find((f) => f.id === member.factionId)?.patchId ?? null,
+    stats: STAT_KEYS.map((key) => ({ key, value: member.stats[key], max: ranges.stat.max })),
+    loyalty: { value: member.loyalty, max: ranges.loyalty.max, low: member.loyalty < data.balance.club.lowLoyaltyThreshold },
+    likes: affinity?.likes ?? [],
+    dislikes: affinity?.dislikes ?? [],
+    plan,
+  };
 }
 
 export interface VotePreview {

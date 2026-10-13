@@ -21,6 +21,7 @@ Por eso cada cambio tiene que poder **verificarse solo** (tests, simulador headl
 
 ```bash
 npm run dev          # juego en el navegador
+                     # galería de retratos para depurar: http://localhost:5173/portraits.html
 npm test             # tests (Vitest)
 npm run typecheck    # tsc --noEmit
 npm run lint

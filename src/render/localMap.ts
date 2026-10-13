@@ -5,6 +5,7 @@
 
 import type { GameData, ZoneDef } from "../data/schemas";
 import { createRng, type Rng } from "../sim/rng";
+import { hashId } from "./hash";
 
 /** What a tile shows: terrain kind (for color) and an optional sprite from the tileset. */
 export type LocalTerrain = "ground" | "grass" | "road" | "building" | "tree" | "water" | "dock" | "crate" | "rail" | "boat";
@@ -43,12 +44,6 @@ export interface LocalMap {
 }
 
 const LOT_SIZE = 3;
-
-function hashId(text: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
-  return h;
-}
 
 function blank(width: number, height: number, tile: LocalTile): LocalTile[][] {
   return Array.from({ length: height }, () => Array.from({ length: width }, () => ({ ...tile })));

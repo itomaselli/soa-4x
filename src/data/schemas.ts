@@ -7,6 +7,7 @@ import {
   CurrencySchema,
   FactionKindSchema,
   IdSchema,
+  MemberStatusSchema,
   MoneySchema,
   RankSchema,
   StatKeySchema,
@@ -605,6 +606,47 @@ export const PatchesSchema = z.object({
 });
 export type PatchesData = z.infer<typeof PatchesSchema>;
 
+// ---------- portraits.json ----------
+// Member portraits: size×size pieces drawn in layers, each layer with one ink. Pieces and inks are picked
+// with a seed derived from the member id; the rank picks the vest and the club patch goes on the chest.
+
+/** Rows of "#" (ink) and "." (transparent), size × size. */
+const PixelRowsSchema = z.array(z.string());
+
+export const PortraitLayerSchema = z.object({
+  id: z.string().min(1),
+  /** Key in `inks`. Layers with the same ink share the color (beard and hair). */
+  ink: z.string(),
+  /** How many "no piece" tickets go in the draw next to the pieces (0 = always drawn). */
+  noneWeight: Int.nonnegative(),
+  pieces: z.record(z.string(), PixelRowsSchema),
+});
+export type PortraitLayer = z.infer<typeof PortraitLayerSchema>;
+
+export const PortraitsSchema = z.object({
+  size: Int.positive(),
+  background: HexColorSchema,
+  inks: z.record(z.string(), z.array(HexColorSchema).min(1)),
+  /** Drawn below the vest (shirt). */
+  under: z.array(PortraitLayerSchema),
+  /** Drawn above the vest (head, face, beard, hair, accessories). */
+  over: z.array(PortraitLayerSchema),
+  vestInk: z.string(),
+  vests: z.record(z.string(), PixelRowsSchema),
+  tabs: z.record(z.string(), PixelRowsSchema),
+  /** Where the club patch goes on the vest, scaled down to size × size. */
+  patchSlot: z.object({ x: Int.nonnegative(), y: Int.nonnegative(), size: Int.positive() }),
+  ranks: z.record(
+    RankSchema,
+    z.object({ vest: z.string(), patch: z.boolean(), tab: z.string().nullable(), tabInk: HexColorSchema.nullable() }),
+  ),
+  status: z.object({
+    overlays: z.partialRecord(MemberStatusSchema, z.object({ ink: HexColorSchema, pixels: PixelRowsSchema })),
+    grayscale: z.array(MemberStatusSchema),
+  }),
+});
+export type PortraitsData = z.infer<typeof PortraitsSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -637,6 +679,7 @@ export const GameDataSchema = z.object({
   traits: TraitsSchema,
   council: CouncilSchema,
   patches: PatchesSchema,
+  portraits: PortraitsSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

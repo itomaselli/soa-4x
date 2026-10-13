@@ -314,6 +314,7 @@ Ejemplos:
 - El mapa va en canvas (PixiJS). Paneles, tablas y menús en HTML/CSS superpuesto.
 - **Fase 3 (hecha):** mapa ASCII con cajas de 3×3 tiles por zona. El borde toma el color del dueño, `!` marca patrullas y los nombres apagados indican zonas fuera de alcance. A la derecha hay tres pestañas:
   - **Club:** tarea y zona de cada miembro. La zona se elige de la lista o haciendo click en el mapa.
+    Cada miembro tiene un **retrato** pixel art de 24×24 (`data/portraits.json`): la cara sale de piezas por capas (cabeza, rasgos, barba, pelo, accesorio) sorteadas con una semilla derivada de su id, así que siempre se ve igual. El rango define el chaleco (el prospecto no lleva el parche del club; los oficiales llevan una insignia) y el estado se nota en el retrato: vendaje si está herido, rejas si está preso, escala de grises si murió. Haciendo click en el retrato o el nombre se abre la **Ficha del miembro**: estadísticas, lealtad, qué tareas le gustan y cuáles no según su rasgo, y la orden de esta semana. Es solo presentación: no cambia el estado de la partida.
   - **Zona:** datos, control por facción, vecinas y nuestras tareas ahí.
   - **Informe:** lo que pasó en la semana, por etapa.
 - Las órdenes de la semana anterior se conservan si siguen siendo válidas. La partida se guarda sola en el navegador al terminar cada semana.

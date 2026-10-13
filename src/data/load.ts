@@ -19,6 +19,7 @@ import ui from "../../data/ui.json";
 import traits from "../../data/traits.json";
 import council from "../../data/council.json";
 import patches from "../../data/patches.json";
+import portraits from "../../data/portraits.json";
 import strings from "../../data/strings.es.json";
 
 export class DataValidationError extends Error {
@@ -49,6 +50,7 @@ const FILE_NAMES: Record<keyof GameData, string> = {
   traits: "traits.json",
   council: "council.json",
   patches: "patches.json",
+  portraits: "portraits.json",
   strings: "strings.es.json",
 };
 
@@ -71,6 +73,7 @@ export const BUNDLED_RAW_DATA: RawGameData = {
   traits,
   council,
   patches,
+  portraits,
   strings,
 };
 
