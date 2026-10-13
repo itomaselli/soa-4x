@@ -98,6 +98,14 @@ export const MemberStateSchema = z.object({
   statusWeeks: NonNegativeInt,
   /** Secretly talking to the federals (GDD §10). Hidden from the player. */
   informant: z.boolean(),
+  /** Phase 13: experience from tasks carried out; levels come from perks.json xp.levels. */
+  xp: NonNegativeInt,
+  /** Specialties (perks.json ids). */
+  perks: z.array(IdSchema),
+  /** Scars from combat wounds (perks.json scars ids): each one is −penalty to a stat, for good. */
+  scars: z.array(IdSchema),
+  /** Specialties offered after a level-up, waiting for a choice (empty = nothing to choose). */
+  perkOptions: z.array(IdSchema),
 });
 export type MemberState = z.infer<typeof MemberStateSchema>;
 
@@ -234,7 +242,7 @@ export const ScenarioSchema = z.object({
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
 /** Bump it with a migration in src/sim/save.ts (SAVE_MIGRATIONS) whenever the shape of GameState changes. */
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export const GameStateSchema = z.object({
   schemaVersion: z.literal(SAVE_SCHEMA_VERSION),

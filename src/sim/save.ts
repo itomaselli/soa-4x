@@ -67,10 +67,20 @@ export function migrateV2toV3(save: RawSave, data: GameData): RawSave {
   return isRecord(save.scenario) ? save : { ...save, scenario: classicScenario(data) };
 }
 
+/** v3 → v4 (phase 13): members get experience, specialties and scars, all starting empty. */
+export function migrateV3toV4(save: RawSave): RawSave {
+  if (!isRecord(save.members)) return save;
+  const members = Object.fromEntries(
+    Object.entries(save.members).map(([id, m]) => [id, isRecord(m) ? { xp: 0, perks: [], scars: [], perkOptions: [], ...m } : m]),
+  );
+  return { ...save, members };
+}
+
 /** Keyed by the version they upgrade from. */
 export const SAVE_MIGRATIONS: Readonly<Record<number, SaveMigration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
 };
 
 /**

@@ -7,6 +7,7 @@ import type { Proposal } from "./council";
 import { validateAssignment, type Assignment, type TurnOrders } from "./orders";
 import { TURN_STAGES, type ReportEntry, type Reporter, type TurnStage } from "./report";
 import { gameData } from "./scenario";
+import { awardExperience, choosePerk } from "./systems/perks";
 import { createRng } from "./rng";
 import type { GameState } from "./state";
 import type { ManagementOrder } from "./management";
@@ -44,7 +45,10 @@ const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
   production: (state, ctx) => resolveProduction(state, ctx),
   transport: (state, ctx) => resolveTransport(state, ctx),
   sales: (state, ctx, orders) => resolveSales(state, orders.management, ctx),
-  faction_tasks: (state, ctx, orders) => resolveFactionTasks(state, orders.assignments, ctx),
+  faction_tasks: (state, ctx, orders) => {
+    resolveFactionTasks(state, orders.assignments, ctx);
+    awardExperience(state, ctx);
+  },
   combat: (state, ctx) => resolveCombat(state, ctx),
   laundering: (state, ctx, orders) => resolveLaundering(state, orders.management, ctx),
   expenses: (state, ctx) => payExpenses(state, ctx),
@@ -94,6 +98,12 @@ export function resolveTurn(state: GameState, orders: TurnOrders, content: GameD
     }
     valid.push(assignment);
     assigned.add(assignment.memberId);
+  }
+
+  // Specialties chosen this week apply from the start (phase 13). The faction is the member's own club.
+  for (const choice of orders.perkChoices ?? []) {
+    const member = next.members[choice.memberId];
+    choosePerk(next, ctx, member?.factionId ?? next.playerFactionId, choice.memberId, choice.perkId);
   }
 
   for (const def of data.factions) ctx.scratch.ownedBefore[def.id] = ownedZones(next, def.id, data.balance);

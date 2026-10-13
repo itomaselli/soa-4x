@@ -699,6 +699,55 @@ export const TilesExtraSchema = z.object({
 });
 export type TilesExtraData = z.infer<typeof TilesExtraSchema>;
 
+// ---------- perks.json ----------
+// Experience, levels and specialties (phase 13, owner's proposal B). Effects are applied by the same rules the
+// tasks use (src/sim/systems/perks.ts), so the forecast in the interface and the engine agree.
+
+export const PerkEffectSchema = z.discriminatedUnion("type", [
+  /** Working this task adds extra units to the business's next week. */
+  z.object({ type: z.literal("work_bonus"), taskId: IdSchema, units: Int.positive() }),
+  /** This task adds no heat when this member does it. */
+  z.object({ type: z.literal("no_task_heat"), taskId: IdSchema }),
+  /** While this member is active, the police never seize the club's cartel purchases. */
+  z.object({ type: z.literal("no_seizure") }),
+  z.object({ type: z.literal("gun_run_bonus"), crates: Int.positive() }),
+  /** Arrest chance × value. */
+  z.object({ type: z.literal("arrest_multiplier"), value: z.number().nonnegative() }),
+  /** Intimidating a club we're at war with moves × value control. */
+  z.object({ type: z.literal("war_intimidate_multiplier"), value: z.number().positive() }),
+  /** Losing a fight wounds instead of killing. */
+  z.object({ type: z.literal("survive_combat") }),
+  /** While this member is active, the club pays the cartel this much less. */
+  z.object({ type: z.literal("cartel_discount"), value: Probability }),
+  /** Recruits this member brings start with +value to their stat range. */
+  z.object({ type: z.literal("recruit_stat_bonus"), value: Int.positive() }),
+]);
+export type PerkEffect = z.infer<typeof PerkEffectSchema>;
+
+export const PerksSchema = z.object({
+  xp: z.object({
+    /** Experience per task carried out (arrested on the job counts too: they were there). */
+    perTask: Int.positive(),
+    /** Total experience for levels 1, 2, 3…; each level is one specialty to choose. */
+    levels: z.array(Int.positive()).min(1),
+  }),
+  /** How many specialties a member can hold, by rank: promotions open room for more. */
+  maxPerksByRank: z.record(RankSchema, Int.nonnegative()),
+  /** Options offered at each level. */
+  choices: Int.positive(),
+  /** Extra weight for specialties that suit the member's trait (the base weight is the specialty's stat). */
+  traitBonus: z.number().nonnegative(),
+  perks: z.array(z.object({ id: IdSchema, stat: StatKeySchema, effects: z.array(PerkEffectSchema).min(1) })).min(1),
+  traitAffinity: z.record(TraitSchema, z.array(IdSchema)),
+  scars: z.object({
+    /** Chance that a combat wound leaves a scar: −penalty to one stat for good. */
+    chanceOnCombatWound: Probability,
+    penalty: Int.positive(),
+    list: z.array(z.object({ id: IdSchema, stat: StatKeySchema })).min(1),
+  }),
+});
+export type PerksData = z.infer<typeof PerksSchema>;
+
 // ---------- mapgen.json ----------
 // Random counties (phase 12): sizes, layout limits, zone values per type, place names and rival clubs.
 
@@ -798,6 +847,7 @@ export const GameDataSchema = z.object({
   portraits: PortraitsSchema,
   tilesExtra: TilesExtraSchema,
   mapgen: MapgenSchema,
+  perks: PerksSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

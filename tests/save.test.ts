@@ -40,7 +40,13 @@ describe("migraciones de partidas guardadas", () => {
   it("una partida de la v0.2.0 (formato 1, con todos los campos) carga sin perder datos", () => {
     const raw = fixture("save-v0.2.0.json");
     const { scenario, ...state } = loadSave(JSON.stringify(raw), data);
-    expect({ ...state, schemaVersion: 1 }).toEqual(raw);
+    // Phase 13 fields start empty; everything else is exactly what was saved.
+    const members = Object.fromEntries(Object.entries(state.members).map(([id, m]) => {
+      const { xp, perks, scars, perkOptions, ...rest } = m;
+      expect({ xp, perks, scars, perkOptions }).toEqual({ xp: 0, perks: [], scars: [], perkOptions: [] });
+      return [id, rest];
+    }));
+    expect({ ...state, members, schemaVersion: 1 }).toEqual(raw);
     expect(scenario).toEqual(classicScenario(data));
   });
 

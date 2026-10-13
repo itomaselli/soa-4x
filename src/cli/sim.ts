@@ -130,6 +130,8 @@ function runOnce(content: GameData, seed: number, weeks: number, mode: PlayerMod
         assignments: [...mine.assignments, ...ai.assignments],
         management: [...(mine.management ?? []), ...(ai.management ?? [])],
         proposals: [...(mine.proposals ?? []), ...(ai.proposals ?? [])],
+        eventChoices: [...(mine.eventChoices ?? []), ...(ai.eventChoices ?? [])],
+        perkChoices: [...(mine.perkChoices ?? []), ...(ai.perkChoices ?? [])],
       },
       content,
     );

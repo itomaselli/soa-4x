@@ -4,11 +4,12 @@ import type { GameData } from "../data/schemas";
 import { TURN_STAGES, type ReportEntry, type TurnStage } from "../sim/report";
 import { t } from "./strings";
 
-/** Params whose name ends in "Key" are strings.es.json keys and get translated too. */
+/** Params whose name ends in "Key" are strings.es.json keys and get translated too; "Keys" = several, joined by "|". */
 export function formatEntry(entry: ReportEntry, data: GameData): string {
   const params: Record<string, string | number> = {};
   for (const [name, value] of Object.entries(entry.params)) {
-    params[name] = name.endsWith("Key") && typeof value === "string" ? t(data.strings, value) : value;
+    if (typeof value === "string" && name.endsWith("Keys")) params[name] = value.split("|").filter(Boolean).map((k) => t(data.strings, k)).join(", ");
+    else params[name] = name.endsWith("Key") && typeof value === "string" ? t(data.strings, value) : value;
   }
   return t(data.strings, entry.key, params);
 }

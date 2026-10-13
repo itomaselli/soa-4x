@@ -4,9 +4,10 @@
 
 import type { GameData } from "../../data/schemas";
 import { zoneName, type TurnContext } from "../context";
-import { cartelId, validateManagement, type ManagementOrder } from "../management";
+import { cartelId, cartelPrice, validateManagement, type ManagementOrder } from "../management";
 import type { GameState } from "../state";
 import { clamp } from "../util";
+import { clubEffects } from "./perks";
 import { addBusiness, businessDef, launderCapacity, workingBusinesses } from "./businesses";
 import { getStance, stanceKey } from "./diplomacy";
 
@@ -65,7 +66,7 @@ export function resolveManagement(state: GameState, orders: readonly ManagementO
     } else {
       const cartel = cartelId(data)!;
       const faction = state.factions[order.factionId]!;
-      const cost = order.quantity * (data.balance.cartel.catalog[order.goodId] ?? 0);
+      const cost = order.quantity * cartelPrice(state, data, order.factionId, order.goodId);
       faction.money.dirty -= cost;
       const cartelState = state.factions[cartel];
       if (cartelState) {
@@ -148,7 +149,9 @@ export function resolveTransport(state: GameState, ctx: TurnContext): void {
     const faction = state.factions[shipment.factionId];
     if (!faction) continue;
     const seizeChance = (port?.heat ?? 0) * cartel.interceptPerHeat;
-    if (ctx.rng.chance(seizeChance)) {
+    // Phase 13: a smuggler in the club gets the goods past the police (the roll still happens, so nothing else shifts).
+    const seized = ctx.rng.chance(seizeChance);
+    if (seized && clubEffects(state, ctx.data, shipment.factionId, "no_seizure").length === 0) {
       ctx.report("report.transport.seized", { quantity: shipment.quantity, zone: zoneName(ctx.data, cartel.portZoneId), chance: Math.round(seizeChance * 100) }, shipment.factionId);
       continue;
     }

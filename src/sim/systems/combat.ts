@@ -13,6 +13,7 @@ import { businessDef } from "./businesses";
 import { gainControl, loseControl } from "./control";
 import { inTruce } from "./diplomacy";
 import { effectiveStat, memberLabel } from "./members";
+import { maybeScar, memberEffects } from "./perks";
 import { jail } from "./tasks";
 
 /** The rival business an attack in this zone goes after: the most expensive one, not ours, not a truce partner's. */
@@ -63,12 +64,17 @@ export function resolveCombat(state: GameState, ctx: TurnContext): void {
     let deaths = 0;
     for (const m of losers) {
       const roll = ctx.rng.next();
-      if (roll < combat.loserDeathChance) {
+      // Phase 13: a veteran doesn't die in a lost fight; he's wounded instead.
+      const veteran = memberEffects(data, m, "survive_combat").length > 0;
+      if (roll < combat.loserDeathChance && !veteran) {
         m.status = "dead";
         m.statusWeeks = 0;
         ctx.scratch.deaths[m.factionId] = (ctx.scratch.deaths[m.factionId] ?? 0) + 1;
         deaths++;
         casualties.push(`${memberLabel(m)} ✝`);
+      } else if (roll < combat.loserDeathChance && veteran) {
+        wound(m, ctx);
+        casualties.push(`${memberLabel(m)} (herido)`);
       } else if (roll < combat.loserDeathChance + combat.loserJailChance) {
         jail(m, ctx);
         casualties.push(`${memberLabel(m)} (preso)`);
@@ -117,4 +123,5 @@ function wound(m: MemberState, ctx: TurnContext): void {
   const { combat } = ctx.data.balance;
   m.status = "wounded";
   m.statusWeeks = ctx.rng.int(combat.woundWeeksMin, combat.woundWeeksMax);
+  maybeScar(m, ctx);
 }

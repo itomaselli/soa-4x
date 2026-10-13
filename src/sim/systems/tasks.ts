@@ -1,6 +1,6 @@
 // Faction tasks (GDD §7): one task per active member, resolved by initiative across all factions.
 
-import type { Balance, TaskDef } from "../../data/schemas";
+import type { Balance, GameData, TaskDef } from "../../data/schemas";
 import { factionName, sheriffId, zoneName, type TurnContext } from "../context";
 import type { Assignment } from "../orders";
 import { STAT_KEYS, TRAITS, type GameState, type MemberState, type Stats, type ZoneState } from "../state";
@@ -11,6 +11,7 @@ import { businessDef } from "./businesses";
 import { marketPrice, sellGoods } from "./economy";
 import { arrestChance } from "./law";
 import { effectiveStat, livingMembers, memberLabel } from "./members";
+import { memberEffects, NO_PERKS, recruitBonus } from "./perks";
 
 interface TaskRun {
   state: GameState;
@@ -69,7 +70,7 @@ export function resolveFactionTasks(state: GameState, assignments: readonly Assi
 function rollArrest(run: TaskRun): boolean {
   const { ctx, member, zone, params } = run;
   const { balance } = ctx.data;
-  const chance = arrestChance(zone.heat, zone.policePresence, effectiveStat(member, "cunning", balance), balance);
+  const chance = memberArrestChance(zone, member, ctx.data);
   if (!ctx.rng.chance(chance)) return false;
   jail(member, ctx);
   ctx.report(
@@ -104,6 +105,7 @@ export function taskHeat(state: GameState, ctx: TurnContext, factionId: string, 
 function applyTaskHeat(run: TaskRun): void {
   const { state, ctx, task, zone, member } = run;
   if (task.heat === 0) return;
+  if (memberEffects(ctx.data, member, "no_task_heat").some((fx) => fx.taskId === task.id)) return;
   zone.heat = clamp(zone.heat + taskHeat(state, ctx, member.factionId, task.heat), ctx.data.balance.ranges.heat);
 }
 
@@ -148,10 +150,21 @@ const collectProtection: TaskHandler = ({ state, ctx, member, zone, params }) =>
  * Control an intimidation moves: 2 + Strength/2 (GDD §7), plus a bonus against a faction we're at war with.
  * Exported so the AI estimates with the same rule.
  */
-export function intimidateAmount(member: MemberState, balance: Balance, againstWarEnemy = false): number {
+export function intimidateAmount(member: MemberState, data: GameData, againstWarEnemy = false): number {
+  const { balance } = data;
   const rule = balance.tasks.intimidate;
   const base = rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
-  return base + (againstWarEnemy ? rule.warBonus : 0);
+  if (!againstWarEnemy) return base;
+  // Phase 13: an enforcer hits a club we're at war with harder.
+  const multiplier = memberEffects(data, member, "war_intimidate_multiplier").reduce((m, fx) => m * fx.value, 1);
+  return Math.floor((base + rule.warBonus) * multiplier);
+}
+
+/** Arrest chance for this member doing an illegal task in this zone (GDD §7), with specialties (phase 13). */
+export function memberArrestChance(zone: Pick<ZoneState, "heat" | "policePresence">, member: MemberState, data: GameData): number {
+  const { balance } = data;
+  const chance = arrestChance(zone.heat, zone.policePresence, effectiveStat(member, "cunning", balance), balance);
+  return memberEffects(data, member, "arrest_multiplier").reduce((c, fx) => c * fx.value, chance);
 }
 
 /** Who an intimidation hits: the strongest rival that isn't in a truce with us. */
@@ -176,7 +189,7 @@ export function protectionIncome(member: MemberState, wealth: number, control: n
 const intimidate: TaskHandler = ({ state, ctx, member, zone, params }) => {
   const { balance } = ctx.data;
   const rival = intimidationTarget(state, zone, member.factionId);
-  const amount = intimidateAmount(member, balance, rival !== null && atWar(state, rival, member.factionId));
+  const amount = intimidateAmount(member, ctx.data, rival !== null && atWar(state, rival, member.factionId));
   const taken = rival ? loseControl(zone, rival, amount, balance) : 0;
   const gained = gainControl(zone, member.factionId, amount, balance);
   if (rival && taken > 0) {
@@ -255,7 +268,9 @@ const recruit: TaskHandler = ({ state, ctx, member, params }) => {
     return;
   }
   const stats = {} as Stats;
-  for (const key of STAT_KEYS) stats[key] = ctx.rng.int(rule.statMin, rule.statMax);
+  // Phase 13: a recruiter brings better people.
+  const bonus = recruitBonus(ctx.data, member);
+  for (const key of STAT_KEYS) stats[key] = clamp(ctx.rng.int(rule.statMin, rule.statMax) + bonus, balance.ranges.stat);
   const recruitId = `member_recruit_w${state.week}_${member.id.replace(/^member_/, "")}`;
   const newMember: MemberState = {
     id: recruitId,
@@ -269,6 +284,7 @@ const recruit: TaskHandler = ({ state, ctx, member, params }) => {
     status: "active",
     statusWeeks: 0,
     informant: false,
+    ...structuredClone(NO_PERKS),
   };
   state.members[recruitId] = newMember;
   ctx.report("report.task.recruit", { ...params, recruit: memberLabel(newMember) }, member.factionId);
@@ -295,7 +311,7 @@ const workBusiness: TaskHandler = ({ state, ctx, member, zone, task, params }) =
     ctx.report("report.task.work_none", params, member.factionId);
     return;
   }
-  const extra = Math.floor(effectiveStat(member, "hands", ctx.data.balance) / rule.handsPerExtraUnit);
+  const extra = workExtra(member, rule.handsPerExtraUnit, task.id, ctx.data);
   business.workCapacity += extra;
   ctx.report("report.task.work", { ...params, extra, businessKey: `business.${business.typeId}` }, member.factionId);
 };
@@ -331,16 +347,24 @@ const retail: TaskHandler = ({ state, ctx, member, zone, params }) => {
 };
 
 /** Crates a gun run moves: baseCrates + Cunning / cunningDivisor (GDD §9, chain B). */
-export function gunRunCrates(member: MemberState, balance: Balance): number {
+export function gunRunCrates(member: MemberState, data: GameData): number {
+  const { balance } = data;
   const rule = balance.tasks.gunRun;
-  return rule.baseCrates + Math.floor(effectiveStat(member, "cunning", balance) / rule.cunningDivisor);
+  const bonus = memberEffects(data, member, "gun_run_bonus").reduce((sum, fx) => sum + fx.crates, 0);
+  return rule.baseCrates + Math.floor(effectiveStat(member, "cunning", balance) / rule.cunningDivisor) + bonus;
+}
+
+/** Extra units a member adds to a workshop by working there: Hands / handsPerExtraUnit, plus specialties. */
+export function workExtra(member: MemberState, handsPerExtraUnit: number, taskId: string, data: GameData): number {
+  const bonus = memberEffects(data, member, "work_bonus").filter((fx) => fx.taskId === taskId).reduce((sum, fx) => sum + fx.units, 0);
+  return Math.floor(effectiveStat(member, "hands", data.balance) / handsPerExtraUnit) + bonus;
 }
 
 const gunRun: TaskHandler = ({ state, ctx, member, params }) => {
   const { balance } = ctx.data;
   const goodId = balance.tasks.gunRun.goodId;
   const faction = state.factions[member.factionId];
-  const crates = Math.min(faction?.stock[goodId] ?? 0, gunRunCrates(member, balance));
+  const crates = Math.min(faction?.stock[goodId] ?? 0, gunRunCrates(member, ctx.data));
   if (!faction || crates <= 0) {
     ctx.report("report.task.gun_run_empty", params, member.factionId);
     return;

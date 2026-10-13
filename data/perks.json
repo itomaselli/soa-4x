@@ -1,0 +1,44 @@
+{
+  "xp": {
+    "perTask": 1,
+    "levels": [3, 8, 15, 24, 35, 48]
+  },
+  "maxPerksByRank": {
+    "prospect": 1,
+    "member": 2,
+    "sergeant_at_arms": 3,
+    "treasurer": 3,
+    "vice_president": 3,
+    "president": 3
+  },
+  "choices": 2,
+  "traitBonus": 4,
+  "perks": [
+    { "id": "perk_mechanic", "stat": "hands", "effects": [{ "type": "work_bonus", "taskId": "task_work_garage", "units": 1 }] },
+    { "id": "perk_grower", "stat": "hands", "effects": [{ "type": "work_bonus", "taskId": "task_cultivate", "units": 1 }, { "type": "no_task_heat", "taskId": "task_cultivate" }] },
+    { "id": "perk_smuggler", "stat": "cunning", "effects": [{ "type": "no_seizure" }, { "type": "gun_run_bonus", "crates": 1 }] },
+    { "id": "perk_ghost", "stat": "cunning", "effects": [{ "type": "arrest_multiplier", "value": 0.5 }] },
+    { "id": "perk_enforcer", "stat": "strength", "effects": [{ "type": "war_intimidate_multiplier", "value": 2 }] },
+    { "id": "perk_veteran", "stat": "strength", "effects": [{ "type": "survive_combat" }] },
+    { "id": "perk_negotiator", "stat": "charm", "effects": [{ "type": "cartel_discount", "value": 0.1 }] },
+    { "id": "perk_recruiter", "stat": "charm", "effects": [{ "type": "recruit_stat_bonus", "value": 1 }] }
+  ],
+  "traitAffinity": {
+    "traditionalist": ["perk_mechanic", "perk_veteran"],
+    "greedy": ["perk_negotiator", "perk_smuggler"],
+    "violent": ["perk_enforcer", "perk_veteran"],
+    "cautious": ["perk_ghost", "perk_grower"],
+    "loyal": ["perk_veteran", "perk_mechanic"],
+    "ambitious": ["perk_recruiter", "perk_enforcer"]
+  },
+  "scars": {
+    "chanceOnCombatWound": 0.3,
+    "penalty": 1,
+    "list": [
+      { "id": "scar_limp", "stat": "strength" },
+      { "id": "scar_glass_eye", "stat": "cunning" },
+      { "id": "scar_broken_hand", "stat": "hands" },
+      { "id": "scar_cut_face", "stat": "charm" }
+    ]
+  }
+}

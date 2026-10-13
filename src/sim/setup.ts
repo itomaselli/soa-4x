@@ -4,6 +4,7 @@
 import type { GameData, MemberDef } from "../data/schemas";
 import { generateScenario } from "./mapgen";
 import { seedToState } from "./rng";
+import { NO_PERKS } from "./systems/perks";
 import { classicScenario, gameData } from "./scenario";
 import { SAVE_SCHEMA_VERSION, type FactionState, type GameState, type MapSize, type MemberState, type ZoneState } from "./state";
 
@@ -66,6 +67,7 @@ export function createInitialState(content: GameData, options: NewGameOptions): 
       status: "active",
       statusWeeks: 0,
       informant: false,
+      ...structuredClone(NO_PERKS),
     };
   }
 
