@@ -3,11 +3,12 @@
 
 import { factionName, type TurnContext } from "../context";
 import type { GameState, Outcome } from "../state";
-import { controlOf, ownedZones } from "./control";
+import { controlOf, loseControl, ownedZones, zoneOwner } from "./control";
 import { decayMarket } from "./economy";
 import { livingMembers, memberLabel } from "./members";
 
 export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
+  erodeInfluence(state, ctx);
   advanceStatuses(state, ctx);
   updateControlStreaks(state, ctx);
   recordHistory(state, ctx);
@@ -19,6 +20,32 @@ export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
     ctx.report(`report.${state.outcome.reasonKey}`, {}, state.playerFactionId);
   }
   state.week += 1;
+}
+
+/**
+ * Influence fades where a faction isn't present (GDD §5, phase 6): −erosionPerWeek in each zone it doesn't own,
+ * that isn't its HQ, and where none of its members acted this week. Spreading thin stops paying off.
+ */
+function erodeInfluence(state: GameState, ctx: TurnContext): void {
+  const { balance, factions } = ctx.data;
+  const amount = balance.control.erosionPerWeek;
+  if (amount <= 0) return;
+  const present = new Set(
+    Object.entries(ctx.scratch.memberTasks).map(([memberId, t]) => `${state.members[memberId]?.factionId}|${t.zoneId}`),
+  );
+  const lostBy: Record<string, number> = {};
+  for (const zone of Object.values(state.zones)) {
+    const owner = zoneOwner(zone, balance);
+    for (const factionId of Object.keys(zone.control).sort()) {
+      const hq = factions.find((f) => f.id === factionId)?.hqZoneId;
+      if (factionId === owner || hq === zone.id || present.has(`${factionId}|${zone.id}`)) continue;
+      const lost = loseControl(zone, factionId, amount, balance);
+      if (lost > 0) lostBy[factionId] = (lostBy[factionId] ?? 0) + lost;
+    }
+  }
+  for (const [factionId, total] of Object.entries(lostBy)) {
+    ctx.report("report.control.erosion", { total, amount }, factionId);
+  }
 }
 
 function recordHistory(state: GameState, ctx: TurnContext): void {

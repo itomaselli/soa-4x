@@ -67,6 +67,7 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 
 - **La suma del control de todas las facciones en una zona nunca supera 100.** Custodiar solo ocupa el espacio libre; para sacarle control a otro hay que intimidar.
 - **Alcance:** una facción puede actuar en las zonas donde tiene control y en sus vecinas.
+- **Erosión de influencia (Fase 6):** al final de cada semana, una facción pierde 1 de control en cada zona que no es suya, que no es su sede y donde ningún miembro suyo actuó esa semana. Desparramarse deja de rendir y los empates se rompen. En la simulación, las partidas sin final bajaron del 60% al 10–27%.
 - La `riqueza` de una zona es fija durante la partida (por ahora).
 
 Zonas iniciales sugeridas: Redwater (tu sede), Millbrook (sede de los Grim Wolves), Port Calloway (puerto, con presencia del cartel), Ruta 9 norte y sur, el Cruce, Ash Valley Centro (sede del sheriff), entre otras.
@@ -363,11 +364,12 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿"Menos de 3 miembros activos"? (Fase 6) | Cuenta a los que siguen en el club, aunque estén presos o heridos. Una racha de arrestos ya no termina la partida. |
 | ¿La lealtad sube sola sin límite? (Fase 6) | No: el sueldo y el bar la suben hasta 70 como mucho. |
 | ¿Cuántos miembros recluta la IA? (Fase 6) | Hasta el tope de 15. Con menos, no le alcanzaba la gente para cobrar en todas sus zonas y además expandirse. |
+| ¿Cómo se rompen los empates? (Fase 6) | Con la erosión de influencia (§5). |
+| ¿Con qué IA juega el simulador por el jugador? (Fase 6) | Con el mismo perfil que los Wolves ("expansive"), para que la comparación sea pareja. Ojo: en la simulación solo el jugador puede perder por destitución; los clubs de la IA no. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas
 
-- Balance: entre dos IA parejas la partida tiende a trabarse (ninguna consolida zonas). ¿Hace falta un mecanismo que rompa el empate, como la pérdida de control en zonas sin presencia?
 - ¿Nombre final del juego y del club?
 - ¿El presidente puede morir? ¿Hay sucesión?
 - ¿Agregar una tercera cadena (contrabando de alcohol o tabaco) en la fase 5?

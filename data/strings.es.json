@@ -420,5 +420,6 @@
   "ui.help.lose": "Perdés si la mesa te destituye (lealtad media menor a 35 durante 3 semanas), si los federales llegan al 100%, si te quedan menos de 3 miembros, si perdés todo el territorio o si un rival domina el condado.",
   "ui.legend.to_ascii": "Ver en ASCII",
   "ui.legend.to_tiles": "Ver con tiles",
-  "ui.help.credits": "Gráficos: {credit}."
+  "ui.help.credits": "Gráficos: {credit}.",
+  "report.control.erosion": "Perdimos {total} de control en zonas donde no estuvimos esta semana (−{amount} en cada una que no es nuestra)."
 }

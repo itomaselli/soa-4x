@@ -14,6 +14,7 @@ const LEDGER = "member_walt_mercer";
 const allYes = dataWith((d) => {
   d.balance.council.vote.minChance = 1;
   d.balance.council.vote.maxChance = 1;
+  d.balance.control.erosionPerWeek = 0;
 });
 const allNo = dataWith((d) => {
   d.balance.council.vote.minChance = 0;
@@ -113,6 +114,7 @@ describe("guerra y tregua (GDD §12)", () => {
       dataWith((d) => {
         d.balance.arrest.minChance = 0;
         d.balance.arrest.maxChance = 0;
+        d.balance.control.erosionPerWeek = 0;
       }),
     ).state;
     // Sergeant strength 8 → 6, +2 at war = 8; wolves had 10.

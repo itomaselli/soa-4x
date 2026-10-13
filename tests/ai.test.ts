@@ -8,7 +8,7 @@ import { ownedZones, strongestRival } from "../src/sim/systems/control";
 import { stanceKey } from "../src/sim/systems/diplomacy";
 import { activeMembers } from "../src/sim/systems/members";
 import { resolveTurn } from "../src/sim/turn";
-import { baseData, money, newState, PLAYER, WOLVES, zone } from "./helpers";
+import { baseData, dataWith, money, newState, PLAYER, WOLVES, zone } from "./helpers";
 
 /** States from a few weeks of AI-vs-random play, to test the AI in varied situations. */
 function sampleStates(seeds: number, weeks: number): GameState[] {
@@ -137,9 +137,12 @@ describe("IA: decisiones razonables", () => {
     let state = newState(4);
     state.stances[stanceKey(PLAYER, WOLVES)] = { type: "truce", sinceWeek: 1 };
     const total = (st: GameState) => Object.values(st.zones).reduce((sum, z) => sum + (z.control[PLAYER] ?? 0), 0);
+    const noErosion = dataWith((d) => {
+      d.balance.control.erosionPerWeek = 0;
+    });
     for (let w = 0; w < 6; w++) {
       const before = total(state);
-      state = resolveTurn(state, allAiOrders(state, baseData, PLAYER), baseData).state;
+      state = resolveTurn(state, allAiOrders(state, noErosion, PLAYER), noErosion).state;
       expect(total(state)).toBeGreaterThanOrEqual(before);
     }
   });

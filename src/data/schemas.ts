@@ -42,6 +42,11 @@ export const BalanceSchema = z.object({
   control: z.object({
     ownerMinimum: z.number(),
     ownerLeadMargin: z.number(),
+    /**
+     * Influence erosion (breaks stalemates): control a faction loses each week in a zone it doesn't own,
+     * isn't its HQ and where none of its members acted that week.
+     */
+    erosionPerWeek: z.number().nonnegative(),
   }),
   heat: z.object({
     weeklyDecay: z.number(),

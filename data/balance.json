@@ -39,7 +39,8 @@
   },
   "control": {
     "ownerMinimum": 50,
-    "ownerLeadMargin": 20
+    "ownerLeadMargin": 20,
+    "erosionPerWeek": 1
   },
   "heat": {
     "weeklyDecay": 5,

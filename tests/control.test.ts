@@ -49,3 +49,37 @@ describe("control de zona: la suma de todas las facciones nunca pasa de 100", ()
     expect(strongestRival(z({ [PLAYER]: 90 }), PLAYER)).toBeNull();
   });
 });
+
+describe("erosión de influencia (rompe empates)", () => {
+  // Imported lazily here to keep the pure helper tests above independent of the turn.
+  const run = async (setup: (s: ReturnType<typeof newState>) => void, assignments: { memberId: string; taskId: string; zoneId: string }[] = []) => {
+    const { resolveTurn } = await import("../src/sim/turn");
+    const state = newState();
+    setup(state);
+    return resolveTurn(state, { assignments }, baseData);
+  };
+  const erosion = baseData.balance.control.erosionPerWeek;
+
+  it("se pierde control en zonas que no son nuestras y donde nadie del club actuó esa semana", async () => {
+    const { state } = await run(() => {});
+    expect(state.zones["zone_dry_creek"]?.control[PLAYER]).toBe(30 - erosion);
+  });
+
+  it("si un miembro actuó en la zona, no hay erosión ahí", async () => {
+    const { state } = await run(() => {}, [{ memberId: "member_dale_brody", taskId: "task_lie_low", zoneId: "zone_dry_creek" }]);
+    expect(state.zones["zone_dry_creek"]?.control[PLAYER]).toBe(30);
+  });
+
+  it("las zonas propias y la sede no se erosionan", async () => {
+    const { state } = await run((s) => {
+      s.zones["zone_cedar_flats"]!.control = { [PLAYER]: 60 };
+    });
+    expect(state.zones["zone_cedar_flats"]?.control[PLAYER]).toBe(60);
+    expect(state.zones["zone_redwater"]?.control[PLAYER]).toBe(70);
+  });
+
+  it("el informe avisa cuánto control se perdió", async () => {
+    const { report } = await run(() => {});
+    expect(report.some((e) => e.key === "report.control.erosion" && e.factionId === PLAYER)).toBe(true);
+  });
+});

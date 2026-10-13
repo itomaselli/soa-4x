@@ -29,6 +29,7 @@ function runTasks(state: GameState, assignments: Assignment[], data: GameData = 
   benchAllExcept(state, assignments.map((a) => a.memberId));
   const noDecay = structuredClone(data);
   noDecay.balance.heat.weeklyDecay = 0;
+  noDecay.balance.control.erosionPerWeek = 0;
   return resolveTurn(state, { assignments }, noDecay);
 }
 
