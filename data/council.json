@@ -1,0 +1,44 @@
+{
+  "traitModifiers": {
+    "declare_war": {
+      "traditionalist": 0,
+      "greedy": -0.15,
+      "violent": 0.25,
+      "cautious": -0.25,
+      "loyal": 0.1,
+      "ambitious": 0.1
+    },
+    "truce": {
+      "traditionalist": 0,
+      "greedy": 0.15,
+      "violent": -0.25,
+      "cautious": 0.25,
+      "loyal": 0.1,
+      "ambitious": -0.1
+    },
+    "promote": {
+      "traditionalist": -0.05,
+      "greedy": 0,
+      "violent": 0,
+      "cautious": 0,
+      "loyal": 0.1,
+      "ambitious": -0.15
+    },
+    "expel": {
+      "traditionalist": -0.2,
+      "greedy": 0,
+      "violent": 0.1,
+      "cautious": -0.05,
+      "loyal": 0.1,
+      "ambitious": 0.05
+    },
+    "impeachment": {
+      "traditionalist": 0.1,
+      "greedy": 0,
+      "violent": 0,
+      "cautious": 0,
+      "loyal": 0.25,
+      "ambitious": -0.25
+    }
+  }
+}

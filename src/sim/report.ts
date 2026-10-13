@@ -1,9 +1,10 @@
 // Every resolution step explains itself through report entries (CLAUDE.md, golden rule 6).
 // Entries hold a strings.es.json key plus parameters; the UI turns them into Spanish text.
 
-/** Resolution stages, in the fixed order of GDD §4, plus the end-of-turn checks. */
+/** Resolution stages, in the fixed order of GDD §4 (the council meets first), plus the end-of-turn checks. */
 export const TURN_STAGES = [
   "orders",
+  "council",
   "production",
   "transport",
   "sales",

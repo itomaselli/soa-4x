@@ -1,11 +1,12 @@
 // Faction tasks (GDD §7): one task per active member, resolved by initiative across all factions.
 
 import type { Balance, TaskDef } from "../../data/schemas";
-import { factionName, zoneName, type TurnContext } from "../context";
+import { factionName, sheriffId, zoneName, type TurnContext } from "../context";
 import type { Assignment } from "../orders";
 import { STAT_KEYS, TRAITS, type GameState, type MemberState, type Stats, type ZoneState } from "../state";
 import { clamp } from "../util";
 import { controlOf, gainControl, loseControl, strongestRival } from "./control";
+import { atWar, inTruce } from "./diplomacy";
 import { arrestChance } from "./law";
 import { effectiveStat, livingMembers, memberLabel } from "./members";
 
@@ -49,6 +50,8 @@ export function resolveFactionTasks(state: GameState, assignments: readonly Assi
 
     const params = { member: memberLabel(member), zone: zoneName(data, zone.id), taskKey: `task.${task.id}` };
     const run: TaskRun = { state, ctx, member, task, zone, params };
+    ctx.scratch.memberTasks[member.id] = { taskId: task.id, zoneId: zone.id };
+    if (task.illegal) ctx.scratch.illegalFactions.add(member.factionId);
 
     if (task.illegal && rollArrest(run)) {
       applyTaskHeat(run);
@@ -66,8 +69,7 @@ function rollArrest(run: TaskRun): boolean {
   const { balance } = ctx.data;
   const chance = arrestChance(zone.heat, zone.policePresence, effectiveStat(member, "cunning", balance), balance);
   if (!ctx.rng.chance(chance)) return false;
-  member.status = "jailed";
-  member.statusWeeks = ctx.rng.int(balance.arrest.jailWeeksMin, balance.arrest.jailWeeksMax);
+  jail(member, ctx);
   ctx.report(
     "report.task.arrested",
     { ...params, chance: Math.round(chance * 100), weeks: member.statusWeeks },
@@ -76,10 +78,31 @@ function rollArrest(run: TaskRun): boolean {
   return true;
 }
 
+/** Sends a member to jail for a random number of weeks and counts the arrest. */
+export function jail(member: MemberState, ctx: TurnContext): void {
+  const { arrest } = ctx.data.balance;
+  member.status = "jailed";
+  member.statusWeeks = ctx.rng.int(arrest.jailWeeksMin, arrest.jailWeeksMax);
+  ctx.scratch.arrests[member.factionId] = (ctx.scratch.arrests[member.factionId] ?? 0) + 1;
+}
+
+/**
+ * Heat a task adds to its zone. A sheriff who likes the faction looks the other way:
+ * positive heat is reduced by up to `law.sheriffHeatReductionMax`, proportional to his relation (GDD §10).
+ */
+export function taskHeat(state: GameState, ctx: TurnContext, factionId: string, baseHeat: number): number {
+  if (baseHeat <= 0) return baseHeat;
+  const sheriff = sheriffId(ctx.data);
+  const relation = sheriff ? (state.factions[sheriff]?.relations[factionId] ?? 0) : 0;
+  const { max } = ctx.data.balance.ranges.relation;
+  const reduction = relation > 0 ? (relation / max) * ctx.data.balance.law.sheriffHeatReductionMax : 0;
+  return Math.round(baseHeat * (1 - reduction));
+}
+
 function applyTaskHeat(run: TaskRun): void {
-  const { ctx, task, zone } = run;
+  const { state, ctx, task, zone, member } = run;
   if (task.heat === 0) return;
-  zone.heat = clamp(zone.heat + task.heat, ctx.data.balance.ranges.heat);
+  zone.heat = clamp(zone.heat + taskHeat(state, ctx, member.factionId, task.heat), ctx.data.balance.ranges.heat);
 }
 
 // ---------- Handlers, one per task id in tasks.json ----------
@@ -119,10 +142,20 @@ const collectProtection: TaskHandler = ({ state, ctx, member, zone, params }) =>
   );
 };
 
-/** Control an intimidation moves: 2 + Strength/2 (GDD §7). Exported so the AI estimates with the same rule. */
-export function intimidateAmount(member: MemberState, balance: Balance): number {
+/**
+ * Control an intimidation moves: 2 + Strength/2 (GDD §7), plus a bonus against a faction we're at war with.
+ * Exported so the AI estimates with the same rule.
+ */
+export function intimidateAmount(member: MemberState, balance: Balance, againstWarEnemy = false): number {
   const rule = balance.tasks.intimidate;
-  return rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+  const base = rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+  return base + (againstWarEnemy ? rule.warBonus : 0);
+}
+
+/** Who an intimidation hits: the strongest rival that isn't in a truce with us. */
+export function intimidationTarget(state: GameState, zone: ZoneState, factionId: string): string | null {
+  const truces = Object.keys(state.factions).filter((id) => id !== factionId && inTruce(state, id, factionId));
+  return strongestRival(zone, factionId, truces);
 }
 
 /** Control a guard adds: 1 + Strength/3 (GDD §7). */
@@ -140,8 +173,8 @@ export function protectionIncome(member: MemberState, wealth: number, control: n
 
 const intimidate: TaskHandler = ({ state, ctx, member, zone, params }) => {
   const { balance } = ctx.data;
-  const amount = intimidateAmount(member, balance);
-  const rival = strongestRival(zone, member.factionId);
+  const rival = intimidationTarget(state, zone, member.factionId);
+  const amount = intimidateAmount(member, balance, rival !== null && atWar(state, rival, member.factionId));
   const taken = rival ? loseControl(zone, rival, amount, balance) : 0;
   const gained = gainControl(zone, member.factionId, amount, balance);
   if (rival && taken > 0) {
@@ -191,13 +224,18 @@ const bribe: TaskHandler = ({ state, ctx, member, zone, params }) => {
   faction.money.dirty -= rule.cost;
   const before = zone.heat;
   zone.heat = clamp(zone.heat - rule.heatReduction, balance.ranges.heat);
-  const sheriff = ctx.data.factions.find((f) => f.kind === "sheriff");
-  if (sheriff) {
-    faction.relations[sheriff.id] = clamp((faction.relations[sheriff.id] ?? 0) + rule.sheriffRelationGain, balance.ranges.relation);
+  // The sheriff's goodwill is stored on the sheriff: how he treats this club.
+  const sheriff = sheriffId(ctx.data);
+  const sheriffState = sheriff ? state.factions[sheriff] : undefined;
+  if (sheriffState) {
+    sheriffState.relations[member.factionId] = clamp(
+      (sheriffState.relations[member.factionId] ?? 0) + rule.sheriffRelationGain,
+      balance.ranges.relation,
+    );
   }
   ctx.report(
     "report.task.bribe",
-    { ...params, cost: rule.cost, heatDrop: before - zone.heat, relation: sheriff ? (faction.relations[sheriff.id] ?? 0) : 0 },
+    { ...params, cost: rule.cost, heatDrop: before - zone.heat, relation: sheriffState?.relations[member.factionId] ?? 0 },
     member.factionId,
   );
 };
@@ -228,6 +266,7 @@ const recruit: TaskHandler = ({ state, ctx, member, params }) => {
     loyalty: rule.startingLoyalty,
     status: "active",
     statusWeeks: 0,
+    informant: false,
   };
   state.members[recruitId] = newMember;
   ctx.report("report.task.recruit", { ...params, recruit: memberLabel(newMember) }, member.factionId);

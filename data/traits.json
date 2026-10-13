@@ -1,0 +1,55 @@
+{
+  "tasks": {
+    "traditionalist": {
+      "likes": [
+        "task_guard_zone"
+      ],
+      "dislikes": [
+        "task_bribe"
+      ]
+    },
+    "greedy": {
+      "likes": [
+        "task_collect_protection",
+        "task_steal_bikes"
+      ],
+      "dislikes": [
+        "task_lie_low"
+      ]
+    },
+    "violent": {
+      "likes": [
+        "task_intimidate",
+        "task_attack_business"
+      ],
+      "dislikes": [
+        "task_lie_low",
+        "task_bribe"
+      ]
+    },
+    "cautious": {
+      "likes": [
+        "task_lie_low",
+        "task_guard_zone"
+      ],
+      "dislikes": [
+        "task_intimidate",
+        "task_gun_run",
+        "task_attack_business"
+      ]
+    },
+    "loyal": {
+      "likes": [],
+      "dislikes": []
+    },
+    "ambitious": {
+      "likes": [
+        "task_recruit",
+        "task_intimidate"
+      ],
+      "dislikes": [
+        "task_lie_low"
+      ]
+    }
+  }
+}

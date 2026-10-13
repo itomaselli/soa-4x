@@ -11,6 +11,7 @@ import {
   StatKeySchema,
   StatsSchema,
   TraitSchema,
+  VOTE_TYPES,
   ZoneTypeSchema,
 } from "../sim/state";
 
@@ -56,7 +57,28 @@ export const BalanceSchema = z.object({
   }),
   council: z.object({
     impeachmentAverageLoyalty: z.number(),
-    impeachmentWeeks: Int,
+    impeachmentWeeks: Int.positive(),
+    maxProposalsPerWeek: Int.nonnegative(),
+    /** P(vote with the president) = base + (loyalty − 50)·perLoyaltyAbove50 + trait modifier + momentum, clamped. */
+    vote: z.object({
+      base: Probability,
+      perLoyaltyAbove50: z.number(),
+      /** Momentum = (owned zones now − owned zones `momentumWeeks` ago) × momentumPerZone. */
+      momentumPerZone: z.number(),
+      momentumWeeks: Int.positive(),
+      minChance: Probability,
+      maxChance: Probability,
+    }),
+    /** Loyalty gained by voters when a lost vote is respected. */
+    respectBonus: z.number().nonnegative(),
+    /** Loyalty lost by voters when the president forces a lost vote. */
+    ignorePenalty: z.number().nonnegative(),
+    promotionLoyalty: z.number().nonnegative(),
+    /** Relation both sides drop to (at most) when war is declared. */
+    warRelation: z.number(),
+    truceWeeks: Int.positive(),
+    /** A rival accepts a truce if its relation towards us is at least this, or if it's not ahead in zones. */
+    truceAcceptRelation: z.number(),
   }),
   laundering: z.object({
     federalAttentionCapacityRatio: z.number().min(0).max(1),
@@ -66,6 +88,14 @@ export const BalanceSchema = z.object({
   }),
   federal: z.object({
     visibleFrom: z.number(),
+    /** Per zone at or above the raid threshold where the faction has control. */
+    perHotZone: z.number().nonnegative(),
+    perInformant: z.number().nonnegative(),
+    /** Drop for a week without any illegal task. */
+    lowProfileDrop: z.number().nonnegative(),
+    informantExpelledDrop: z.number().nonnegative(),
+    /** After a federal raid on an AI club, its investigation drops to this. */
+    raidResetTo: z.number(),
   }),
   victory: z.object({
     zonesToControl: Int,
@@ -93,7 +123,12 @@ export const BalanceSchema = z.object({
   }),
   tasks: z.object({
     guard: z.object({ baseGain: Int, strengthDivisor: Int.positive() }),
-    intimidate: z.object({ baseGain: Int, strengthDivisor: Int.positive() }),
+    intimidate: z.object({
+      baseGain: Int,
+      strengthDivisor: Int.positive(),
+      /** Extra control moved when intimidating a faction we're at war with. */
+      warBonus: Int.nonnegative(),
+    }),
     protection: z.object({ rate: z.number(), charmBase: z.number(), perCharm: z.number() }),
     stealBikes: z.object({ goodId: IdSchema, min: Int.nonnegative(), max: Int.nonnegative() }),
     bribe: z.object({ cost: z.number().nonnegative(), heatReduction: z.number(), sheriffRelationGain: z.number() }),
@@ -110,10 +145,38 @@ export const BalanceSchema = z.object({
   relations: z.object({
     /** Relation lost by a faction towards whoever intimidated it (GDD §12). */
     intimidatedPenalty: z.number().nonnegative(),
+    /** At or below this relation (and without war or truce) two factions are "in tension". */
+    tensionAt: z.number(),
   }),
+  /** Weekly loyalty changes (GDD §6). */
   loyalty: z.object({
-    /** Loyalty lost by a member who wasn't paid this week (GDD §8). */
     unpaidPenalty: z.number().nonnegative(),
+    paidBonus: z.number().nonnegative(),
+    zoneGainedBonus: z.number().nonnegative(),
+    zoneLostPenalty: z.number().nonnegative(),
+    /** Lost by every other member for each member of the club arrested this week. */
+    arrestPenalty: z.number().nonnegative(),
+    warLongWeeks: Int.nonnegative(),
+    warWeeklyPenalty: z.number().nonnegative(),
+    traitLikeBonus: z.number().nonnegative(),
+    traitDislikePenalty: z.number().nonnegative(),
+    /** Weekly chances for a member under `club.lowLoyaltyThreshold`. */
+    desertChance: Probability,
+    informantChance: Probability,
+    /** Weekly chance that the club hears a rumour about an informant. */
+    informantHintChance: Probability,
+  }),
+  /** Sheriff and police (GDD §10). */
+  law: z.object({
+    raidChance: Probability,
+    /** Sheriff relation from which he warns before raiding. */
+    sheriffWarnRelation: z.number(),
+    crackdownArrestChance: Probability,
+    crackdownHeatDrop: z.number().nonnegative(),
+    /** Task heat is reduced by up to this fraction, proportional to a positive sheriff relation. */
+    sheriffHeatReductionMax: Probability,
+    /** The sheriff's goodwill fades this much per week towards 0. */
+    sheriffRelationDecay: z.number().nonnegative(),
   }),
 });
 export type Balance = z.infer<typeof BalanceSchema>;
@@ -255,6 +318,11 @@ export const AiProfileSchema = z.object({
   defenseMultiplier: z.number().nonnegative(),
   /** With low money, expansion and recruiting are worth this much (income is prioritised). */
   lowMoneyInvestmentMultiplier: z.number().nonnegative(),
+  /** Value added when the member's trait enjoys the task, and subtracted when it resents it (loyalty, GDD §6). */
+  traitLikeWeight: z.number().nonnegative(),
+  traitDislikeWeight: z.number().nonnegative(),
+  /** Cost of an illegal task that would push a zone to the crackdown threshold. */
+  crackdownPenalty: z.number().nonnegative(),
   /** Random variation applied to each score (0.15 = ±15%). */
   noise: z.number().min(0).max(1),
 });
@@ -286,6 +354,23 @@ export const UiSchema = z.object({
 });
 export type UiConfig = z.infer<typeof UiSchema>;
 
+// ---------- traits.json ----------
+// Which tasks each trait enjoys or resents (GDD §6: "contradecir el rasgo del miembro").
+
+export const TraitsSchema = z.object({
+  tasks: z.record(TraitSchema, z.object({ likes: z.array(IdSchema), dislikes: z.array(IdSchema) })),
+});
+export type TraitsData = z.infer<typeof TraitsSchema>;
+
+// ---------- council.json ----------
+// How each trait shifts the chance of voting with the president, per proposal type.
+
+
+export const CouncilSchema = z.object({
+  traitModifiers: z.record(z.enum(VOTE_TYPES), z.record(TraitSchema, z.number())),
+});
+export type CouncilData = z.infer<typeof CouncilSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -315,6 +400,8 @@ export const GameDataSchema = z.object({
   names: NamesSchema,
   ai: AiSchema,
   ui: UiSchema,
+  traits: TraitsSchema,
+  council: CouncilSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

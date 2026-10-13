@@ -170,6 +170,14 @@ export function validateGameData(data: GameData): string[] {
   }
   if (!inRange(tasks.recruit.startingLoyalty, ranges.loyalty)) errors.push("balance.json: tasks.recruit.startingLoyalty fuera de rango");
 
+  // Trait task lists point to real tasks
+  const taskIds = new Set(data.tasks.map((t) => t.id));
+  for (const [trait, affinity] of Object.entries(data.traits.tasks)) {
+    for (const id of [...affinity.likes, ...affinity.dislikes]) {
+      if (!taskIds.has(id)) errors.push(`traits.json › ${trait}: tarea desconocida "${id}"`);
+    }
+  }
+
   // Strings
   for (const key of requiredStringKeys(data)) {
     if (!(key in data.strings)) errors.push(`strings.es.json: falta el texto "${key}"`);

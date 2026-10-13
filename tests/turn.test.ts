@@ -225,7 +225,10 @@ describe("victoria y derrota (GDD §14)", () => {
 
   it("la investigación federal al 100% es derrota", () => {
     const state = newState();
-    state.federalInvestigation = 100;
+    state.factions[PLAYER]!.federal = 99;
+    // Two informants push it over the top even in a quiet week.
+    member(state, VP).informant = true;
+    member(state, "member_luis_ortega").informant = true;
     const next = resolveTurn(state, empty, baseData).state;
     expect(next.outcome).toMatchObject({ result: "defeat", reasonKey: "outcome.defeat.federal_raid" });
   });

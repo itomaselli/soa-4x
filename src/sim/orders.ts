@@ -4,6 +4,7 @@
 import { z } from "zod";
 import type { GameData } from "../data/schemas";
 import { factionZonePresence } from "./systems/control";
+import { ProposalSchema } from "./council";
 import { IdSchema, type GameState } from "./state";
 
 export const AssignmentSchema = z.object({
@@ -15,6 +16,8 @@ export type Assignment = z.infer<typeof AssignmentSchema>;
 
 export const TurnOrdersSchema = z.object({
   assignments: z.array(AssignmentSchema),
+  /** Proposals for the council (GDD §6). Voted at the start of the week, before tasks. */
+  proposals: z.array(ProposalSchema).optional(),
 });
 export type TurnOrders = z.infer<typeof TurnOrdersSchema>;
 

@@ -32,13 +32,16 @@ export function loseControl(zone: ZoneState, factionId: string, amount: number, 
   return lost;
 }
 
-/** Strongest other faction in the zone (ties broken by id), or null if nobody else has control. */
-export function strongestRival(zone: ZoneState, factionId: string): string | null {
+/**
+ * Strongest other faction in the zone (ties broken by id), or null if nobody else has control.
+ * Factions in `exclude` (e.g. truce partners) are skipped.
+ */
+export function strongestRival(zone: ZoneState, factionId: string, exclude: readonly string[] = []): string | null {
   let best: string | null = null;
   let bestValue = 0;
   for (const id of Object.keys(zone.control).sort()) {
     const value = controlOf(zone, id);
-    if (id !== factionId && value > bestValue) {
+    if (id !== factionId && !exclude.includes(id) && value > bestValue) {
       best = id;
       bestValue = value;
     }

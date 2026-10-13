@@ -63,3 +63,11 @@ h3 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); text-transform: u
   #map-host { flex: none; overflow-x: auto; }
   #sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); }
 }
+.stat.warn, .warn { color: var(--danger); }
+.council ul { padding-left: 18px; margin: 4px 0; }
+.form { display: grid; gap: 8px; max-width: 360px; }
+.field { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px; }
+.check { display: flex; align-items: center; gap: 4px; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+ul.votes { list-style: none; padding: 0; max-width: 300px; }
+ul.votes li { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 2px 0; }

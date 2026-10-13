@@ -143,7 +143,8 @@ describe("sobornar (GDD §7)", () => {
     const { state: next, report } = runTasks(state, [{ memberId: PRESIDENT, taskId: "task_bribe", zoneId: "zone_redwater" }]);
     const rule = baseData.balance.tasks.bribe;
     expect(zone(next, "zone_redwater").heat).toBe(40 - rule.heatReduction);
-    expect(next.factions[PLAYER]?.relations[SHERIFF]).toBe(rule.sheriffRelationGain);
+    // Stored on the sheriff (how he treats us); it fades a little at the end of the week.
+    expect(next.factions[SHERIFF]?.relations[PLAYER]).toBe(rule.sheriffRelationGain - baseData.balance.law.sheriffRelationDecay);
     expect(keys(report)).toContain("report.task.bribe");
   });
 

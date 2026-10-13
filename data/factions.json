@@ -46,7 +46,7 @@
     "name": "Oficina del Sheriff de Ash Valley",
     "kind": "sheriff",
     "glyph": "*",
-    "hqZoneId": null,
+    "hqZoneId": "zone_ash_valley_center",
     "startingMoney": {
       "clean": 0,
       "dirty": 0

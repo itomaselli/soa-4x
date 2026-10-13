@@ -17,12 +17,12 @@ export function checkInvariants(state: GameState, balance: Balance): string[] {
   const { ranges } = balance;
 
   if (!(state.playerFactionId in state.factions)) errors.push(`facción del jugador desconocida: ${state.playerFactionId}`);
-  checkRange(errors, "investigación federal", state.federalInvestigation, ranges.federalInvestigation);
 
   for (const faction of Object.values(state.factions)) {
     for (const [currency, amount] of Object.entries(faction.money)) {
       if (!Number.isFinite(amount)) errors.push(`${faction.id}: plata ${currency} no es un número válido (${amount})`);
     }
+    checkRange(errors, `${faction.id} investigación federal`, faction.federal, ranges.federalInvestigation);
     for (const [otherId, value] of Object.entries(faction.relations)) {
       if (!(otherId in state.factions)) errors.push(`${faction.id}: relación con facción desconocida ${otherId}`);
       checkRange(errors, `${faction.id} → ${otherId} relación`, value, ranges.relation);

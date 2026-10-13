@@ -7,6 +7,7 @@ import { RANKS, type GameState, type MemberState } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
 import { factionMembers } from "../sim/systems/members";
 import { t } from "../ui/strings";
+import { topBarModel } from "../ui/viewModel";
 
 export { formatEntry, formatReport } from "../ui/report";
 
@@ -57,6 +58,18 @@ export function formatZone(state: GameState, data: GameData, zoneId: string, ind
   });
 }
 
+/** Loyalty, sheriff and federal investigation, as the browser's top bar shows them. */
+function statusLine(state: GameState, data: GameData, viewer: string): string {
+  const m = topBarModel(state, data, viewer);
+  return [
+    m.averageLoyalty === null ? "" : t(data.strings, "ui.average_loyalty", { value: m.averageLoyalty }) + (m.unrestWeeks > 0 ? t(data.strings, "ui.unrest", { weeks: m.unrestWeeks, limit: m.unrestLimit }) : ""),
+    t(data.strings, "ui.sheriff", { value: m.sheriffRelation }),
+    m.federal === null ? t(data.strings, "ui.federal_hidden") : t(data.strings, "ui.federal", { value: m.federal }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** Header, money, territory, stock, reachable zones and members. */
 export function formatStatus(state: GameState, data: GameData, viewer: string): string[] {
   const s = data.strings;
@@ -74,6 +87,7 @@ export function formatStatus(state: GameState, data: GameData, viewer: string): 
       weeks: data.balance.victory.weeksHeld,
       streak: state.controlStreaks[viewer] ?? 0,
     }),
+    statusLine(state, data, viewer),
     t(s, "play.relations", {
       items: data.factions
         .filter((f) => f.id !== viewer && f.kind === "club")

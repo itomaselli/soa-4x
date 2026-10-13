@@ -6,7 +6,11 @@ import type { MapViewModel } from "../render/map";
 import { reachableZones } from "../sim/orders";
 import { RANKS, type GameState, type MemberState } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
+import { chanceWithPresident, voters } from "../sim/systems/council";
+import { diplomaticState, getStance } from "../sim/systems/diplomacy";
+import { averageLoyalty } from "../sim/systems/loyalty";
 import { factionMembers } from "../sim/systems/members";
+import type { VoteType } from "../sim/state";
 
 export function mapViewModel(state: GameState, data: GameData, viewer: string, selectedZoneId: string | null): MapViewModel {
   const reachable = new Set(reachableZones(state, data, viewer));
@@ -37,11 +41,22 @@ export interface TopBarModel {
   target: number;
   weeksHeld: number;
   streak: number;
-  relations: { name: string; color: string; value: number }[];
+  relations: { name: string; color: string; value: number; stateKey: string }[];
+  averageLoyalty: number | null;
+  /** Weeks of unrest so far and the limit before a motion to remove the president. */
+  unrestWeeks: number;
+  unrestLimit: number;
+  lowLoyalty: boolean;
+  sheriffRelation: number;
+  /** null while the federals are still invisible (GDD §12). */
+  federal: number | null;
 }
 
 export function topBarModel(state: GameState, data: GameData, viewer: string): TopBarModel {
   const faction = state.factions[viewer];
+  const avg = averageLoyalty(state, viewer);
+  const sheriff = data.factions.find((f) => f.kind === "sheriff")?.id;
+  const federal = faction?.federal ?? 0;
   return {
     week: state.week,
     factionName: data.factions.find((f) => f.id === viewer)?.name ?? viewer,
@@ -54,7 +69,18 @@ export function topBarModel(state: GameState, data: GameData, viewer: string): T
     streak: state.controlStreaks[viewer] ?? 0,
     relations: data.factions
       .filter((f) => f.kind === "club" && f.id !== viewer)
-      .map((f) => ({ name: f.name, color: f.color, value: state.factions[f.id]?.relations[viewer] ?? 0 })),
+      .map((f) => ({
+        name: f.name,
+        color: f.color,
+        value: state.factions[f.id]?.relations[viewer] ?? 0,
+        stateKey: `diplomacy.${diplomaticState(state, viewer, f.id, data.balance)}`,
+      })),
+    averageLoyalty: avg === null ? null : Math.round(avg),
+    unrestWeeks: faction?.lowLoyaltyWeeks ?? 0,
+    unrestLimit: data.balance.council.impeachmentWeeks,
+    lowLoyalty: avg !== null && avg < data.balance.council.impeachmentAverageLoyalty,
+    sheriffRelation: sheriff ? (state.factions[sheriff]?.relations[viewer] ?? 0) : 0,
+    federal: federal >= data.balance.federal.visibleFrom ? Math.round(federal) : null,
   };
 }
 
@@ -106,4 +132,47 @@ export function memberRows(state: GameState, viewer: string): MemberState[] {
   return factionMembers(state, viewer)
     .filter((m) => m.status !== "dead")
     .sort((a, b) => RANKS.indexOf(b.rank) - RANKS.indexOf(a.rank) || a.name.localeCompare(b.name));
+}
+
+export interface VotePreview {
+  name: string;
+  /** Chance of voting with the president, 0–100. */
+  chance: number;
+  fixed: "yes" | "no" | null;
+}
+
+/** How each member at the table is likely to vote (GDD pillar 4: readable decisions). */
+export function votePreview(state: GameState, data: GameData, viewer: string, type: VoteType, targetMemberId?: string): VotePreview[] {
+  return voters(state, viewer).map((m) => ({
+    name: m.nickname || m.name,
+    chance: Math.round(chanceWithPresident(m, type, state, data) * 100),
+    fixed: m.id === targetMemberId ? (type === "promote" ? "yes" : type === "expel" ? "no" : null) : null,
+  }));
+}
+
+export interface DiplomacyRow {
+  id: string;
+  name: string;
+  color: string;
+  stateKey: string;
+  /** Weeks left of a truce, if any. */
+  truceWeeksLeft: number | null;
+  /** Weeks since war was declared, if at war. */
+  warWeeks: number | null;
+}
+
+export function diplomacyRows(state: GameState, data: GameData, viewer: string): DiplomacyRow[] {
+  return data.factions
+    .filter((f) => f.kind === "club" && f.id !== viewer)
+    .map((f) => {
+      const stance = getStance(state, viewer, f.id);
+      return {
+        id: f.id,
+        name: f.name,
+        color: f.color,
+        stateKey: `diplomacy.${diplomaticState(state, viewer, f.id, data.balance)}`,
+        truceWeeksLeft: stance?.type === "truce" ? data.balance.council.truceWeeks - (state.week - stance.sinceWeek) : null,
+        warWeeks: stance?.type === "war" ? state.week - stance.sinceWeek : null,
+      };
+    });
 }

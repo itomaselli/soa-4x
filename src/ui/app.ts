@@ -6,7 +6,8 @@ import { createMapView, type MapView } from "../render/map";
 import { availableTasks, reachableZones } from "../sim/orders";
 import type { ReportEntry } from "../sim/report";
 import { createInitialState } from "../sim/setup";
-import type { GameState, MemberState } from "../sim/state";
+import { promotionOptions, validateProposal, type Proposal } from "../sim/council";
+import { PROPOSAL_TYPES, type GameState, type MemberState, type ProposalType, type Rank } from "../sim/state";
 import { allAiOrders } from "../sim/systems/ai";
 import { resolveTurn } from "../sim/turn";
 import { h } from "./dom";
@@ -14,12 +15,20 @@ import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draf
 import { reportSections } from "./report";
 import { clearAutosave, loadAutosave, saveAutosave } from "./storage";
 import { t } from "./strings";
-import { mapViewModel, memberRows, topBarModel, zoneDetails } from "./viewModel";
+import { diplomacyRows, mapViewModel, memberRows, topBarModel, votePreview, zoneDetails } from "./viewModel";
 
-type Tab = "club" | "zone" | "report";
+type Tab = "club" | "council" | "zone" | "report";
 
 const PLAYER_FACTION = "faction_iron_saints";
-const TABS: Tab[] = ["club", "zone", "report"];
+const TABS: Tab[] = ["club", "council", "zone", "report"];
+
+interface ProposalForm {
+  type: ProposalType;
+  targetMemberId: string;
+  targetFactionId: string;
+  newRank: string;
+  force: boolean;
+}
 
 export interface AppElements {
   topBar: HTMLElement;
@@ -44,6 +53,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   let tab: Tab = "club";
   let selectedZoneId: string | null = data.factions.find((f) => f.id === state.playerFactionId)?.hqZoneId ?? null;
   let focusedMemberId: string | null = null;
+  let proposals: Proposal[] = [];
+  let form: ProposalForm = { type: "promote", targetMemberId: "", targetFactionId: "", newRank: "", force: false };
 
   const map: MapView = await createMapView(els.mapHost, data, (zoneId) => {
     selectedZoneId = zoneId;
@@ -60,7 +71,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     if (state.outcome) return;
     const mine = draftToOrders(draft).assignments;
     const ai = allAiOrders(state, data, state.playerFactionId).assignments;
-    const result = resolveTurn(state, { assignments: [...mine, ...ai] }, data);
+    const result = resolveTurn(state, { assignments: [...mine, ...ai], proposals }, data);
+    proposals = [];
     state = result.state;
     report = result.report;
     draft = carryOverDraft(draft, state, data);
@@ -76,6 +88,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     state = createInitialState(data, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
     report = [];
     draft = {};
+    proposals = [];
     tab = "club";
     saveAutosave(state);
     render();
@@ -92,8 +105,16 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       h("div", { class: "stat" }, [tr("ui.money", { clean: m.clean, dirty: m.dirty })]),
       h("div", { class: "stat" }, [tr("ui.territory", { owned: m.owned, total: m.totalZones, target: m.target, weeks: m.weeksHeld, streak: m.streak })]),
       ...m.relations.map((r) =>
-        h("div", { class: "stat" }, [h("span", { style: `color:${r.color}` }, [r.name]), " ", tr("ui.relation", { value: r.value })]),
+        h("div", { class: "stat" }, [h("span", { style: `color:${r.color}` }, [r.name]), " ", tr("ui.relation", { value: r.value, state: tr(r.stateKey) })]),
       ),
+      h("div", { class: m.lowLoyalty ? "stat warn" : "stat" }, [
+        m.averageLoyalty === null ? "" : tr("ui.average_loyalty", { value: m.averageLoyalty }),
+        m.unrestWeeks > 0 ? tr("ui.unrest", { weeks: m.unrestWeeks, limit: m.unrestLimit }) : "",
+      ]),
+      h("div", { class: "stat" }, [tr("ui.sheriff", { value: m.sheriffRelation })]),
+      h("div", { class: m.federal === null ? "stat muted" : "stat warn" }, [
+        m.federal === null ? tr("ui.federal_hidden") : tr("ui.federal", { value: m.federal }),
+      ]),
       h("div", { class: "spacer" }),
       outcome
         ? h("div", { class: `outcome ${outcome.result}` }, [tr(outcome.reasonKey)])
@@ -183,7 +204,10 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         ]),
         h("td", { class: "mono" }, [
           tr("ui.stats", { strength: member.stats.strength, cunning: member.stats.cunning, hands: member.stats.hands, charm: member.stats.charm }),
-          h("div", { class: "muted" }, [tr("ui.loyalty", { value: member.loyalty })]),
+          h("div", { class: member.loyalty < data.balance.club.lowLoyaltyThreshold ? "error" : "muted" }, [
+            tr("ui.loyalty", { value: member.loyalty }),
+            member.loyalty < data.balance.club.lowLoyaltyThreshold ? tr("ui.loyalty_danger") : "",
+          ]),
         ]),
         h("td", { class: "orders" }, [taskSelect, zoneSelect, problem && entry ? h("div", { class: "error" }, [tr(problem)]) : null]),
       ],
@@ -210,6 +234,150 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         h("tbody", {}, members.map((m) => memberRow(m, problems, zones))),
       ]),
     ]);
+  }
+
+  // ---------- Council tab ----------
+
+  function formToProposal(): Proposal {
+    return {
+      factionId: state.playerFactionId,
+      type: form.type,
+      targetMemberId: form.targetMemberId || undefined,
+      targetFactionId: form.targetFactionId || undefined,
+      newRank: (form.newRank || undefined) as Rank | undefined,
+      force: form.force,
+    };
+  }
+
+  function renderCouncil(): HTMLElement {
+    const viewer = state.playerFactionId;
+    const members = memberRows(state, viewer).filter((m) => m.rank !== "president");
+    const clubs = diplomacyRows(state, data, viewer);
+    const needsMember = form.type === "promote" || form.type === "expel";
+    const rankOptions = form.type === "promote" && form.targetMemberId ? promotionOptions(state, form.targetMemberId) : [];
+    const pending = formToProposal();
+    const problem = validateProposal(state, data, pending, proposals.length);
+    const set = (patch: Partial<ProposalForm>) => {
+      form = { ...form, ...patch };
+      render();
+    };
+
+    const field = (label: string, control: HTMLElement) => h("label", { class: "field" }, [h("span", {}, [label]), control]);
+    const typeSelect = h(
+      "select",
+      { onchange: (e: Event) => set({ type: (e.target as HTMLSelectElement).value as ProposalType, newRank: "" }) },
+      PROPOSAL_TYPES.map((type) => h("option", { value: type, selected: type === form.type }, [tr(`proposal.${type}`)])),
+    );
+    const targetSelect = needsMember
+      ? h(
+          "select",
+          { onchange: (e: Event) => set({ targetMemberId: (e.target as HTMLSelectElement).value, newRank: "" }) },
+          [
+            h("option", { value: "" }, [tr("ui.council.pick_member")]),
+            ...members.map((m) =>
+              h("option", { value: m.id, selected: m.id === form.targetMemberId }, [`${m.nickname || m.name} (${tr(`rank.${m.rank}`)})`]),
+            ),
+          ],
+        )
+      : h(
+          "select",
+          { onchange: (e: Event) => set({ targetFactionId: (e.target as HTMLSelectElement).value }) },
+          [
+            h("option", { value: "" }, [tr("ui.council.pick_club")]),
+            ...clubs.map((c) => h("option", { value: c.id, selected: c.id === form.targetFactionId }, [c.name])),
+          ],
+        );
+    const rankSelect =
+      form.type === "promote"
+        ? field(
+            tr("ui.council.new_rank"),
+            h(
+              "select",
+              { disabled: rankOptions.length === 0, onchange: (e: Event) => set({ newRank: (e.target as HTMLSelectElement).value }) },
+              [
+                h("option", { value: "" }, [rankOptions.length === 0 ? tr("ui.council.no_rank") : tr("ui.council.pick_rank")]),
+                ...rankOptions.map((r) => h("option", { value: r, selected: r === form.newRank }, [tr(`rank.${r}`)])),
+              ],
+            ),
+          )
+        : null;
+
+    const preview = votePreview(state, data, viewer, form.type, form.targetMemberId || undefined);
+    return h("div", { class: "council" }, [
+      h("p", { class: "hint" }, [tr("ui.council.hint")]),
+      h("h3", {}, [tr("ui.council.diplomacy")]),
+      h(
+        "ul",
+        {},
+        clubs.map((c) =>
+          h("li", {}, [
+            h("span", { style: `color:${c.color}` }, [c.name]),
+            ": ",
+            tr(c.stateKey),
+            c.truceWeeksLeft !== null ? tr("ui.council.truce_left", { weeks: c.truceWeeksLeft }) : "",
+            c.warWeeks !== null ? tr("ui.council.war_weeks", { weeks: c.warWeeks }) : "",
+          ]),
+        ),
+      ),
+      h("h3", {}, [tr("ui.council.new_proposal")]),
+      h("div", { class: "form" }, [
+        field(tr("ui.council.type"), typeSelect),
+        field(needsMember ? tr("ui.council.member") : tr("ui.council.club"), targetSelect),
+        rankSelect,
+        h("label", { class: "check" }, [
+          h("input", { type: "checkbox", checked: form.force, onchange: (e: Event) => set({ force: (e.target as HTMLInputElement).checked }) }),
+          " ",
+          tr("ui.council.force"),
+        ]),
+        problem ? h("div", { class: "error" }, [tr(problem)]) : null,
+        h(
+          "button",
+          {
+            class: "primary",
+            disabled: problem !== null,
+            onclick: () => {
+              proposals = [...proposals, pending];
+              form = { ...form, targetMemberId: "", targetFactionId: "", newRank: "", force: false };
+              render();
+            },
+          },
+          [tr("ui.council.add")],
+        ),
+      ]),
+      h("h3", {}, [tr("ui.council.preview")]),
+      h(
+        "ul",
+        { class: "votes" },
+        preview.map((v) =>
+          h("li", {}, [
+            h("span", {}, [v.name]),
+            h("span", { class: "mono" }, [v.fixed === "yes" ? tr("ui.council.votes_yes") : v.fixed === "no" ? tr("ui.council.votes_no") : `${v.chance}%`]),
+          ]),
+        ),
+      ),
+      h("p", { class: "muted" }, [tr("ui.council.preview_note")]),
+      h("h3", {}, [tr("ui.council.pending")]),
+      proposals.length === 0
+        ? h("p", { class: "muted" }, [tr("ui.council.none")])
+        : h(
+            "ul",
+            {},
+            proposals.map((p, i) =>
+              h("li", {}, [
+                proposalLabel(p),
+                " ",
+                h("button", { class: "chip", onclick: () => { proposals = proposals.filter((_, j) => j !== i); render(); } }, [tr("ui.council.remove")]),
+              ]),
+            ),
+          ),
+    ]);
+  }
+
+  function proposalLabel(p: Proposal): string {
+    const member = p.targetMemberId ? state.members[p.targetMemberId] : undefined;
+    const target = member ? member.nickname || member.name : data.factions.find((f) => f.id === p.targetFactionId)?.name ?? "";
+    const rank = p.newRank ? ` → ${tr(`rank.${p.newRank}`)}` : "";
+    return `${tr(`proposal.${p.type}`)}: ${target}${rank}${p.force ? tr("ui.council.forced") : ""}`;
   }
 
   // ---------- Zone tab ----------
@@ -274,7 +442,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         h("button", { class: id === tab ? "tab active" : "tab", onclick: () => { tab = id; render(); } }, [tr(`ui.tab.${id}`)]),
       ),
     );
-    const body = tab === "club" ? renderClub() : tab === "zone" ? renderZone() : renderReport();
+    const body = tab === "club" ? renderClub() : tab === "council" ? renderCouncil() : tab === "zone" ? renderZone() : renderReport();
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
     map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId));
   }

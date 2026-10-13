@@ -14,6 +14,7 @@ import { createInitialState } from "../sim/setup";
 import type { GameState } from "../sim/state";
 import { aiOrders, allAiOrders } from "../sim/systems/ai";
 import { ownedZones } from "../sim/systems/control";
+import { averageLoyalty } from "../sim/systems/loyalty";
 import { activeMembers, factionMembers } from "../sim/systems/members";
 import { resolveTurn } from "../sim/turn";
 import { t } from "../ui/strings";
@@ -31,13 +32,22 @@ interface FactionStats {
   protection: number;
   unpaid: number;
   zones: number;
+  deserted: number;
+  loyalty: number;
+  federal: number;
+  informants: number;
 }
+
+const EMPTY_STATS: FactionStats = { arrests: 0, recruits: 0, protection: 0, unpaid: 0, zones: 0, deserted: 0, loyalty: 0, federal: 0, informants: 0 };
 
 interface RunResult {
   seed: number;
   state: GameState;
   stats: Record<string, FactionStats>;
+  publicCounts: Record<string, number>;
 }
+
+const PUBLIC_KEYS = ["report.law.crackdown", "report.council.war_declared"];
 
 function clubIds(data: GameData): string[] {
   return data.factions.filter((f) => f.kind === "club").map((f) => f.id);
@@ -78,6 +88,10 @@ function collectStats(state: GameState, data: GameData, entries: ReportEntry[]):
       protection: mine.filter((e) => e.key === "report.task.protection").reduce((s, e) => s + Number(e.params.income ?? 0), 0),
       unpaid: count("report.expenses.unpaid"),
       zones: ownedZones(state, id, data.balance).length,
+      deserted: count("report.loyalty.deserted"),
+      loyalty: averageLoyalty(state, id) ?? 0,
+      federal: state.factions[id]?.federal ?? 0,
+      informants: factionMembers(state, id).filter((m) => m.informant).length,
     };
   }
   return stats;
@@ -108,7 +122,8 @@ function runOnce(data: GameData, seed: number, weeks: number, mode: PlayerMode, 
     }
     if (printTimeline && (i + 1) % PRINT_EVERY_WEEKS === 0) console.log(timelineRows(state, data, i + 1).join("\n"));
   }
-  return { seed, state, stats: collectStats(state, data, entries) };
+  const publicCounts = Object.fromEntries(PUBLIC_KEYS.map((k) => [k, entries.filter((e) => e.key === k).length]));
+  return { seed, state, stats: collectStats(state, data, entries), publicCounts };
 }
 
 function outcomeText(data: GameData, state: GameState): string {
@@ -175,11 +190,13 @@ function main(): number {
   for (const [outcome, count] of [...byOutcome.entries()].sort((a, b) => b[1] - a[1])) {
     console.log(t(s, "sim.aggregate_outcome", { outcome, count, percent: Math.round((count / runs) * 100) }));
   }
+  const count = (key: string) => results.reduce((sum, r) => sum + r.publicCounts[key]!, 0) / runs;
+  console.log(t(s, "sim.aggregate_public", { crackdowns: count("report.law.crackdown").toFixed(1), wars: count("report.council.war_declared").toFixed(1) }));
   const avgEnd = results.reduce((sum, r) => sum + (r.state.outcome?.week ?? weeks), 0) / runs;
   console.log(t(s, "sim.avg_end_week", { week: avgEnd.toFixed(1) }));
   for (const id of clubIds(data)) {
     const avg = (pick: (st: FactionStats) => number) =>
-      (results.reduce((sum, r) => sum + pick(r.stats[id] ?? { arrests: 0, recruits: 0, protection: 0, unpaid: 0, zones: 0 }), 0) / runs).toFixed(1);
+      (results.reduce((sum, r) => sum + pick(r.stats[id] ?? EMPTY_STATS), 0) / runs).toFixed(1);
     console.log(
       t(s, "sim.aggregate_faction", {
         faction: factionName(data, id),
@@ -188,6 +205,14 @@ function main(): number {
         recruits: avg((x) => x.recruits),
         protection: avg((x) => x.protection),
         unpaid: avg((x) => x.unpaid),
+      }),
+    );
+    console.log(
+      t(s, "sim.aggregate_faction_2", {
+        deserted: avg((x) => x.deserted),
+        loyalty: avg((x) => x.loyalty),
+        federal: avg((x) => x.federal),
+        informants: avg((x) => x.informants),
       }),
     );
   }

@@ -2,11 +2,14 @@
 // Stages run in the fixed order of GDD §4. Stages not implemented yet are explicit no-ops.
 
 import type { GameData } from "../data/schemas";
-import type { TurnContext } from "./context";
+import { newScratch, type TurnContext } from "./context";
+import type { Proposal } from "./council";
 import { validateAssignment, type Assignment, type TurnOrders } from "./orders";
 import { TURN_STAGES, type ReportEntry, type Reporter, type TurnStage } from "./report";
 import { createRng } from "./rng";
 import type { GameState } from "./state";
+import { ownedZones } from "./systems/control";
+import { resolveCouncil } from "./systems/council";
 import { resolveEndOfTurn } from "./systems/endOfTurn";
 import { payExpenses } from "./systems/expenses";
 import { resolveHeat } from "./systems/heat";
@@ -19,15 +22,16 @@ export interface TurnResult {
   report: ReportEntry[];
 }
 
-type StageHandler = (state: GameState, ctx: TurnContext, assignments: Assignment[]) => void;
+type StageHandler = (state: GameState, ctx: TurnContext, orders: { assignments: Assignment[]; proposals: Proposal[] }) => void;
 
 const notYetImplemented: StageHandler = () => {};
 
 const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
+  council: (state, ctx, orders) => resolveCouncil(state, orders.proposals, ctx),
   production: notYetImplemented, // phase 5
   transport: notYetImplemented, // phase 5: moving stock between businesses
   sales: notYetImplemented, // phase 5
-  faction_tasks: (state, ctx, assignments) => resolveFactionTasks(state, assignments, ctx),
+  faction_tasks: (state, ctx, orders) => resolveFactionTasks(state, orders.assignments, ctx),
   combat: notYetImplemented, // phase 2
   laundering: notYetImplemented, // phase 5
   expenses: (state, ctx) => payExpenses(state, ctx),
@@ -53,7 +57,7 @@ export function resolveTurn(state: GameState, orders: TurnOrders, data: GameData
     data,
     rng,
     report: reporter,
-    scratch: { unpaidMemberIds: [], protectionCollected: new Set() },
+    scratch: newScratch(),
   };
 
   // Orders: invalid assignments are dropped and explained.
@@ -74,10 +78,14 @@ export function resolveTurn(state: GameState, orders: TurnOrders, data: GameData
     assigned.add(assignment.memberId);
   }
 
+  for (const def of data.factions) ctx.scratch.ownedBefore[def.id] = ownedZones(next, def.id, data.balance);
+
   for (const s of TURN_STAGES) {
     if (s === "orders") continue;
     stage = s;
-    STAGE_HANDLERS[s](next, ctx, valid);
+    // Assignments are re-checked after the council: an expelled member's task is dropped.
+    const assignments = s === "faction_tasks" ? valid.filter((a) => next.members[a.memberId]?.status === "active") : valid;
+    STAGE_HANDLERS[s](next, ctx, { assignments, proposals: orders.proposals ?? [] });
   }
 
   next.rngState = rng.getState();

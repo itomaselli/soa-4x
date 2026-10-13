@@ -1,7 +1,7 @@
 // End of turn (GDD §4 step 6, §14): status countdown, victory/defeat checks, next week.
 // Status weeks count the week the status started: jailed for 3 weeks in week 1 → back to work in week 4.
 
-import type { TurnContext } from "../context";
+import { factionName, type TurnContext } from "../context";
 import type { GameState, Outcome } from "../state";
 import { controlOf, ownedZones } from "./control";
 import { activeMembers, memberLabel } from "./members";
@@ -9,11 +9,33 @@ import { activeMembers, memberLabel } from "./members";
 export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
   advanceStatuses(state, ctx);
   updateControlStreaks(state, ctx);
-  state.outcome = checkOutcome(state, ctx);
+  recordHistory(state, ctx);
+  expireTruces(state, ctx);
+  // An outcome may already be set earlier in the week (e.g. impeachment in the loyalty stage).
+  state.outcome = state.outcome ?? checkOutcome(state, ctx);
   if (state.outcome) {
     ctx.report(`report.${state.outcome.reasonKey}`, {}, state.playerFactionId);
   }
   state.week += 1;
+}
+
+function recordHistory(state: GameState, ctx: TurnContext): void {
+  const keep = ctx.data.balance.council.vote.momentumWeeks + 1;
+  for (const def of ctx.data.factions) {
+    const faction = state.factions[def.id];
+    if (def.kind !== "club" || !faction) continue;
+    faction.ownedHistory = [...faction.ownedHistory, ownedZones(state, def.id, ctx.data.balance).length].slice(-keep);
+  }
+}
+
+function expireTruces(state: GameState, ctx: TurnContext): void {
+  for (const [key, stance] of Object.entries(state.stances)) {
+    if (stance.type === "truce" && state.week - stance.sinceWeek + 1 >= ctx.data.balance.council.truceWeeks) {
+      delete state.stances[key];
+      const names = key.split("|").map((id) => factionName(ctx.data, id));
+      ctx.report("report.council.truce_over", { a: names[0] ?? "", b: names[1] ?? "" });
+    }
+  }
 }
 
 function advanceStatuses(state: GameState, ctx: TurnContext): void {
@@ -47,7 +69,7 @@ export function checkOutcome(state: GameState, ctx: TurnContext): Outcome | null
   const player = state.playerFactionId;
   const week = state.week;
 
-  if (state.federalInvestigation >= balance.ranges.federalInvestigation.max) {
+  if ((state.factions[player]?.federal ?? 0) >= balance.ranges.federalInvestigation.max) {
     return { result: "defeat", reasonKey: "outcome.defeat.federal_raid", week };
   }
   if (activeMembers(state, player).length < balance.defeat.minActiveMembers) {

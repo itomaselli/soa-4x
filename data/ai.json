@@ -20,7 +20,10 @@
       "noise": 0.15,
       "consolidationWeight": 0.6,
       "defenseMultiplier": 2,
-      "lowMoneyInvestmentMultiplier": 0.3
+      "lowMoneyInvestmentMultiplier": 0.3,
+      "traitLikeWeight": 10,
+      "traitDislikeWeight": 45,
+      "crackdownPenalty": 400
     },
     "balanced": {
       "incomeWeight": 1.2,
@@ -42,7 +45,10 @@
       "noise": 0.15,
       "consolidationWeight": 1,
       "defenseMultiplier": 3,
-      "lowMoneyInvestmentMultiplier": 0.3
+      "lowMoneyInvestmentMultiplier": 0.3,
+      "traitLikeWeight": 10,
+      "traitDislikeWeight": 45,
+      "crackdownPenalty": 400
     }
   }
 }

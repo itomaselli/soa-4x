@@ -10,10 +10,11 @@ import type { AiProfile, GameData } from "../../data/schemas";
 import { availableTasks, reachableZones, type Assignment, type TurnOrders } from "../orders";
 import { createRng } from "../rng";
 import type { GameState, MemberState, ZoneState } from "../state";
-import { controlOf, freeControl, gainControl, loseControl, strongestRival, zoneOwner } from "./control";
+import { controlOf, freeControl, gainControl, loseControl, zoneOwner } from "./control";
 import { arrestChance } from "./law";
 import { activeMembers, effectiveStat, livingMembers } from "./members";
-import { guardAmount, intimidateAmount, protectionIncome } from "./tasks";
+import { atWar, warEnemies } from "./diplomacy";
+import { guardAmount, intimidateAmount, intimidationTarget, protectionIncome, taskHeat } from "./tasks";
 
 interface Plan {
   /** Projected state: starts as a copy and absorbs the expected effect of each chosen action. */
@@ -52,7 +53,7 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
     state: structuredClone(state),
     collected: new Set(),
     lowMoney: isLowMoney(state, data, factionId, profile),
-    enemyId: findEnemy(state, factionId, profile),
+    enemyId: warEnemies(state, factionId)[0] ?? findEnemy(state, factionId, profile),
     plannedRecruits: 0,
   };
 
@@ -128,8 +129,13 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
   const arrest = task.illegal
     ? arrestChance(zone.heat, zone.policePresence, effectiveStat(member, "cunning", balance), balance)
     : 0;
-  const risk = arrest * p.arrestPenalty;
-  const heatCost = Math.max(0, task.heat) * p.heatPenalty;
+  const addedHeat = Math.max(0, taskHeatEstimate(plan, data, member.factionId, task.heat));
+  const crackdownRisk = task.illegal && zone.heat + addedHeat >= balance.heat.crackdownThreshold ? p.crackdownPenalty : 0;
+  const risk = arrest * p.arrestPenalty + crackdownRisk;
+  const heatCost = addedHeat * p.heatPenalty;
+  const affinity = data.traits.tasks[member.trait];
+  const traitValue =
+    (affinity?.likes.includes(taskId) ? p.traitLikeWeight : 0) - (affinity?.dislikes.includes(taskId) ? p.traitDislikeWeight : 0);
   const ownerBefore = zoneOwner(zone, balance);
   const ownControl = controlOf(zone, member.factionId);
   const consolidation = 1 - p.consolidationWeight / 2 + (p.consolidationWeight * ownControl) / balance.ranges.control.max;
@@ -137,52 +143,61 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
   const controlValue = wealth * p.controlWeight * consolidation * investment;
   const takeValue = wealth * p.takeWeight * consolidation * investment * (isHome ? p.defenseMultiplier : 1);
 
-  switch (taskId) {
-    case "task_guard_zone": {
-      const gain = Math.min(guardAmount(member, balance), freeControl(zone, balance));
-      return gain * controlValue + investment * ownershipBonus(zone, member.factionId, gain, 0, null, ownerBefore, data, p);
+  const scoreTask = (): number | null => {
+    switch (taskId) {
+      case "task_guard_zone": {
+        const gain = Math.min(guardAmount(member, balance), freeControl(zone, balance));
+        return gain * controlValue + investment * ownershipBonus(zone, member.factionId, gain, 0, null, ownerBefore, data, p);
+      }
+      case "task_collect_protection": {
+        if (plan.collected.has(zoneId)) return null;
+        const income = protectionIncome(member, wealth, ownControl, balance);
+        if (income <= 0) return null;
+        return income * (1 - arrest) * incomeWeight - risk - heatCost;
+      }
+      case "task_intimidate": {
+        const rival = intimidationTarget(plan.state, zone, member.factionId);
+        const amount = intimidateAmount(member, balance, rival !== null && atWar(plan.state, rival, member.factionId));
+        const taken = rival ? Math.min(amount, controlOf(zone, rival)) : 0;
+        const gain = Math.min(amount, freeControl(zone, balance) + taken);
+        const enemy = rival !== null && rival === plan.enemyId && taken > 0 ? p.enemyBonus : 0;
+        return (
+          gain * controlValue +
+          taken * takeValue +
+          enemy +
+          investment * ownershipBonus(zone, member.factionId, gain, taken, rival, ownerBefore, data, p) -
+          risk -
+          heatCost
+        );
+      }
+      case "task_lie_low": {
+        const excess = zone.heat - p.lieLowHeatThreshold;
+        return excess > 0 ? excess * p.lieLowWeight : 0;
+      }
+      case "task_bribe": {
+        const cost = balance.tasks.bribe.cost;
+        if (faction.money.dirty < cost || zone.heat < p.bribeHeatThreshold) return null;
+        const drop = Math.min(zone.heat, balance.tasks.bribe.heatReduction);
+        return drop * p.bribeWeightPerHeat - cost * incomeWeight;
+      }
+      case "task_recruit": {
+        const living = livingMembers(plan.state, member.factionId).length + plan.plannedRecruits;
+        if (plan.lowMoney || living >= p.recruitTargetMembers || living >= balance.club.memberCap) return null;
+        const chance = balance.tasks.recruit.baseChance + effectiveStat(member, "charm", balance) * balance.tasks.recruit.perCharm;
+        return chance * p.recruitWeight * investment;
+      }
+      default:
+        // Tasks the AI doesn't value yet (e.g. stealing bikes before there's a market).
+        return null;
     }
-    case "task_collect_protection": {
-      if (plan.collected.has(zoneId)) return null;
-      const income = protectionIncome(member, wealth, ownControl, balance);
-      if (income <= 0) return null;
-      return income * (1 - arrest) * incomeWeight - risk - heatCost;
-    }
-    case "task_intimidate": {
-      const amount = intimidateAmount(member, balance);
-      const rival = strongestRival(zone, member.factionId);
-      const taken = rival ? Math.min(amount, controlOf(zone, rival)) : 0;
-      const gain = Math.min(amount, freeControl(zone, balance) + taken);
-      const enemy = rival !== null && rival === plan.enemyId && taken > 0 ? p.enemyBonus : 0;
-      return (
-        gain * controlValue +
-        taken * takeValue +
-        enemy +
-        investment * ownershipBonus(zone, member.factionId, gain, taken, rival, ownerBefore, data, p) -
-        risk -
-        heatCost
-      );
-    }
-    case "task_lie_low": {
-      const excess = zone.heat - p.lieLowHeatThreshold;
-      return excess > 0 ? excess * p.lieLowWeight : 0;
-    }
-    case "task_bribe": {
-      const cost = balance.tasks.bribe.cost;
-      if (faction.money.dirty < cost || zone.heat < p.bribeHeatThreshold) return null;
-      const drop = Math.min(zone.heat, balance.tasks.bribe.heatReduction);
-      return drop * p.bribeWeightPerHeat - cost * incomeWeight;
-    }
-    case "task_recruit": {
-      const living = livingMembers(plan.state, member.factionId).length + plan.plannedRecruits;
-      if (plan.lowMoney || living >= p.recruitTargetMembers || living >= balance.club.memberCap) return null;
-      const chance = balance.tasks.recruit.baseChance + effectiveStat(member, "charm", balance) * balance.tasks.recruit.perCharm;
-      return chance * p.recruitWeight * investment;
-    }
-    default:
-      // Tasks the AI doesn't value yet (e.g. stealing bikes before there's a market).
-      return null;
-  }
+  };
+  const value = scoreTask();
+  return value === null ? null : value + traitValue;
+}
+
+/** Same heat rule as the sim (sheriff goodwill included), evaluated on the plan. */
+function taskHeatEstimate(plan: Plan, data: GameData, factionId: string, heat: number): number {
+  return taskHeat(plan.state, { data } as Parameters<typeof taskHeat>[1], factionId, heat);
 }
 
 /** Bonus if, after the action, the faction would own a zone it didn't own before. */
@@ -215,8 +230,8 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
       gainControl(zone, c.member.factionId, guardAmount(c.member, balance), balance);
       break;
     case "task_intimidate": {
-      const amount = intimidateAmount(c.member, balance);
-      const rival = strongestRival(zone, c.member.factionId);
+      const rival = intimidationTarget(plan.state, zone, c.member.factionId);
+      const amount = intimidateAmount(c.member, balance, rival !== null && atWar(plan.state, rival, c.member.factionId));
       if (rival) loseControl(zone, rival, amount, balance);
       gainControl(zone, c.member.factionId, amount, balance);
       break;

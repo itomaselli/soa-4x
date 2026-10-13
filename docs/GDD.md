@@ -43,6 +43,7 @@ Estética: sprites low-res tipo *Moonring* / *Caves of Qud*. Sin sonido.
 El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este documento.
 
 **Detalles del turno:**
+- **La mesa se vota al comienzo de la resolución**, antes que todo lo demás (paso 2). Si se expulsa a un miembro, su tarea de esa semana se cancela.
 - **Iniciativa:** las tareas de todas las facciones se resuelven juntas, ordenadas por iniciativa = stat de la tarea + azar de 0 a 5. Gana el número más alto; los empates se rompen por id del miembro. El orden en que se cargan las órdenes no influye.
 - **Órdenes inválidas** (miembro no activo, dos tareas al mismo miembro, tarea no disponible o zona fuera de alcance) se descartan y el informe explica por qué.
 - **Heridas y cárcel** se descuentan en el fin de turno. "N semanas" incluye la semana en que empezó: preso 3 semanas en la semana 1 → vuelve a trabajar en la semana 4.
@@ -87,9 +88,22 @@ Requieren voto: declarar guerra o tregua, aceptar un trato con el cartel, abrir 
 - La propuesta pasa con mayoría simple. Si empata, desempata el presidente.
 - **Moción de destitución:** si la lealtad promedio queda < 35 durante 3 semanas, el Vicepresidente (o el más ambicioso) la propone. Si pasa, **perdés**.
 
+**Reglas detalladas de la mesa (Fase 4):**
+- Votan los miembros con rango Miembro o superior que estén activos o heridos; los presos no van a la mesa. El presidente siempre vota sus propuestas y gana los empates.
+- **Probabilidad de votar con el presidente** = 50% + (lealtad − 50) × 1% + modificador del rasgo (`data/council.json`) + 5% por zona ganada en las últimas 4 semanas (o −5% por zona perdida). Mínimo 5%, máximo 95%.
+- Como mucho 2 propuestas por semana. El ascendido siempre vota a favor y el expulsado, en contra.
+- **Respetar la mesa:** si una propuesta pierde y la dejás caer, los que votaron ganan +2 de lealtad. **Ignorarla:** podés marcarla como "forzada"; si pierde, se ejecuta igual y los que votaron pierden −8.
+- **Ascensos:** Prospecto → Miembro → un cargo libre (Sargento de Armas, Tesorero o Vicepresidente). Hay un solo titular por cargo. El ascendido gana +10 de lealtad.
+- **Expulsión:** el miembro deja el club. Si era informante se descubre y la investigación federal baja 10. Al presidente no se lo puede expulsar.
+- **La destitución** la propone el Vicepresidente; si no puede, el miembro Ambicioso y, si no hay, el menos leal. Si la mesa sostiene al presidente, la cuenta de semanas vuelve a cero.
+- Los clubs de la IA todavía no usan la mesa: no proponen nada. Sí les afectan la lealtad, las deserciones, los informantes y la destitución; si destituyen a su presidente, por ahora solo se informa.
+
 ### Lealtad
 Sube con pagos regulares, victorias y respetar el voto de la mesa. Baja con miembros muertos o presos, deudas, ignorar a la mesa, guerras largas y contradecir el rasgo del miembro.
 Por debajo de 20, un miembro puede **desertar** o **volverse informante** (ver §10).
+
+**Valores semanales (Fase 4, en `balance.json`):** sueldo cobrado +1 · sin cobrar −10 · cada zona ganada +3 y cada zona perdida −3 (para todos) · cada hermano preso esa semana −2 (para todos) · guerra de 8 semanas o más −1 por semana · tarea que le gusta al rasgo +1 · tarea que detesta −3 (gustos en `data/traits.json`). La lealtad del presidente no cambia.
+Con lealtad menor a 20, cada semana: 15% de desertar o 10% de volverse informante en secreto. Si hay un informante, cada semana hay 25% de que corra un rumor.
 
 ## 7. Tareas (una por miembro y por semana)
 
@@ -164,9 +178,15 @@ Los precios tienen un mercado simple por bien: el precio base varía ±20% segú
 ## 10. Calor y ley
 
 - **Calor por zona** (0–100). Baja 5 por semana de forma natural.
+- **Orden dentro de "calor y ley" (Fase 4):** operativos → allanamientos → presencia policial → investigación federal → desgaste del sheriff → baja natural del calor.
+  - **Operativo (≥ 85):** cada miembro que actuó en la zona esa semana tiene 50% de caer preso; después el calor de la zona baja 30.
+  - **Allanamiento (≥ 60):** cada negocio ilegal de la zona tiene 30% de ser clausurado. Si el sheriff te tiene en 50 o más, primero avisa y el allanamiento puede llegar recién la semana siguiente.
+  - **Policía:** con calor ≥ 60 la presencia policial de la zona sube 1 por semana (hasta 5). Con calor < 30 vuelve de a 1 a su valor de base.
 - **Umbrales de zona:** 30 → patrullas (+riesgo de arresto); 60 → allanamiento posible de negocios ilegales; 85 → operativo, con arrestos masivos en la zona.
 - **Sheriff:** relación de −100 a 100. Los sobornos reducen el calor generado en sus zonas. Si la relación es muy alta, avisa antes de un allanamiento.
+  - La relación se guarda del lado del sheriff (cómo te trata) y se acerca a 0 de a 2 por semana. El condado entero es su jurisdicción: con relación positiva, el calor que generan tus tareas baja hasta un 50% (proporcional a la relación).
 - **Investigación federal** (0–100%, global): sube por lavado excesivo, corridas de armas, muertes y calor alto sostenido. **No se soborna.**
+  - Se lleva **una por club** (la IA sigue las mismas reglas). Cada semana: +0,5 por cada zona con calor ≥ 60 donde el club tiene control, +2 por cada informante y −2 si el club no hizo ninguna tarea ilegal. Si un club de la IA llega a 100, sus miembros activos caen presos y su investigación vuelve a 50.
   - Baja solo con semanas de perfil bajo, eliminando informantes o con eventos especiales.
   - Al 100% → **redada federal → derrota.**
 - **Informantes:** un miembro con lealtad < 20 puede volverse informante en secreto (+investigación cada semana). Las pistas aparecen en eventos.
@@ -269,6 +289,15 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿En qué fase entra el combate (§11)? (Fase 2) | Pendiente. El roadmap no lo ubica y requiere negocios (Fase 5) para "atacar negocio rival". Propuesta: implementarlo junto con los negocios. |
 | ¿Cómo se dibuja un grafo en tiles? (Fase 3) | Cada zona tiene una posición fija en `zones.json`. Para que el mapa sea plano y legible se quitó la conexión Hollister Junction–Lone Pine; en las simulaciones ninguna IA llegaba a esas zonas, así que no cambió nada. |
 | ¿Dónde se guarda la partida en el navegador? (Fase 3) | Autoguardado en el navegador al final de cada semana. Guardar y cargar con archivos queda para la Fase 6. |
+| ¿Cuándo vota la mesa dentro del turno? (Fase 4) | Al comienzo de la resolución, antes de producción. |
+| ¿Cómo se calcula el voto? (Fase 4) | Ver §6: lealtad, rasgo y zonas ganadas o perdidas en las últimas 4 semanas. |
+| ¿Qué es "ignorar a la mesa"? (Fase 4) | Forzar una propuesta que perdió: se ejecuta igual y los que votaron pierden lealtad. |
+| ¿Qué hacen la guerra y la tregua? (Fase 4) | Guerra: las dos relaciones bajan a −60, intimidar al enemigo mueve +2 de control, la IA lo prioriza y desde la semana 8 desgasta la lealtad. Tregua: dura 8 semanas y nadie puede intimidar al otro. El rival la acepta salvo que vaya ganando en zonas y su relación sea menor a −40. |
+| ¿Estados de relación? (Fase 4) | Guerra y tregua son explícitos. Si no hay ninguno, "tensión" con relación ≤ −15 y "neutral" en el resto. "Trato" queda para el cartel (Fase 5). |
+| ¿La investigación federal es una sola? (Fase 4) | Una por club, para que la IA juegue con las mismas reglas. |
+| ¿Qué es "semana de perfil bajo"? (Fase 4) | Una semana en la que el club no hizo ninguna tarea ilegal: −2 de investigación. |
+| ¿Dónde mandan los sobornos del sheriff? (Fase 4) | En todo el condado. Su buena voluntad se desgasta 2 por semana; los "sobornos activos" como gasto fijo quedan pendientes. |
+| ¿Qué pasa con un club de la IA al 100% federal? (Fase 4) | Sus miembros activos caen presos y la investigación vuelve a 50. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

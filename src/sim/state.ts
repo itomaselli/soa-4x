@@ -40,6 +40,13 @@ export const FACTION_KINDS = ["club", "cartel", "sheriff", "federal"] as const;
 export const FactionKindSchema = z.enum(FACTION_KINDS);
 export type FactionKind = z.infer<typeof FactionKindSchema>;
 
+export const PROPOSAL_TYPES = ["declare_war", "truce", "promote", "expel"] as const;
+export const ProposalTypeSchema = z.enum(PROPOSAL_TYPES);
+export type ProposalType = z.infer<typeof ProposalTypeSchema>;
+/** Everything the council votes on: the president's proposals plus a motion to remove him. */
+export const VOTE_TYPES = [...PROPOSAL_TYPES, "impeachment"] as const;
+export type VoteType = (typeof VOTE_TYPES)[number];
+
 export const CURRENCIES = ["clean", "dirty"] as const;
 export const CurrencySchema = z.enum(CURRENCIES);
 export type Currency = z.infer<typeof CurrencySchema>;
@@ -89,6 +96,8 @@ export const MemberStateSchema = z.object({
   status: MemberStatusSchema,
   /** Remaining weeks for `wounded` / `jailed`. 0 otherwise. */
   statusWeeks: NonNegativeInt,
+  /** Secretly talking to the federals (GDD §10). Hidden from the player. */
+  informant: z.boolean(),
 });
 export type MemberState = z.infer<typeof MemberStateSchema>;
 
@@ -99,6 +108,12 @@ export const FactionStateSchema = z.object({
   relations: z.record(IdSchema, FiniteNumber),
   /** Goods in stock, keyed by good id. */
   stock: z.record(IdSchema, NonNegativeInt),
+  /** Federal investigation into this faction, 0–100 (GDD §10). Invisible to the player below `federal.visibleFrom`. */
+  federal: FiniteNumber,
+  /** Consecutive weeks with average loyalty below the impeachment threshold (GDD §6). */
+  lowLoyaltyWeeks: NonNegativeInt,
+  /** Owned zones at the end of each recent week, oldest first. Feeds the council's "recent results". */
+  ownedHistory: z.array(NonNegativeInt),
 });
 export type FactionState = z.infer<typeof FactionStateSchema>;
 
@@ -107,8 +122,19 @@ export const BusinessStateSchema = z.object({
   typeId: IdSchema,
   zoneId: IdSchema,
   ownerFactionId: IdSchema,
+  /** The sheriff already warned about a raid on this business (GDD §10). */
+  raidWarned: z.boolean(),
 });
 export type BusinessState = z.infer<typeof BusinessStateSchema>;
+
+export const STANCE_TYPES = ["war", "truce"] as const;
+
+/** Explicit diplomatic state between two factions (GDD §12). No stance = neutral or tension, from the relation value. */
+export const StanceSchema = z.object({
+  type: z.enum(STANCE_TYPES),
+  sinceWeek: z.number().int(),
+});
+export type Stance = z.infer<typeof StanceSchema>;
 
 export const OUTCOME_RESULTS = ["victory", "defeat"] as const;
 
@@ -133,8 +159,8 @@ export const GameStateSchema = z.object({
   zones: z.record(IdSchema, ZoneStateSchema),
   members: z.record(IdSchema, MemberStateSchema),
   businesses: z.array(BusinessStateSchema),
-  /** Global federal investigation, 0–100 (GDD §10). */
-  federalInvestigation: FiniteNumber,
+  /** Stances keyed by the two faction ids sorted and joined with "|", e.g. "faction_grim_wolves|faction_iron_saints". */
+  stances: z.record(z.string(), StanceSchema),
   /** Consecutive weeks each faction has owned at least `victory.zonesToControl` zones (GDD §14). */
   controlStreaks: z.record(IdSchema, NonNegativeInt),
   /** null while the game is running. */

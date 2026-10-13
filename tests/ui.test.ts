@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "../src/ui/draft";
-import { mapViewModel, memberRows, topBarModel, zoneDetails } from "../src/ui/viewModel";
+import { diplomacyRows, mapViewModel, memberRows, topBarModel, votePreview, zoneDetails } from "../src/ui/viewModel";
+import { stanceKey } from "../src/sim/systems/diplomacy";
 import { resolveTurn } from "../src/sim/turn";
 import { baseData, member, newState, PLAYER, PRESIDENT, SERGEANT, VP, WOLVES, zone } from "./helpers";
 
@@ -85,5 +86,37 @@ describe("interfaz: datos para mostrar", () => {
     const state = newState();
     const next = resolveTurn(state, { assignments: [{ memberId: PRESIDENT, taskId: "task_collect_protection", zoneId: "zone_redwater" }] }, baseData).state;
     expect(topBarModel(next, baseData, PLAYER).week).toBe(2);
+  });
+
+  it("los federales no se muestran hasta que la investigación llega a 50", () => {
+    const state = newState();
+    state.factions[PLAYER]!.federal = 49;
+    expect(topBarModel(state, baseData, PLAYER).federal).toBeNull();
+    state.factions[PLAYER]!.federal = 50;
+    expect(topBarModel(state, baseData, PLAYER).federal).toBe(50);
+  });
+
+  it("la barra superior avisa cuando la lealtad promedio está por debajo de 35", () => {
+    const state = newState();
+    for (const m of Object.values(state.members)) if (m.factionId === PLAYER && m.rank !== "president") m.loyalty = 30;
+    expect(topBarModel(state, baseData, PLAYER)).toMatchObject({ averageLoyalty: 30, lowLoyalty: true });
+  });
+
+  it("la estimación de voto muestra a cada votante; el ascendido vota a favor y el expulsado en contra", () => {
+    const state = newState();
+    const promote = votePreview(state, baseData, PLAYER, "promote", "member_bo_tanner");
+    expect(promote.find((v) => v.name === "Smoke")?.fixed).toBe("yes");
+    const expel = votePreview(state, baseData, PLAYER, "expel", "member_bo_tanner");
+    expect(expel.find((v) => v.name === "Smoke")?.fixed).toBe("no");
+    expect(expel.every((v) => v.chance >= 0 && v.chance <= 100)).toBe(true);
+  });
+
+  it("la diplomacia muestra guerra, tregua y semanas", () => {
+    const state = newState();
+    state.week = 5;
+    state.stances[stanceKey(PLAYER, WOLVES)] = { type: "truce", sinceWeek: 3 };
+    expect(diplomacyRows(state, baseData, PLAYER)).toEqual([
+      expect.objectContaining({ id: WOLVES, stateKey: "diplomacy.truce", truceWeeksLeft: 6, warWeeks: null }),
+    ]);
   });
 });

@@ -5,6 +5,7 @@ import { createRng } from "../src/sim/rng";
 import type { GameState } from "../src/sim/state";
 import { aiOrders, allAiOrders } from "../src/sim/systems/ai";
 import { ownedZones, strongestRival } from "../src/sim/systems/control";
+import { stanceKey } from "../src/sim/systems/diplomacy";
 import { activeMembers } from "../src/sim/systems/members";
 import { resolveTurn } from "../src/sim/turn";
 import { baseData, money, newState, PLAYER, WOLVES, zone } from "./helpers";
@@ -125,4 +126,44 @@ describe("IA: decisiones razonables", () => {
     }
     expect(ownedZones(state, WOLVES, baseData.balance).length).toBeGreaterThan(1);
   });
+
+  it("respeta las treguas: no le saca control a un club con el que firmó", () => {
+    let state = newState(4);
+    state.stances[stanceKey(PLAYER, WOLVES)] = { type: "truce", sinceWeek: 1 };
+    const total = (st: GameState) => Object.values(st.zones).reduce((sum, z) => sum + (z.control[PLAYER] ?? 0), 0);
+    for (let w = 0; w < 6; w++) {
+      const before = total(state);
+      state = resolveTurn(state, allAiOrders(state, baseData, PLAYER), baseData).state;
+      expect(total(state)).toBeGreaterThanOrEqual(before);
+    }
+  });
+
+  it("en guerra, apunta al enemigo declarado", () => {
+    const hits = (war: boolean) => {
+      let n = 0;
+      for (let seed = 1; seed <= 15; seed++) {
+        const state = newState(seed);
+        if (war) state.stances[stanceKey(PLAYER, WOLVES)] = { type: "war", sinceWeek: 1 };
+        for (const a of aiOrders(state, baseData, WOLVES).assignments) {
+          if (a.taskId === "task_intimidate" && strongestRival(zone(state, a.zoneId), WOLVES) === PLAYER) n++;
+        }
+      }
+      return n;
+    };
+    expect(hits(true)).toBeGreaterThan(hits(false));
+  });
+
+  it("evita mandar a un miembro a una tarea que su rasgo detesta, si tiene otra opción", () => {
+    let dislikes = 0;
+    let total = 0;
+    for (const state of samples) {
+      for (const a of aiOrders(state, baseData, WOLVES).assignments) {
+        const trait = state.members[a.memberId]!.trait;
+        total++;
+        if (baseData.traits.tasks[trait].dislikes.includes(a.taskId)) dislikes++;
+      }
+    }
+    expect(dislikes / total).toBeLessThan(0.1);
+  });
 });
+

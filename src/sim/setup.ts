@@ -22,6 +22,9 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
       money: { ...def.startingMoney },
       relations: { ...def.initialRelations },
       stock: {},
+      federal: data.balance.ranges.federalInvestigation.min,
+      lowLoyaltyWeeks: 0,
+      ownedHistory: [],
     };
   }
 
@@ -48,6 +51,7 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
       loyalty: def.loyalty,
       status: "active",
       statusWeeks: 0,
+      informant: false,
     };
   }
 
@@ -60,7 +64,7 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
     zones,
     members,
     businesses: [],
-    federalInvestigation: data.balance.ranges.federalInvestigation.min,
+    stances: {},
     controlStreaks: {},
     outcome: null,
   };

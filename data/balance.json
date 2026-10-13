@@ -56,7 +56,22 @@
   },
   "council": {
     "impeachmentAverageLoyalty": 35,
-    "impeachmentWeeks": 3
+    "impeachmentWeeks": 3,
+    "maxProposalsPerWeek": 2,
+    "vote": {
+      "base": 0.5,
+      "perLoyaltyAbove50": 0.01,
+      "momentumPerZone": 0.05,
+      "momentumWeeks": 4,
+      "minChance": 0.05,
+      "maxChance": 0.95
+    },
+    "respectBonus": 2,
+    "ignorePenalty": 8,
+    "promotionLoyalty": 10,
+    "warRelation": -60,
+    "truceWeeks": 8,
+    "truceAcceptRelation": -40
   },
   "laundering": {
     "federalAttentionCapacityRatio": 0.7
@@ -65,7 +80,12 @@
     "priceVariance": 0.2
   },
   "federal": {
-    "visibleFrom": 50
+    "visibleFrom": 50,
+    "perHotZone": 0.5,
+    "perInformant": 2,
+    "lowProfileDrop": 2,
+    "informantExpelledDrop": 10,
+    "raidResetTo": 50
   },
   "victory": {
     "zonesToControl": 12,
@@ -96,7 +116,8 @@
     },
     "intimidate": {
       "baseGain": 2,
-      "strengthDivisor": 2
+      "strengthDivisor": 2,
+      "warBonus": 2
     },
     "protection": {
       "rate": 1,
@@ -130,9 +151,29 @@
     "president": 0
   },
   "loyalty": {
-    "unpaidPenalty": 10
+    "unpaidPenalty": 10,
+    "paidBonus": 1,
+    "zoneGainedBonus": 3,
+    "zoneLostPenalty": 3,
+    "arrestPenalty": 2,
+    "warLongWeeks": 8,
+    "warWeeklyPenalty": 1,
+    "traitLikeBonus": 1,
+    "traitDislikePenalty": 3,
+    "desertChance": 0.15,
+    "informantChance": 0.1,
+    "informantHintChance": 0.25
   },
   "relations": {
-    "intimidatedPenalty": 5
+    "intimidatedPenalty": 5,
+    "tensionAt": -15
+  },
+  "law": {
+    "raidChance": 0.3,
+    "sheriffWarnRelation": 50,
+    "crackdownArrestChance": 0.5,
+    "crackdownHeatDrop": 30,
+    "sheriffHeatReductionMax": 0.5,
+    "sheriffRelationDecay": 2
   }
 }

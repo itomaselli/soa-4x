@@ -8,6 +8,29 @@ export interface TurnScratch {
   unpaidMemberIds: string[];
   /** `${factionId}|${zoneId}` pairs where protection was already collected this week. */
   protectionCollected: Set<string>;
+  /** Members arrested this week, per faction. */
+  arrests: Record<string, number>;
+  /** Where each member acted this week (valid assignments). Used by crackdowns and trait loyalty. */
+  memberTasks: Record<string, { taskId: string; zoneId: string }>;
+  /** Factions that performed at least one illegal task this week. */
+  illegalFactions: Set<string>;
+  /** Owned zones per faction at the start of the week. */
+  ownedBefore: Record<string, string[]>;
+}
+
+export function newScratch(): TurnScratch {
+  return {
+    unpaidMemberIds: [],
+    protectionCollected: new Set(),
+    arrests: {},
+    memberTasks: {},
+    illegalFactions: new Set(),
+    ownedBefore: {},
+  };
+}
+
+export function sheriffId(data: GameData): string | null {
+  return data.factions.find((f) => f.kind === "sheriff")?.id ?? null;
 }
 
 export interface TurnContext {
