@@ -316,7 +316,7 @@ Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja,
 | 4 | Mesa, lealtad, calor, sheriff, federales | El loop completo |
 | 5 | Cadenas de producción, cartel, eventos | Contenido |
 | 6 | Arte, pulido de interfaz, guardar y cargar, balance | Prototipo "terminado" |
-| 7 (opcional) | Empaquetado con Tauri a .exe | Juego de PC |
+| 7 (opcional) | Empaquetado con Tauri a .exe | Juego de PC (instalador `.exe` armado por GitHub Actions; ver `docs/ESCRITORIO.md`) |
 
 ## 18. Decisiones de la Fase 1
 

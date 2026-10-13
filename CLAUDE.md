@@ -26,6 +26,8 @@ npm run typecheck    # tsc --noEmit
 npm run lint
 npm run sim -- --weeks 100 --seed 42   # simulación headless con IA en todos los bandos
 npm run play -- --seed 42              # partida en modo texto (--load saves/autosave.json para seguir)
+npm run desktop:dev                    # ventana de escritorio con Tauri (requiere Rust)
+npm run desktop:build                  # instalador local (requiere Rust); el .exe se arma en GitHub Actions, ver docs/ESCRITORIO.md
 ```
 
 **Una tarea está terminada solo si** `typecheck`, `lint` y `test` pasan. Si tocaste reglas de simulación, corré también `npm run sim` y mencioná si cambió algo raro en las estadísticas.
