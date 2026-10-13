@@ -34,6 +34,7 @@ body {
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   display: grid;
   grid-template-rows: auto auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
 }
 h1, h2, h3 { margin: 0; }
@@ -220,6 +221,7 @@ ul.votes li { display: flex; gap: var(--s2); align-items: center; }
 .segmented button:last-child { border-right: none; }
 .segmented button.active { background: var(--accent); color: #111; font-weight: 700; }
 .chain-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s4); align-items: start; }
+.chain-layout > *, .business-grid > *, .business-view > * { min-width: 0; }
 .chain-scroll { overflow-x: auto; padding-bottom: var(--s2); }
 .chain-row { display: flex; align-items: flex-start; gap: var(--s1); }
 .chain-stack { display: grid; gap: var(--s2); justify-items: center; }
@@ -289,8 +291,10 @@ ul.rules { font-size: 13px; }
   .council-grid > :last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 1100px) {
-  #county-view { grid-template-columns: 1fr; }
-  #inspector { border-left: none; border-top: 1px solid var(--border); }
+  /* Stacked: the page scrolls as a whole, so the map is never squeezed to a strip. */
+  main, #county-view { display: block; }
+  #map-column { overflow: visible; }
+  #inspector { border-left: none; border-top: 1px solid var(--border); overflow: visible; }
   #map-host { overflow-x: auto; }
   .business-grid { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
@@ -306,3 +310,4 @@ ul.rules { font-size: 13px; }
 /* Debug gallery (portraits.html) */
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 16px; }
 .gallery figure { margin: 0; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; display: grid; justify-items: center; gap: 4px; font-size: 11px; text-align: center; }
+.link.small { margin-left: 6px; }

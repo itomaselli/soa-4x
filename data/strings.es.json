@@ -687,5 +687,6 @@
   "ui.review.order_note": "Orden de resolución: eventos, Mesa, gestión, producción, transporte, ventas, tareas, combates, lavado, gastos, ley, lealtad.",
   "ui.review.confirm": "Resolver semana",
   "ui.review.resolving": "Resolviendo…",
-  "ui.review.back": "Seguir editando"
+  "ui.review.back": "Seguir editando",
+  "chain.detail.buy_now": "Si no le comprás nada esta semana, el cartel da el trato por roto."
 }

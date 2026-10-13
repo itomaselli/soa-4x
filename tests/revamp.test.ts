@@ -332,6 +332,14 @@ describe("ilustraciones de la interfaz", () => {
   });
 });
 
+describe("partida de revisión", () => {
+  it("tests/fixtures/review-economy.json carga y tiene negocios de las cadenas", async () => {
+    const { loadSave } = await import("../src/sim/save");
+    const state = loadSave(readFileSync(new URL("./fixtures/review-economy.json", import.meta.url), "utf8"), baseData);
+    expect(state.businesses.filter((b) => b.ownerFactionId === PLAYER).length).toBeGreaterThan(2);
+  });
+});
+
 describe("textos de la interfaz", () => {
   it("toda clave de texto literal usada en src/ui existe en strings.es.json", async () => {
     const { readdirSync, statSync } = await import("node:fs");

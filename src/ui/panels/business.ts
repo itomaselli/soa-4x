@@ -170,6 +170,7 @@ function cartelDetail(ctx: UiContext, node: ChainNode): (Node | null)[] {
   const problem = validateManagement(state, data, order);
   return [
     h("p", {}, [tr("ui.biz.deal_info", { weeks: c.weeksLeft ?? 0 })]),
+    (c.weeksLeft ?? 1) <= 0 ? h("p", { class: "warn-text" }, [h("span", { "aria-hidden": "true" }, ["▲ "]), tr("chain.detail.buy_now")]) : null,
     h("dl", { class: "facts" }, [
       h("dt", {}, [tr("chain.detail.price")]),
       h("dd", { class: "mono" }, [tr("chain.detail.price_dirty", { price: c.price })]),

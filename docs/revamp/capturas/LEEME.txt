@@ -1,0 +1,28 @@
+Capturas de http://localhost:5173/ con tests/fixtures/review-economy.json
+1920-01-condado.png
+1920-02-distrito-lote.png
+1920-03-club.png
+1920-04-sede.png
+1920-05-mesa.png
+1920-06-negocios-motos.png
+1920-07-negocios-marihuana.png
+1920-08-negocios-cocaina.png
+1920-09-negocios-armas.png
+1920-10-negocios-cartel.png
+1920-11-negocios-lavado.png
+1920-12-revisar-semana.png
+1920-13-informe.png
+1366-01-condado.png
+1366-02-club.png
+1366-03-mesa.png
+1366-04-negocios.png
+1024-01-condado.png
+1024-02-club.png
+1024-03-mesa.png
+1024-04-negocios.png
+768-01-condado.png
+768-02-club.png
+768-03-mesa.png
+768-04-negocios.png
+
+Sin errores de JS ni cargas fallidas.
