@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "source": "scripts/draw-ui-illustrations.py",
+  "note": "Ilustraciones dibujadas con código para el proyecto (no vienen del atlas generado ni del pack de Kenney). Mismo lienzo de 252x252 que las del atlas.",
+  "assets": [
+    { "id": "task_steal_bikes", "filename": "task_steal_bikes.png", "kind": "task", "gameId": "task_steal_bikes", "label": "Robar motos" },
+    { "id": "sale_money", "filename": "sale_money.png", "kind": "sale", "gameId": null, "label": "Venta" }
+  ]
+}

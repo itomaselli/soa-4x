@@ -313,6 +313,13 @@ Ejemplos:
 ## 15. Interfaz y arte
 
 - **Pantallas:** Mapa (principal), Club (tabla de miembros), Mesa (votaciones), Negocios y stock, Informe semanal.
+- **Revamp de la interfaz (rama `revamp-ui`, ver `docs/revamp/README.md`):** solo presentación; reglas, balance, mapas y partidas no cambian.
+  - Navegación fija: **Condado · Club · Mesa · Negocios · Informe**. «Distrito» es la vista ampliada dentro de Condado (`Condado › Distrito`). Cambiar de sección no borra órdenes, propuestas, gestión, decisiones de eventos ni el distrito o lote elegido.
+  - Cabecera común: nombre y parche elegidos, semana, plata, zonas con progreso a la victoria y racha, lealtad media, sheriff, federales («?» mientras están ocultos) y relaciones. Guardar, Cargar, Nueva partida, tiles/ASCII y Ayuda van en «Opciones».
+  - **Revisar semana** reemplaza a «Avanzar semana»: muestra tareas, gestión con su costo por moneda, propuestas (con su costo si se aprueban) y decisiones, separando errores (órdenes que el motor va a rechazar) de avisos (miembros que descansan, tareas que no rendirían, gestión que supera la plata). Nada cambia hasta «Resolver semana», que corre una sola vez. Enter abre la revisión desde la pantalla principal y, dentro de ella, confirma solo con el foco en «Resolver semana».
+  - **Negocios:** cuatro cadenas (Motos, Marihuana, Cocaína, Armas) con nodos de tarea, bien, negocio, cartel y venta. El stock es el global del club; los bloqueos (sin negocio, parado, sin trato, sin depósito, sin plata, sin stock para vender) salen de las mismas validaciones del motor. Lavado en panel propio, con el umbral de `balance.json`.
+  - **Sede del club:** ficha de la sede (distrito `hqZoneId`, control, miembros y tope, negocios propios ahí). No es un negocio ni agrega reglas.
+  - Ilustraciones de interfaz generadas para el proyecto en `assets/ui/` (no son de Kenney); los mapas siguen con el tileset de siempre.
 - El mapa va en canvas (PixiJS). Paneles, tablas y menús en HTML/CSS superpuesto.
 - **Fase 3 (hecha):** mapa ASCII con cajas de 3×3 tiles por zona. El borde toma el color del dueño, `!` marca patrullas y los nombres apagados indican zonas fuera de alcance. A la derecha hay tres pestañas:
   - **Club:** tarea y zona de cada miembro. La zona se elige de la lista o haciendo click en el mapa.

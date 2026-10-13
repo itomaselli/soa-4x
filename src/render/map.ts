@@ -497,6 +497,12 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     });
   };
 
+  // Development only: lets the browser check that the map's pixels stay the same across interface changes.
+  if (import.meta.env.DEV) {
+    (window as unknown as { __mapSnapshot?: () => Promise<string> }).__mapSnapshot = () =>
+      app.renderer.extract.base64({ target: app.stage, frame: new Rectangle(0, 0, baseWidth, baseHeight), resolution: 1 });
+  }
+
   return {
     update(model) {
       current = model;

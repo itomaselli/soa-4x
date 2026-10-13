@@ -10,9 +10,9 @@ import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
 import { chanceWithPresident, voters } from "../sim/systems/council";
 import { diplomaticState, getStance } from "../sim/systems/diplomacy";
 import { averageLoyalty } from "../sim/systems/loyalty";
-import { factionMembers } from "../sim/systems/members";
+import { factionMembers, livingMembers } from "../sim/systems/members";
 import { cartelId } from "../sim/management";
-import { businessAtLot, buildProblem, businessDef, freeSlots, launderCapacity, storageCapacity } from "../sim/systems/businesses";
+import { businessAtLot, buildProblem, businessDef, freeSlots, launderCapacity, storageCapacity, workingBusinesses } from "../sim/systems/businesses";
 import { marketPrice } from "../sim/systems/economy";
 import { canAfford } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
@@ -244,6 +244,7 @@ export function memberSheet(
 }
 
 export interface VotePreview {
+  memberId: string;
   name: string;
   /** Chance of voting with the president, 0–100. */
   chance: number;
@@ -253,6 +254,7 @@ export interface VotePreview {
 /** How each member at the table is likely to vote (GDD pillar 4: readable decisions). */
 export function votePreview(state: GameState, data: GameData, viewer: string, type: VoteType, targetMemberId?: string): VotePreview[] {
   return voters(state, viewer).map((m) => ({
+    memberId: m.id,
     name: m.nickname || m.name,
     chance: Math.round(chanceWithPresident(m, type, state, data) * 100),
     fixed: m.id === targetMemberId ? (type === "promote" ? "yes" : type === "expel" ? "no" : null) : null,
@@ -288,10 +290,14 @@ export function diplomacyRows(state: GameState, data: GameData, viewer: string):
 
 export interface BusinessRow {
   id: string;
+  typeId: string;
   typeKey: string;
+  zoneId: string;
   zone: string;
+  lot: number;
   statusKey: string;
   legal: boolean;
+  maintenance: number;
 }
 
 export function businessRows(state: GameState, data: GameData, viewer: string): BusinessRow[] {
@@ -299,10 +305,14 @@ export function businessRows(state: GameState, data: GameData, viewer: string): 
     .filter((b) => b.ownerFactionId === viewer)
     .map((b) => ({
       id: b.id,
+      typeId: b.typeId,
       typeKey: `business.${b.typeId}`,
+      zoneId: b.zoneId,
       zone: data.zones.find((z) => z.id === b.zoneId)?.name ?? b.zoneId,
+      lot: b.lot,
       statusKey: b.suspended ? "ui.biz.suspended" : b.builtWeek >= state.week ? "ui.biz.new" : "ui.biz.working",
       legal: businessDef(data, b.typeId)?.legal ?? true,
+      maintenance: businessDef(data, b.typeId)?.maintenance ?? 0,
     }));
 }
 
@@ -342,6 +352,78 @@ export interface LaunderingInfo {
 export function launderingInfo(state: GameState, data: GameData, viewer: string): LaunderingInfo {
   const capacity = launderCapacity(state, data, viewer);
   return { capacity, safe: Math.floor(capacity * data.balance.laundering.federalAttentionCapacityRatio) };
+}
+
+export interface LaunderingPanel extends LaunderingInfo {
+  /** Percent of capacity that's safe (from balance.json). */
+  safePercent: number;
+  /** What each of our businesses adds; legal ones that aren't working this week add 0 and say why. */
+  sources: { businessId: string; typeKey: string; zone: string; capacity: number; statusKey: string }[];
+  dirty: number;
+  /** Amount already queued to launder this week. */
+  queued: number;
+}
+
+/** Laundering panel: total capacity, the safe threshold and what each legal business contributes (GDD §8). */
+export function launderingPanel(state: GameState, data: GameData, viewer: string, management: readonly { kind: string; amount?: number }[]): LaunderingPanel {
+  const info = launderingInfo(state, data, viewer);
+  const working = new Set(workingBusinesses(state, viewer).map((b) => b.id));
+  const sources = state.businesses
+    .filter((b) => b.ownerFactionId === viewer && (businessDef(data, b.typeId)?.launderCapacity ?? 0) > 0)
+    .map((b) => ({
+      businessId: b.id,
+      typeKey: `business.${b.typeId}`,
+      zone: data.zones.find((z) => z.id === b.zoneId)?.name ?? b.zoneId,
+      capacity: working.has(b.id) ? (businessDef(data, b.typeId)?.launderCapacity ?? 0) : 0,
+      statusKey: b.suspended ? "ui.biz.suspended" : b.builtWeek >= state.week ? "ui.biz.new" : "ui.biz.working",
+    }));
+  return {
+    ...info,
+    safePercent: Math.round(data.balance.laundering.federalAttentionCapacityRatio * 100),
+    sources,
+    dirty: state.factions[viewer]?.money.dirty ?? 0,
+    queued: management.reduce((sum, o) => sum + (o.kind === "launder" ? (o.amount ?? 0) : 0), 0),
+  };
+}
+
+/** Club headquarters (club_hq): an identity and a place, not a business. Only what the game already knows. */
+export interface HqSheet {
+  factionName: string;
+  patchId: string | null;
+  color: string;
+  zoneId: string;
+  zoneName: string;
+  zoneTypeKey: string;
+  ourControl: number;
+  owner: { name: string; color: string } | null;
+  /** Living members and the club's member cap (recruiting stops at the cap). */
+  members: number;
+  memberCap: number;
+  /** Businesses we own in the headquarters district. */
+  businesses: number;
+}
+
+export function hqSheet(state: GameState, data: GameData, viewer: string): HqSheet | null {
+  const faction = data.factions.find((f) => f.id === viewer);
+  const zoneId = faction?.hqZoneId;
+  const def = zoneId ? data.zones.find((z) => z.id === zoneId) : undefined;
+  const zone = zoneId ? state.zones[zoneId] : undefined;
+  if (!faction || !def || !zone) return null;
+  const ownerId = zoneOwner(zone, data.balance);
+  const owner = ownerId ? data.factions.find((f) => f.id === ownerId) : undefined;
+  return {
+    factionName: faction.name,
+    patchId: faction.patchId,
+    color: faction.color,
+    zoneId: def.id,
+    zoneName: def.name,
+    zoneTypeKey: `zone_type.${def.type}`,
+    ourControl: controlOf(zone, viewer),
+    owner: owner ? { name: owner.name, color: owner.color } : null,
+    members: livingMembers(state, viewer).length,
+    memberCap: data.balance.club.memberCap,
+    businesses: state.businesses.filter((b) => b.ownerFactionId === viewer && b.zoneId === def.id).length,
+  };
 }
 
 export interface CartelInfo {
