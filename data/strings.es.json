@@ -417,5 +417,8 @@
   "ui.help.money": "La plata sucia viene de lo ilegal; la limpia, de los negocios legales y del lavado. Los sueldos se pagan primero con sucia. Sin sueldos, la lealtad se desploma.",
   "ui.help.law": "Lo ilegal genera calor. Con 30 hay patrullas, con 60 allanamientos, con 85 operativos. Los federales aparecen cuando su investigación pasa el 50%: si llega al 100%, perdés.",
   "ui.help.council": "La Mesa vota guerras, treguas, ascensos, expulsiones, tratos con el cartel y negocios ilegales. Podés forzar un voto perdido, pero la lealtad lo cobra.",
-  "ui.help.lose": "Perdés si la mesa te destituye (lealtad media menor a 35 durante 3 semanas), si los federales llegan al 100%, si te quedan menos de 3 miembros, si perdés todo el territorio o si un rival domina el condado."
+  "ui.help.lose": "Perdés si la mesa te destituye (lealtad media menor a 35 durante 3 semanas), si los federales llegan al 100%, si te quedan menos de 3 miembros, si perdés todo el territorio o si un rival domina el condado.",
+  "ui.legend.to_ascii": "Ver en ASCII",
+  "ui.legend.to_tiles": "Ver con tiles",
+  "ui.help.credits": "Gráficos: {credit}."
 }

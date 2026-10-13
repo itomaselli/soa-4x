@@ -175,7 +175,7 @@ describe("interfaz: datos para mostrar", () => {
     addBusiness(state, baseData, PLAYER, "business_club_bar", "zone_redwater");
     const vm = mapViewModel(state, baseData, PLAYER, null);
     const saints = baseData.factions.find((f) => f.id === PLAYER)!.color;
-    expect(vm.zones["zone_redwater"]?.businesses).toEqual([{ glyph: "Y", color: saints }]);
+    expect(vm.zones["zone_redwater"]?.businesses).toEqual([{ glyph: "Y", spriteId: "business.business_club_bar", color: saints }]);
   });
 
   it("las zonas con tareas planeadas se resaltan", () => {

@@ -13,7 +13,7 @@ import { resolveTurn } from "../sim/turn";
 import { h } from "./dom";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draft";
 import { reportSections } from "./report";
-import { clearAutosave, exportSave, importSave, loadAutosave, saveAutosave } from "./storage";
+import { clearAutosave, exportSave, importSave, loadAutosave, loadRenderMode, saveAutosave, saveRenderMode } from "./storage";
 import { t } from "./strings";
 import {
   buildableZones,
@@ -84,6 +84,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   const sellAmounts: Record<string, number> = {};
   let notice: { text: string; error: boolean } | null = null;
   let showHelp = false;
+  let renderMode = loadRenderMode();
   let outcomeDismissed = false;
 
   const map: MapView = await createMapView(els.mapHost, data, {
@@ -766,6 +767,18 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       h("span", {}, [sw(colors.planned, "R"), " ", tr("ui.legend.planned")]),
       h("span", {}, [sw(colors.heat, "!"), " ", tr("ui.legend.patrols")]),
       h("span", {}, [...data.businesses.map((b) => sw(colors.label, b.glyph)), " ", tr("ui.legend.businesses")]),
+      h(
+        "button",
+        {
+          class: "chip",
+          onclick: () => {
+            renderMode = renderMode === "tiles" ? "ascii" : "tiles";
+            saveRenderMode(renderMode);
+            render();
+          },
+        },
+        [tr(renderMode === "tiles" ? "ui.legend.to_ascii" : "ui.legend.to_tiles")],
+      ),
     ]);
   }
 
@@ -774,6 +787,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       return h("div", { class: "modal" }, [
         h("h2", {}, [tr("ui.help.title")]),
         ...["ui.help.goal", "ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose"].map((k) => h("p", {}, [tr(k)])),
+        h("p", { class: "muted" }, [tr("ui.help.credits", { credit: data.ui.tileset.credit })]),
         h("button", { class: "primary", onclick: () => { showHelp = false; render(); } }, [tr("ui.close")]),
       ]);
     }
@@ -820,7 +834,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
               : renderReport();
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
     const planned = Object.values(draft).map((e) => e.zoneId).filter((z): z is string => z !== null);
-    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned));
+    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned, renderMode));
   }
 
   render();

@@ -490,6 +490,16 @@ export const UiSchema = z.object({
   }),
   /** Color of each zone's center glyph by type. */
   zoneTypeColors: z.record(ZoneTypeSchema, HexColorSchema),
+  /**
+   * Tileset (assets/tiles/kenney-1bit-monochrome.png): white 1-bit tiles that the renderer tints.
+   * Sprites map ids like "zone_type.town" or "business.business_garage" to [column, row] in the sheet.
+   * Anything without a sprite falls back to its ASCII glyph.
+   */
+  tileset: z.object({
+    credit: z.string(),
+    tileSize: Int.positive(),
+    sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
+  }),
 });
 export type UiConfig = z.infer<typeof UiSchema>;
 

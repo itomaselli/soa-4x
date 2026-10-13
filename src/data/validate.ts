@@ -107,6 +107,14 @@ export function validateGameData(data: GameData): string[] {
     }
   }
 
+  // Every zone type and business has a sprite (else the tile view would mix in ASCII)
+  for (const type of new Set(data.zones.map((z) => z.type))) {
+    if (!(`zone_type.${type}` in data.ui.tileset.sprites)) errors.push(`ui.json: falta el sprite "zone_type.${type}"`);
+  }
+  for (const b of data.businesses) {
+    if (!(`business.${b.id}` in data.ui.tileset.sprites)) errors.push(`ui.json: falta el sprite "business.${b.id}"`);
+  }
+
   // Map connectivity: every zone reachable from the first one
   const firstZone = data.zones[0];
   if (firstZone) {

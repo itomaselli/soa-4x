@@ -40,6 +40,25 @@ export async function importSave(file: File, data: GameData): Promise<GameState>
   return loadSave(await file.text(), data);
 }
 
+const RENDER_MODE_KEY = "biker4x.renderMode";
+
+/** Per-viewer preference: tiles or ASCII. Defaults to tiles. */
+export function loadRenderMode(): "tiles" | "ascii" {
+  try {
+    return localStorage.getItem(RENDER_MODE_KEY) === "ascii" ? "ascii" : "tiles";
+  } catch {
+    return "tiles";
+  }
+}
+
+export function saveRenderMode(mode: "tiles" | "ascii"): void {
+  try {
+    localStorage.setItem(RENDER_MODE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
 export function clearAutosave(): void {
   try {
     localStorage.removeItem(AUTOSAVE_KEY);

@@ -1,7 +1,8 @@
 // PixiJS map: draws the layout with ASCII glyphs from a bitmap font (GDD §15).
 // It only reads a MapViewModel built by the UI; it never looks at game rules.
 
-import { Application, BitmapFont, BitmapText, Container, TextureStyle } from "pixi.js";
+import { Application, Assets, BitmapFont, BitmapText, Container, Rectangle, Sprite, Texture, TextureStyle } from "pixi.js";
+import tilesetUrl from "../../assets/tiles/kenney-1bit-monochrome.png?url";
 import type { UiConfig } from "../data/schemas";
 import { buildMapLayout, zoneAt, type MapLayout } from "./layout";
 import type { GameData } from "../data/schemas";
@@ -9,17 +10,22 @@ import type { GameData } from "../data/schemas";
 export interface ZoneLook {
   borderColor: string;
   glyph: string;
+  /** Sprite id for the tile view, e.g. "zone_type.town". */
+  spriteId: string;
   glyphColor: string;
   labelColor: string;
   /** Show a heat marker next to the zone. */
   heatWarning: boolean;
   /** Up to 3 businesses, drawn on the top edge of the box in their owner's color. */
-  businesses: { glyph: string; color: string }[];
+  businesses: { glyph: string; spriteId: string; color: string }[];
 }
+
+export type RenderMode = "tiles" | "ascii";
 
 export interface MapViewModel {
   zones: Record<string, ZoneLook>;
   selectedZoneId: string | null;
+  mode: RenderMode;
 }
 
 export interface MapView {
@@ -83,6 +89,32 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     place(text, x, y);
   };
 
+  // Tileset: one texture per sprite id, cut from the sheet.
+  const sheet = await Assets.load<Texture>(tilesetUrl);
+  sheet.source.scaleMode = "nearest";
+  const ts = ui.tileset.tileSize;
+  const textures = new Map<string, Texture>();
+  for (const [id, [col, row]] of Object.entries(ui.tileset.sprites)) {
+    textures.set(id, new Texture({ source: sheet.source, frame: new Rectangle(col * ts, row * ts, ts, ts) }));
+  }
+  const tile = (x: number, y: number): Sprite => {
+    const sprite = new Sprite(Texture.EMPTY);
+    sprite.x = x * t + Math.round((t - ts) / 2);
+    sprite.y = y * t + Math.round((t - ts) / 2);
+    sprite.visible = false;
+    return sprite;
+  };
+  /** Shows a sprite if the texture exists and we're in tile mode; returns whether it did. */
+  const showTile = (sprite: Sprite, spriteId: string | undefined, color: string, mode: RenderMode): boolean => {
+    const texture = spriteId ? textures.get(spriteId) : undefined;
+    sprite.visible = mode === "tiles" && texture !== undefined;
+    if (sprite.visible && texture) {
+      sprite.texture = texture;
+      sprite.tint = color;
+    }
+    return sprite.visible;
+  };
+
   // Everything is created once; updates only change colors, text and visibility.
   const roadLayer = new Container();
   for (const road of layout.roads) roadLayer.addChild(glyph(road.glyph, road.x, road.y, ui.colors.road));
@@ -94,6 +126,10 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     center: BitmapText;
     heat: BitmapText;
     label: BitmapText[];
+    /** Tile-mode versions of the center, the top edge (businesses) and the heat marker. */
+    centerTile: Sprite;
+    topTiles: Sprite[];
+    heatTile: Sprite;
   }
   const sprites = new Map<string, ZoneSprites>();
   for (const z of layout.zones) {
@@ -110,8 +146,11 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     const heat = glyph(HEAT_GLYPH, x + 2, y - 1, ui.colors.heat);
     heat.visible = false;
     const label = [...z.label].map((ch, i) => glyph(ch, z.labelStart.x + i, z.labelStart.y, ui.colors.label));
-    zoneLayer.addChild(...border, center, heat, ...label);
-    sprites.set(z.id, { border, center, heat, label });
+    const centerTile = tile(x, y);
+    const topTiles = [tile(x - 1, y - 1), tile(x, y - 1), tile(x + 1, y - 1)];
+    const heatTile = tile(x + 2, y - 1);
+    zoneLayer.addChild(...border, center, heat, ...label, centerTile, ...topTiles, heatTile);
+    sprites.set(z.id, { border, center, heat, label, centerTile, topTiles, heatTile });
   }
 
   // Integer scaling only (crisp pixels): the largest scale that fits the host width, up to maxScale.
@@ -150,18 +189,23 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
         if (!look || !sp) continue;
         const selected = model.selectedZoneId === z.id;
         for (const b of sp.border) b.tint = selected ? ui.colors.selected : look.borderColor;
-        // Top edge (the first three border sprites): business glyphs, or the plain box edge.
+        // Top edge (the first three border sprites): businesses, or the plain box edge.
         for (let i = 0; i < 3; i++) {
           const sprite = sp.border[i];
-          if (!sprite) continue;
+          const topTile = sp.topTiles[i];
+          if (!sprite || !topTile) continue;
           const business = look.businesses[i];
           const plain = i === 1 ? BOX.horizontal : BOX.corner;
-          setChar(sprite, business?.glyph ?? plain, z.center.x - 1 + i, z.center.y - 1);
+          const asTile = business ? showTile(topTile, business.spriteId, business.color, model.mode) : showTile(topTile, undefined, "", model.mode);
+          setChar(sprite, asTile ? " " : (business?.glyph ?? plain), z.center.x - 1 + i, z.center.y - 1);
           if (business) sprite.tint = business.color;
         }
-        setChar(sp.center, look.glyph, z.center.x, z.center.y);
+        const centerAsTile = showTile(sp.centerTile, look.spriteId, look.glyphColor, model.mode);
+        setChar(sp.center, centerAsTile ? " " : look.glyph, z.center.x, z.center.y);
         sp.center.tint = look.glyphColor;
-        sp.heat.visible = look.heatWarning;
+        const heatAsTile = look.heatWarning && showTile(sp.heatTile, "marker.heat", ui.colors.heat, model.mode);
+        if (!look.heatWarning) sp.heatTile.visible = false;
+        sp.heat.visible = look.heatWarning && !heatAsTile;
         for (const l of sp.label) l.tint = selected ? ui.colors.selected : look.labelColor;
       }
     },

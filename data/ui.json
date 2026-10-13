@@ -26,5 +26,51 @@
     "port": "#7dd3fc",
     "rural": "#a3c585",
     "industrial": "#d6a36b"
+  },
+  "tileset": {
+    "credit": "1-Bit Pack de Kenney (www.kenney.nl), CC0",
+    "tileSize": 16,
+    "sprites": {
+      "zone_type.town": [
+        1,
+        20
+      ],
+      "zone_type.road": [
+        43,
+        0
+      ],
+      "zone_type.port": [
+        12,
+        19
+      ],
+      "zone_type.rural": [
+        0,
+        1
+      ],
+      "zone_type.industrial": [
+        4,
+        21
+      ],
+      "business.business_garage": [
+        42,
+        4
+      ],
+      "business.business_club_bar": [
+        45,
+        3
+      ],
+      "business.business_chop_shop": [
+        42,
+        3
+      ],
+      "business.business_warehouse": [
+        23,
+        2
+      ],
+      "marker.heat": [
+        34,
+        21
+      ]
+    }
   }
 }

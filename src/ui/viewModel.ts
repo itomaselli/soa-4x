@@ -2,7 +2,7 @@
 // No DOM here, so it's testable in Node.
 
 import type { GameData } from "../data/schemas";
-import type { MapViewModel } from "../render/map";
+import type { MapViewModel, RenderMode } from "../render/map";
 import { reachableZones } from "../sim/orders";
 import { RANKS, type GameState, type MemberState } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
@@ -22,6 +22,7 @@ export function mapViewModel(
   viewer: string,
   selectedZoneId: string | null,
   plannedZoneIds: readonly string[] = [],
+  mode: RenderMode = "tiles",
 ): MapViewModel {
   const planned = new Set(plannedZoneIds);
   const reachable = new Set(reachableZones(state, data, viewer));
@@ -34,19 +35,21 @@ export function mapViewModel(
     zones[def.id] = {
       borderColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? colors.neutral) : colors.neutral,
       glyph: def.glyph,
+      spriteId: `zone_type.${def.type}`,
       glyphColor: planned.has(def.id) ? colors.planned : data.ui.zoneTypeColors[def.type] ?? colors.glyph,
       businesses: state.businesses
         .filter((b) => b.zoneId === def.id)
         .slice(0, 3)
         .map((b) => ({
           glyph: businessDef(data, b.typeId)?.glyph ?? "?",
+          spriteId: `business.${b.typeId}`,
           color: data.factions.find((f) => f.id === b.ownerFactionId)?.color ?? colors.neutral,
         })),
       labelColor: reachable.has(def.id) ? colors.label : colors.labelDim,
       heatWarning: zone.heat >= data.balance.heat.patrolThreshold,
     };
   }
-  return { zones, selectedZoneId };
+  return { zones, selectedZoneId, mode };
 }
 
 export interface TopBarModel {

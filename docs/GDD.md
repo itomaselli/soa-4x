@@ -294,6 +294,7 @@ Ejemplos:
   - **Mapa:** los negocios se dibujan en el borde superior de cada zona con el color del dueño, las zonas con tareas planeadas se resaltan, al pasar el mouse se ve un resumen y hay una leyenda debajo.
   - **Partida:** ayuda «Cómo se juega» (botón «?»), pantalla de fin de partida y Enter para avanzar la semana.
   - **Arte:** ASCII con color por tipo de zona (pueblo, ruta, puerto, rural, industrial). Los colores están en `data/ui.json`.
+- **Tileset (decidido):** *1-Bit Pack* de Kenney (CC0), en `assets/tiles/` junto con su licencia. Los tiles son blancos y se tiñen: ícono por tipo de zona en el centro de cada caja y negocios en el borde superior con el color del dueño. Las coordenadas de cada sprite están en `data/ui.json`. Los nombres y caminos siguen en texto, y un botón permite volver al modo ASCII.
 - **Arte:** tiles de 16×16, escalado entero (×2, ×3), paleta limitada.
   - **Fase inicial:** glifos ASCII de una fuente bitmap, estilo Dwarf Fortress.
   - **Después:** tileset CC0 (por ejemplo el *1-Bit Pack* de Kenney) o arte propio. Decisión pendiente.
@@ -366,7 +367,6 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 
 ## 19. Preguntas abiertas
 
-- Arte: ¿ASCII definitivo, tileset CC0 o arte propio? (El render ya toma el glifo y los colores de los datos: cambiar a un tileset no toca la lógica.)
 - Balance: entre dos IA parejas la partida tiende a trabarse (ninguna consolida zonas). ¿Hace falta un mecanismo que rompa el empate, como la pérdida de control en zonas sin presencia?
 - ¿Nombre final del juego y del club?
 - ¿El presidente puede morir? ¿Hay sucesión?
