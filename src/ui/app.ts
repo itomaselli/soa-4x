@@ -215,9 +215,12 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       h("div", { class: m.federal === null ? "stat muted" : "stat warn" }, [
         m.federal === null ? tr("ui.federal_hidden") : tr("ui.federal", { value: m.federal }),
       ]),
-      state.pendingEvents.length > 0
-        ? h("button", { class: "warn-chip", onclick: () => { tab = "report"; render(); } }, [tr("ui.events_pending", { count: state.pendingEvents.length })])
-        : null,
+      (() => {
+        const mine = state.pendingEvents.filter((e) => e.factionId === state.playerFactionId).length;
+        return mine > 0
+          ? h("button", { class: "warn-chip", onclick: () => { tab = "report"; render(); } }, [tr("ui.events_pending", { count: mine })])
+          : null;
+      })(),
       h("div", { class: "spacer" }),
       outcome
         ? h("div", { class: `outcome ${outcome.result}` }, [tr(outcome.reasonKey)])

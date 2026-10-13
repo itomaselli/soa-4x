@@ -142,5 +142,28 @@ function impeachmentCheck(state: GameState, ctx: TurnContext, factionId: string)
   ctx.report("report.loyalty.impeachment_passed", params, factionId);
   if (factionId === state.playerFactionId) {
     state.outcome = { result: "defeat", reasonKey: "outcome.defeat.impeached", week: state.week };
+    return;
   }
+  succession(state, ctx, factionId, proposer);
+}
+
+/**
+ * AI clubs carry on after removing their president (phase 8): whoever brought the motion takes the chair,
+ * the old president stays as a Member, and the club rallies behind the new leadership.
+ */
+function succession(state: GameState, ctx: TurnContext, factionId: string, newPresident: MemberState): void {
+  const { council, ranges } = ctx.data.balance;
+  const old = factionMembers(state, factionId).find((m) => m.rank === "president" && m.status !== "dead");
+  if (old) {
+    old.rank = "member";
+    old.loyalty = clamp(council.deposedPresidentLoyalty, ranges.loyalty);
+  }
+  newPresident.rank = "president";
+  newPresident.loyalty = ranges.loyalty.max;
+  for (const m of loyaltyMembers(state, factionId)) change(m, council.successionLoyaltyBonus, ctx);
+  ctx.report("report.loyalty.succession", {
+    faction: ctx.data.factions.find((f) => f.id === factionId)?.name ?? factionId,
+    president: memberLabel(newPresident),
+    old: old ? memberLabel(old) : "—",
+  });
 }

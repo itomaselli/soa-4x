@@ -421,5 +421,7 @@
   "ui.legend.to_ascii": "Ver en ASCII",
   "ui.legend.to_tiles": "Ver con tiles",
   "ui.help.credits": "Gráficos: {credit}.",
-  "report.control.erosion": "Perdimos {total} de control en zonas donde no estuvimos esta semana (−{amount} en cada una que no es nuestra)."
+  "report.control.erosion": "Perdimos {total} de control en zonas donde no estuvimos esta semana (−{amount} en cada una que no es nuestra).",
+  "report.event.defected_away": "{member} dejó el club y se pasó a {faction}.",
+  "report.loyalty.succession": "Cambio de mando en {faction}: {president} es el nuevo presidente; {old} vuelve a ser Miembro."
 }

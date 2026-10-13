@@ -6,18 +6,22 @@
 // projected copy of the state (so two members don't chase the same thing), and repeats.
 // Weights come from data/ai.json; the "expansive" profile is the Grim Wolves.
 
-import type { AiProfile, BusinessDef, GameData } from "../../data/schemas";
+import type { AiProfile, BusinessDef, EventEffect, GameData } from "../../data/schemas";
+import { aiProposals, limitProposals } from "./aiCouncil";
+import { canAfford } from "./events";
+import { loyaltyMembers } from "./loyalty";
+import { cartelId } from "../management";
 import { availableTasks, reachableZones, type Assignment, type TurnOrders } from "../orders";
 import { createRng } from "../rng";
 import type { GameState, MemberState, ZoneState } from "../state";
 import { controlOf, freeControl, gainControl, loseControl, ownedZones, zoneOwner } from "./control";
 import { arrestChance } from "./law";
 import { activeMembers, effectiveStat, livingMembers } from "./members";
-import { atWar, inTruce, warEnemies } from "./diplomacy";
+import { atWar, getStance, inTruce, warEnemies } from "./diplomacy";
 import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, protectionIncome, taskHeat } from "./tasks";
 import type { Proposal } from "../council";
 import type { ManagementOrder } from "../management";
-import { businessDef, factionBusinesses, freeSlots, launderCapacity, workingBusinesses } from "./businesses";
+import { businessDef, factionBusinesses, freeSlots, launderCapacity, storageCapacity, workingBusinesses } from "./businesses";
 import { attackTarget, sideStrength } from "./combat";
 import { marketPrice } from "./economy";
 
@@ -97,8 +101,10 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
     applyExpected(plan, data, best);
     free.splice(free.indexOf(best.member), 1);
   }
-  const { management, proposals } = aiManagement(state, data, factionId, profile);
-  return { assignments, management, proposals };
+  const { management, proposals: businessProposals } = aiManagement(state, data, factionId, profile);
+  const isClub = faction?.kind === "club";
+  const proposals = isClub ? limitProposals([...aiProposals(state, data, factionId, profile), ...businessProposals], data) : [];
+  return { assignments, management, proposals, eventChoices: aiEventChoices(state, data, factionId) };
 }
 
 /** Orders for every faction with an AI profile except `exclude` (usually the human player). */
@@ -108,6 +114,7 @@ export function allAiOrders(state: GameState, data: GameData, exclude: string | 
     assignments: orders.flatMap((o) => o.assignments),
     management: orders.flatMap((o) => o.management ?? []),
     proposals: orders.flatMap((o) => o.proposals ?? []),
+    eventChoices: orders.flatMap((o) => o.eventChoices ?? []),
   };
 }
 
@@ -140,7 +147,8 @@ function aiManagement(state: GameState, data: GameData, factionId: string, p: Ai
       const d = businessDef(data, b.typeId);
       return d !== undefined && pred(d);
     });
-  // Build order: a bar (clean income, laundering, loyalty), then a chop shop (needs the council), then a garage.
+  // Build order: a bar (clean income, laundering, loyalty), a chop shop (needs the council), a garage,
+  // and a warehouse for guns if the profile trades them.
   const zone = owned[0];
   if (zone) {
     const next = !has((d) => d.bar !== undefined)
@@ -149,13 +157,68 @@ function aiManagement(state: GameState, data: GameData, factionId: string, p: Ai
         ? data.businesses.find((d) => d.chop && !d.legal)
         : !has((d) => d.garage !== undefined)
           ? data.businesses.find((d) => d.garage)
-          : undefined;
+          : p.council.wantsGuns && !has((d) => d.storage !== undefined)
+            ? data.businesses.find((d) => d.storage && !d.legal)
+            : undefined;
     if (next && faction.money.clean >= next.buildCost + p.cashReserve) {
       if (next.legal) management.push({ kind: "build", factionId, typeId: next.id, zoneId: zone });
       else proposals.push({ factionId, type: "open_illegal_business", businessTypeId: next.id, zoneId: zone });
     }
   }
+
+  // Guns: under a cartel deal, fill the warehouse with what we can afford.
+  const cartel = cartelId(data);
+  if (cartel && getStance(state, factionId, cartel)?.type === "deal") {
+    const goodId = data.balance.tasks.gunRun.goodId;
+    const space = (storageCapacity(state, data, factionId, goodId) ?? 0) - (faction.stock[goodId] ?? 0);
+    const affordable = Math.floor((faction.money.dirty - p.cashReserve) / data.balance.cartel.dealPrice);
+    const quantity = Math.min(space, affordable);
+    if (quantity > 0) management.push({ kind: "buy_guns", factionId, quantity });
+  }
   return { management, proposals };
+}
+
+/** Picks the option of each pending event with the best expected value (same choices as the player). */
+export function aiEventChoices(state: GameState, data: GameData, factionId: string): { instanceId: string; optionId: string }[] {
+  return state.pendingEvents
+    .filter((e) => e.factionId === factionId)
+    .flatMap((e) => {
+      const def = data.events.find((d) => d.id === e.eventId);
+      if (!def) return [];
+      const members = loyaltyMembers(state, factionId).length;
+      const options = def.options.filter((o) => canAfford(state, factionId, def, o.id));
+      const best = options
+        .map((o) => ({ id: o.id, value: effectsValue(o.effects, data.ai.eventValues, members) }))
+        .sort((a, b) => b.value - a.value || a.id.localeCompare(b.id))[0];
+      return best ? [{ instanceId: e.instanceId, optionId: best.id }] : [];
+    });
+}
+
+function effectsValue(effects: readonly EventEffect[], v: GameData["ai"]["eventValues"], members: number): number {
+  return effects.reduce((sum, fx) => {
+    switch (fx.type) {
+      case "money":
+        return sum + fx.amount * v.money;
+      case "loyalty":
+        return sum + fx.amount * v.loyaltyPerMember * (fx.target === "subject" ? 1 : members);
+      case "sheriff":
+        return sum + fx.amount * v.sheriff;
+      case "rival_relation":
+        return sum + fx.amount * v.rivalRelation;
+      case "heat":
+        return sum + fx.amount * v.heat;
+      case "promote_subject":
+        return sum + v.promoteSubject;
+      case "defect_subject":
+        return sum + v.defectSubject;
+      case "jail_random":
+        return sum + v.jailRandom;
+      case "expose_informant":
+        return sum + v.exposeInformant;
+      case "chance":
+        return sum + fx.probability * effectsValue(fx.success, v, members) + (1 - fx.probability) * effectsValue(fx.failure, v, members);
+    }
+  }, 0);
 }
 
 function weeklyWages(state: GameState, data: GameData, factionId: string): number {
@@ -199,7 +262,9 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
     : 0;
   const addedHeat = Math.max(0, taskHeatEstimate(plan, data, member.factionId, task.heat));
   const crackdownRisk = task.illegal && zone.heat + addedHeat >= balance.heat.crackdownThreshold ? p.crackdownPenalty : 0;
-  const risk = arrest * p.arrestPenalty + crackdownRisk;
+  // A club in unrest can't afford more arrests: they also cost loyalty.
+  const caution = (plan.state.factions[member.factionId]?.lowLoyaltyWeeks ?? 0) > 0 ? p.council.unrestCaution : 1;
+  const risk = arrest * p.arrestPenalty * caution + crackdownRisk;
   const heatCost = addedHeat * p.heatPenalty;
   const affinity = data.traits.tasks[member.trait];
   const traitValue =

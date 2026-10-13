@@ -150,6 +150,8 @@ export const PendingEventSchema = z.object({
   eventId: IdSchema,
   factionId: IdSchema,
   subjectMemberId: IdSchema.nullable(),
+  /** The rival club the event refers to (defectors, relation changes). */
+  rivalFactionId: IdSchema.nullable().optional(),
   week: z.number().int(),
 });
 export type PendingEvent = z.infer<typeof PendingEventSchema>;
@@ -187,7 +189,7 @@ export const GameStateSchema = z.object({
   shipments: z.array(z.object({ factionId: IdSchema, goodId: IdSchema, quantity: NonNegativeInt })),
   /** Events waiting for the player's decision (GDD §13). */
   pendingEvents: z.array(PendingEventSchema),
-  /** Last week each event happened, for cooldowns. */
+  /** Last week each event happened to each club, keyed `${eventId}__${factionId}`, for cooldowns. */
   eventHistory: z.record(IdSchema, z.number().int()),
   /** Counter for unique business ids. */
   businessSerial: NonNegativeInt,

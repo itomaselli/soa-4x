@@ -72,7 +72,9 @@
     "promotionLoyalty": 10,
     "warRelation": -60,
     "truceWeeks": 8,
-    "truceAcceptRelation": -40
+    "truceAcceptRelation": -40,
+    "successionLoyaltyBonus": 10,
+    "deposedPresidentLoyalty": 30
   },
   "laundering": {
     "federalAttentionCapacityRatio": 0.7,

@@ -1,7 +1,7 @@
-// Narrative events (GDD §13). For now only the human player's club gets them.
-//   - At the "events" stage, with `events.weeklyChance`, one eligible event (conditions met, out of cooldown,
-//     subject available) is picked by weight and left pending.
-//   - Next week, at the start of resolution, the player's choice (or the default option) is applied.
+// Narrative events (GDD §13). Every club gets them, with the same rules (phase 8).
+//   - At the "events" stage, each club rolls `events.weeklyChance`; one eligible event (conditions met,
+//     out of cooldown, subject available) is picked by weight and left pending.
+//   - Next week, at the start of resolution, the club's choice (the player's, or the AI's) or the default is applied.
 
 import type { EventDef, EventEffect, GameData } from "../../data/schemas";
 import type { TurnContext } from "../context";
@@ -11,33 +11,54 @@ import { clamp } from "../util";
 import { factionMembers, livingMembers, memberLabel } from "./members";
 import { jail } from "./tasks";
 
+/** The club an event's "rival" refers to: the other club that regards us worst (ties: the configured rival, then id). */
+export function mainRival(state: GameState, data: GameData, factionId: string): string | null {
+  const preferred = data.balance.victory.rivalToExpel;
+  const clubs = data.factions.filter((f) => f.kind === "club" && f.id !== factionId).map((f) => f.id);
+  const regard = (id: string) => state.factions[id]?.relations[factionId] ?? 0;
+  return clubs.sort((a, b) => regard(a) - regard(b) || Number(b === preferred) - Number(a === preferred) || a.localeCompare(b))[0] ?? null;
+}
+
+export function historyKey(eventId: string, factionId: string): string {
+  return `${eventId}__${factionId}`;
+}
+
 function subjectCandidates(state: GameState, data: GameData, factionId: string, def: EventDef): MemberState[] {
   if (def.subject === "prospect") {
     return factionMembers(state, factionId).filter((m) => m.rank === "prospect" && m.status !== "dead");
   }
   if (def.subject === "rival_member") {
-    const rival = data.balance.victory.rivalToExpel;
-    return livingMembers(state, rival).filter((m) => m.rank !== "president" && m.status === "active");
+    const rival = mainRival(state, data, factionId);
+    return rival ? livingMembers(state, rival).filter((m) => m.rank !== "president" && m.status === "active") : [];
   }
   return [];
 }
 
 export function eventEligible(state: GameState, data: GameData, factionId: string, def: EventDef): boolean {
   const c = def.conditions;
-  const last = state.eventHistory[def.id];
+  const last = state.eventHistory[historyKey(def.id, factionId)];
   if (last !== undefined && state.week - last < data.balance.events.cooldownWeeks) return false;
   if (c.minWeek !== undefined && state.week < c.minWeek) return false;
   const members = livingMembers(state, factionId);
   if (c.hasProspect && !members.some((m) => m.rank === "prospect")) return false;
   if (c.hasInformant && !members.some((m) => m.informant)) return false;
-  if (c.rivalMinMembers !== undefined && livingMembers(state, data.balance.victory.rivalToExpel).length < c.rivalMinMembers) return false;
+  if (c.rivalMinMembers !== undefined) {
+    const rival = mainRival(state, data, factionId);
+    if (!rival || livingMembers(state, rival).length < c.rivalMinMembers) return false;
+  }
   if (def.subject !== null && subjectCandidates(state, data, factionId, def).length === 0) return false;
   return true;
 }
 
 export function triggerEvents(state: GameState, ctx: TurnContext): void {
+  const clubs = ctx.data.factions.filter((f) => f.kind === "club").map((f) => f.id);
+  for (const factionId of clubs) {
+    if (livingMembers(state, factionId).length > 0) triggerEventFor(state, ctx, factionId);
+  }
+}
+
+function triggerEventFor(state: GameState, ctx: TurnContext, factionId: string): void {
   const { data, rng } = ctx;
-  const factionId = state.playerFactionId;
   if (!rng.chance(data.balance.events.weeklyChance)) return;
   const eligible = data.events.filter((e) => eventEligible(state, data, factionId, e));
   if (eligible.length === 0) return;
@@ -45,8 +66,15 @@ export function triggerEvents(state: GameState, ctx: TurnContext): void {
   const def = eligible.find((e) => (roll -= e.weight) < 0) ?? eligible[eligible.length - 1]!;
   const candidates = subjectCandidates(state, data, factionId, def).sort((a, b) => a.id.localeCompare(b.id));
   const subject = candidates.length > 0 ? rng.pick(candidates) : null;
-  state.pendingEvents.push({ instanceId: `${def.id}@${state.week}`, eventId: def.id, factionId, subjectMemberId: subject?.id ?? null, week: state.week });
-  state.eventHistory[def.id] = state.week;
+  state.pendingEvents.push({
+    instanceId: `${def.id}@${state.week}@${factionId}`,
+    eventId: def.id,
+    factionId,
+    subjectMemberId: subject?.id ?? null,
+    rivalFactionId: mainRival(state, data, factionId),
+    week: state.week,
+  });
+  state.eventHistory[historyKey(def.id, factionId)] = state.week;
   ctx.report("report.event.new", { titleKey: `event.${def.id}.title` }, factionId);
 }
 
@@ -115,9 +143,11 @@ function applyEffect(state: GameState, ctx: TurnContext, event: PendingEvent, fx
       return;
     }
     case "rival_relation": {
-      const rival = state.factions[data.balance.victory.rivalToExpel];
-      if (rival) rival.relations[event.factionId] = clamp((rival.relations[event.factionId] ?? 0) + fx.amount, ranges.relation);
-      report("report.event.rival_relation", { amount: fx.amount, rival: factionName(data, data.balance.victory.rivalToExpel) });
+      const rivalId = event.rivalFactionId ?? mainRival(state, data, event.factionId);
+      const rival = rivalId ? state.factions[rivalId] : undefined;
+      if (!rivalId || !rival) return;
+      rival.relations[event.factionId] = clamp((rival.relations[event.factionId] ?? 0) + fx.amount, ranges.relation);
+      report("report.event.rival_relation", { amount: fx.amount, rival: factionName(data, rivalId) });
       return;
     }
     case "heat": {
@@ -134,6 +164,8 @@ function applyEffect(state: GameState, ctx: TurnContext, event: PendingEvent, fx
       return;
     case "defect_subject":
       if (subject && subject.status !== "dead" && livingMembers(state, event.factionId).length < data.balance.club.memberCap) {
+        const from = subject.factionId;
+        ctx.report("report.event.defected_away", { member: memberLabel(subject), faction: factionName(data, event.factionId) }, from);
         subject.factionId = event.factionId;
         subject.rank = "prospect";
         subject.loyalty = data.balance.tasks.recruit.startingLoyalty;

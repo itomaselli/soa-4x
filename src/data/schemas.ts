@@ -85,6 +85,10 @@ export const BalanceSchema = z.object({
     truceWeeks: Int.positive(),
     /** A rival accepts a truce if its relation towards us is at least this, or if it's not ahead in zones. */
     truceAcceptRelation: z.number(),
+    /** When an AI club removes its president, the rest of the club gains this much loyalty (new leadership). */
+    successionLoyaltyBonus: z.number().nonnegative(),
+    /** Loyalty of a deposed president who stays in the club as a Member. */
+    deposedPresidentLoyalty: z.number(),
   }),
   laundering: z.object({
     /** Laundering above this share of capacity draws federal attention (GDD §8). */
@@ -465,11 +469,44 @@ export const AiProfileSchema = z.object({
   allowedZones: z.array(IdSchema).nullable(),
   /** Random variation applied to each score (0.15 = ±15%). */
   noise: z.number().min(0).max(1),
+  /** How the AI uses the council and handles its club (phase 8). */
+  council: z.object({
+    /** Declares war on a club whose relation towards us is at or below this… */
+    warRelationTrigger: z.number(),
+    /** …if our active strength is at least this many times theirs. */
+    warStrengthRatio: z.number().positive(),
+    /** At war, asks for a truce if average loyalty drops below this… */
+    truceLoyaltyConcern: z.number(),
+    /** …or if the enemy owns at least this many more zones than we do. */
+    truceWhenBehindZones: z.number().int().nonnegative(),
+    /** Promotes a prospect to Member once their loyalty reaches this. */
+    promoteProspectLoyalty: z.number(),
+    /** Proposes expelling members whose loyalty falls below this (before they desert or turn informant). */
+    expelLoyalty: z.number(),
+    /** Proposes a cartel deal once it has a warehouse and at least this much dirty money. */
+    cartelDealDirty: z.number(),
+    /** Builds a warehouse and trades guns. */
+    wantsGuns: z.boolean(),
+    /** While the club is in unrest, arrest risk weighs this many times more. */
+    unrestCaution: z.number().nonnegative(),
+  }),
 });
 export type AiProfile = z.infer<typeof AiProfileSchema>;
 
 export const AiSchema = z.object({
   profiles: z.record(z.string(), AiProfileSchema),
+  /** How the AI values each kind of event effect when choosing an option (roughly in dollars). */
+  eventValues: z.object({
+    money: z.number(),
+    loyaltyPerMember: z.number(),
+    sheriff: z.number(),
+    rivalRelation: z.number(),
+    heat: z.number(),
+    promoteSubject: z.number(),
+    defectSubject: z.number(),
+    jailRandom: z.number(),
+    exposeInformant: z.number(),
+  }),
 });
 export type AiData = z.infer<typeof AiSchema>;
 

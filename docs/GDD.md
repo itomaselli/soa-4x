@@ -98,7 +98,13 @@ Requieren voto: declarar guerra o tregua, aceptar un trato con el cartel, abrir 
 - **Ascensos:** Prospecto → Miembro → un cargo libre (Sargento de Armas, Tesorero o Vicepresidente). Hay un solo titular por cargo. El ascendido gana +10 de lealtad.
 - **Expulsión:** el miembro deja el club. Si era informante se descubre y la investigación federal baja 10. Al presidente no se lo puede expulsar.
 - **La destitución** la propone el Vicepresidente; si no puede, el miembro Ambicioso y, si no hay, el menos leal. Si la mesa sostiene al presidente, la cuenta de semanas vuelve a cero.
-- Los clubs de la IA todavía no usan la mesa: no proponen nada. Sí les afectan la lealtad, las deserciones, los informantes y la destitución; si destituyen a su presidente, por ahora solo se informa.
+- **La IA usa la mesa (Fase 8)**, con las mismas propuestas y votos que el jugador y como mucho 2 propuestas por semana, en este orden de prioridad:
+  1. **Tregua:** cuando está en guerra y su lealtad media es menor a 45 o va perdiendo por 2 zonas. Solo la pide si el rival la aceptaría.
+  2. **Guerra:** contra quien la trata con −30 o peor, si su Fuerza activa supera en un 10% a la del rival.
+  3. **Expulsión:** de los miembros con lealtad menor a 15.
+  4. **Ascensos:** cubre cargos vacantes con su Miembro más leal, o asciende a un prospecto con lealtad 60 o más.
+  5. **Negocios ilegales y trato con el cartel:** cuando tiene depósito, plata sucia y el cartel la acepta.
+- **Sucesión en clubes de la IA (Fase 8):** si su mesa destituye al presidente, asume quien propuso la moción, el anterior vuelve a ser Miembro (con lealtad 30) y el resto del club gana +10 de lealtad. Para el jugador, la destitución sigue siendo derrota.
 
 ### Lealtad
 Sube con pagos regulares, victorias y respetar el voto de la mesa. Baja con miembros muertos o presos, deudas, ignorar a la mesa, guerras largas y contradecir el rasgo del miembro.
@@ -263,7 +269,7 @@ La IA usa las mismas reglas y tareas que el jugador. Nada de trampas.
 Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opciones y efectos.
 
 **Funcionamiento (Fase 5):**
-- Cada semana hay 30% de chance de un evento para el club del jugador; los clubs de la IA no tienen eventos.
+- Cada semana, **cada club** tiene 30% de chance de un evento (Fase 8: los clubes de la IA también). La IA elige la opción con mejor valor esperado; los valores están en `data/ai.json` (`eventValues`). "El rival" de un evento es el club que peor trata a quien lo recibe. Si un miembro tuyo se pasa a otro club por un evento, el informe te avisa.
 - Se elige uno al azar (según su peso) entre los que cumplen sus condiciones y no ocurrieron en las últimas 10 semanas.
 - El jugador decide antes de avanzar la semana y la decisión se aplica al comienzo de la siguiente. Si no decide, o no puede pagar la opción elegida, se aplica la opción por defecto.
 - **Condiciones posibles:** semana mínima, tener un prospecto, tener un informante, que el rival tenga al menos N miembros.
@@ -366,17 +372,19 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Qué es el "transporte"? (Fase 5) | La entrega de las armas del cartel, con riesgo de incautación en el puerto. |
 | ¿Cuándo rinde "trabajar en taller"? (Fase 5) | Las tareas se resuelven después de la producción, así que el trabajo suma capacidad para la semana siguiente. |
 | ¿Quién paga sueldos? (Fase 5) | Solo los clubs. El cartel no paga sueldos ni tiene mesa. |
-| ¿Eventos para la IA? (Fase 5) | No por ahora: solo el jugador tiene eventos. |
+| ¿Eventos para la IA? (Fase 5 → Fase 8) | Sí: desde la Fase 8 todos los clubes tienen eventos y los deciden. |
 | ¿Ventaja de los Grim Wolves? (Fase 6) | Se igualó la Fuerza total de los dos clubs (40 cada uno). Con +3 de Fuerza, los Wolves ganaban casi siempre en la simulación. |
 | ¿"Menos de 3 miembros activos"? (Fase 6) | Cuenta a los que siguen en el club, aunque estén presos o heridos. Una racha de arrestos ya no termina la partida. |
 | ¿La lealtad sube sola sin límite? (Fase 6) | No: el sueldo y el bar la suben hasta 70 como mucho. |
 | ¿Cuántos miembros recluta la IA? (Fase 6) | Hasta el tope de 15. Con menos, no le alcanzaba la gente para cobrar en todas sus zonas y además expandirse. |
 | ¿Cómo se rompen los empates? (Fase 6) | Con la erosión de influencia (§5). |
 | ¿Con qué IA juega el simulador por el jugador? (Fase 6) | Con el mismo perfil que los Wolves ("expansive"), para que la comparación sea pareja. Ojo: en la simulación solo el jugador puede perder por destitución; los clubs de la IA no. |
+| ¿Hay sucesión? (Fase 8) | Para los clubes de la IA, sí (ver §6). Para el jugador, perder la presidencia sigue siendo derrota. La muerte del presidente sigue abierta. |
+| ¿La IA es prudente? (Fase 8) | Con el club en malestar, le pesa el doble el riesgo de arresto. No pide treguas ni tratos que le van a rechazar. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas
 
 - ¿Nombre final del juego y del club?
-- ¿El presidente puede morir? ¿Hay sucesión?
+- ¿El presidente puede morir? (La sucesión ya existe para los clubes de la IA.)
 - ¿Agregar una tercera cadena (contrabando de alcohol o tabaco) en la fase 5?
