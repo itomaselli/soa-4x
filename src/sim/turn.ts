@@ -8,7 +8,12 @@ import { validateAssignment, type Assignment, type TurnOrders } from "./orders";
 import { TURN_STAGES, type ReportEntry, type Reporter, type TurnStage } from "./report";
 import { createRng } from "./rng";
 import type { GameState } from "./state";
+import type { ManagementOrder } from "./management";
+import { resolveCartel } from "./systems/cartel";
+import { resolveCombat } from "./systems/combat";
 import { ownedZones } from "./systems/control";
+import { resolveLaundering, resolveManagement, resolveProduction, resolveSales, resolveTransport } from "./systems/economy";
+import { resolveEventChoices, triggerEvents } from "./systems/events";
 import { resolveCouncil } from "./systems/council";
 import { resolveEndOfTurn } from "./systems/endOfTurn";
 import { payExpenses } from "./systems/expenses";
@@ -22,22 +27,32 @@ export interface TurnResult {
   report: ReportEntry[];
 }
 
-type StageHandler = (state: GameState, ctx: TurnContext, orders: { assignments: Assignment[]; proposals: Proposal[] }) => void;
+interface StageOrders {
+  assignments: Assignment[];
+  proposals: Proposal[];
+  management: ManagementOrder[];
+  eventChoices: { instanceId: string; optionId: string }[];
+}
 
-const notYetImplemented: StageHandler = () => {};
+type StageHandler = (state: GameState, ctx: TurnContext, orders: StageOrders) => void;
 
 const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
+  event_choices: (state, ctx, orders) => resolveEventChoices(state, orders.eventChoices, ctx),
   council: (state, ctx, orders) => resolveCouncil(state, orders.proposals, ctx),
-  production: notYetImplemented, // phase 5
-  transport: notYetImplemented, // phase 5: moving stock between businesses
-  sales: notYetImplemented, // phase 5
+  management: (state, ctx, orders) => resolveManagement(state, orders.management, ctx),
+  production: (state, ctx) => resolveProduction(state, ctx),
+  transport: (state, ctx) => resolveTransport(state, ctx),
+  sales: (state, ctx, orders) => resolveSales(state, orders.management, ctx),
   faction_tasks: (state, ctx, orders) => resolveFactionTasks(state, orders.assignments, ctx),
-  combat: notYetImplemented, // phase 2
-  laundering: notYetImplemented, // phase 5
+  combat: (state, ctx) => resolveCombat(state, ctx),
+  laundering: (state, ctx, orders) => resolveLaundering(state, orders.management, ctx),
   expenses: (state, ctx) => payExpenses(state, ctx),
   heat_and_law: (state, ctx) => resolveHeat(state, ctx),
   loyalty: (state, ctx) => resolveLoyalty(state, ctx),
-  events: notYetImplemented, // phase 5
+  events: (state, ctx) => {
+    resolveCartel(state, ctx);
+    triggerEvents(state, ctx);
+  },
   end_of_turn: (state, ctx) => resolveEndOfTurn(state, ctx),
 };
 
@@ -85,7 +100,12 @@ export function resolveTurn(state: GameState, orders: TurnOrders, data: GameData
     stage = s;
     // Assignments are re-checked after the council: an expelled member's task is dropped.
     const assignments = s === "faction_tasks" ? valid.filter((a) => next.members[a.memberId]?.status === "active") : valid;
-    STAGE_HANDLERS[s](next, ctx, { assignments, proposals: orders.proposals ?? [] });
+    STAGE_HANDLERS[s](next, ctx, {
+      assignments,
+      proposals: orders.proposals ?? [],
+      management: orders.management ?? [],
+      eventChoices: orders.eventChoices ?? [],
+    });
   }
 
   next.rngState = rng.getState();

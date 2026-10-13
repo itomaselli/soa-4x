@@ -47,7 +47,6 @@ describe("resolución del turno", () => {
 describe("órdenes inválidas se descartan y se explican", () => {
   const cases: Array<[string, Assignment, string]> = [
     ["miembro inexistente", { memberId: "member_nobody", taskId: "task_guard_zone", zoneId: "zone_redwater" }, "order_error.unknown_member"],
-    ["tarea no disponible todavía", { memberId: PRESIDENT, taskId: "task_gun_run", zoneId: "zone_redwater" }, "order_error.task_not_available"],
     ["zona fuera de alcance", { memberId: PRESIDENT, taskId: "task_guard_zone", zoneId: "zone_lone_pine" }, "order_error.zone_not_reachable"],
   ];
   for (const [name, assignment, reason] of cases) {
@@ -57,6 +56,14 @@ describe("órdenes inválidas se descartan y se explican", () => {
       expect(rejected?.params.reasonKey).toBe(reason);
     });
   }
+
+  it("una tarea deshabilitada en tasks.json no se puede ordenar", () => {
+    const data = dataWith((d) => {
+      d.tasks.find((t) => t.id === "task_gun_run")!.enabled = false;
+    });
+    const { report } = resolveTurn(newState(), { assignments: [{ memberId: PRESIDENT, taskId: "task_gun_run", zoneId: "zone_redwater" }] }, data);
+    expect(report.find((e) => e.key === "report.order_rejected")?.params.reasonKey).toBe("order_error.task_not_available");
+  });
 
   it("un miembro preso no puede recibir tarea", () => {
     const state = newState();

@@ -7,6 +7,8 @@ import { STAT_KEYS, TRAITS, type GameState, type MemberState, type Stats, type Z
 import { clamp } from "../util";
 import { controlOf, gainControl, loseControl, strongestRival } from "./control";
 import { atWar, inTruce } from "./diplomacy";
+import { businessDef } from "./businesses";
+import { marketPrice, sellGoods } from "./economy";
 import { arrestChance } from "./law";
 import { effectiveStat, livingMembers, memberLabel } from "./members";
 
@@ -276,6 +278,49 @@ const lieLow: TaskHandler = ({ ctx, member, params }) => {
   ctx.report("report.task.lie_low", params, member.factionId);
 };
 
+/** Working at one of our garages in the zone adds Hands/handsPerExtraUnit units to next week's production. */
+const workGarage: TaskHandler = ({ state, ctx, member, zone, params }) => {
+  const garage = state.businesses.find(
+    (b) => b.ownerFactionId === member.factionId && b.zoneId === zone.id && !b.suspended && businessDef(ctx.data, b.typeId)?.garage,
+  );
+  const rule = garage ? businessDef(ctx.data, garage.typeId)?.garage : undefined;
+  if (!garage || !rule) {
+    ctx.report("report.task.work_garage_none", params, member.factionId);
+    return;
+  }
+  const extra = Math.floor(effectiveStat(member, "hands", ctx.data.balance) / rule.handsPerExtraUnit);
+  garage.workCapacity += extra;
+  ctx.report("report.task.work_garage", { ...params, extra }, member.factionId);
+};
+
+/** Crates a gun run moves: baseCrates + Cunning / cunningDivisor (GDD §9, chain B). */
+export function gunRunCrates(member: MemberState, balance: Balance): number {
+  const rule = balance.tasks.gunRun;
+  return rule.baseCrates + Math.floor(effectiveStat(member, "cunning", balance) / rule.cunningDivisor);
+}
+
+const gunRun: TaskHandler = ({ state, ctx, member, params }) => {
+  const { balance } = ctx.data;
+  const goodId = balance.tasks.gunRun.goodId;
+  const faction = state.factions[member.factionId];
+  const crates = Math.min(faction?.stock[goodId] ?? 0, gunRunCrates(member, balance));
+  if (!faction || crates <= 0) {
+    ctx.report("report.task.gun_run_empty", params, member.factionId);
+    return;
+  }
+  const price = marketPrice(state, ctx.data, goodId) ?? 0;
+  const income = sellGoods(state, ctx.data, member.factionId, goodId, crates);
+  faction.federal = clamp(faction.federal + balance.federal.perGunRun, balance.ranges.federalInvestigation);
+  ctx.report("report.task.gun_run", { ...params, crates, price, income }, member.factionId);
+};
+
+/** Attacks are gathered here and fought together in the combat stage (GDD §4: tasks → combats). */
+const attackBusiness: TaskHandler = ({ ctx, member, zone, params }) => {
+  const key = `${member.factionId}|${zone.id}`;
+  ctx.scratch.attacks[key] = [...(ctx.scratch.attacks[key] ?? []), member.id];
+  ctx.report("report.task.attack_ready", params, member.factionId);
+};
+
 const TASK_HANDLERS: Record<string, TaskHandler> = {
   task_guard_zone: guardZone,
   task_collect_protection: collectProtection,
@@ -284,6 +329,9 @@ const TASK_HANDLERS: Record<string, TaskHandler> = {
   task_bribe: bribe,
   task_recruit: recruit,
   task_lie_low: lieLow,
+  task_work_garage: workGarage,
+  task_gun_run: gunRun,
+  task_attack_business: attackBusiness,
 };
 
 /** Task ids with an implementation. Enabled tasks in tasks.json must be in this list (checked by a test). */

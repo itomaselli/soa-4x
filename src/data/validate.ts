@@ -170,6 +170,36 @@ export function validateGameData(data: GameData): string[] {
   }
   if (!inRange(tasks.recruit.startingLoyalty, ranges.loyalty)) errors.push("balance.json: tasks.recruit.startingLoyalty fuera de rango");
 
+  // Businesses, goods and events reference real things
+  const goodIds = new Set(data.goods.map((g) => g.id));
+  for (const b of data.businesses) {
+    for (const id of [b.chop?.inputGoodId, b.chop?.outputGoodId, b.garage?.inputGoodId, b.garage?.outputGoodId, b.storage?.goodId]) {
+      if (id !== undefined && !goodIds.has(id)) errors.push(`businesses.json › ${b.id}: bien desconocido "${id}"`);
+    }
+  }
+  for (const g of data.goods) {
+    if ((g.basePrice === null) !== (g.saleCurrency === null)) errors.push(`goods.json › ${g.id}: basePrice y saleCurrency van juntos`);
+  }
+  if (!goodIds.has(data.balance.tasks.gunRun.goodId)) errors.push(`balance.json: tasks.gunRun.goodId desconocido`);
+  if (!zoneIds.has(data.balance.cartel.portZoneId)) errors.push(`balance.json: cartel.portZoneId desconocido`);
+  if (!data.factions.some((f) => f.kind === "cartel")) errors.push("factions.json: falta una facción de tipo cartel");
+  for (const e of data.events) {
+    if (!e.options.some((o) => o.id === e.defaultOption)) errors.push(`events.json › ${e.id}: defaultOption no es una opción`);
+    const walk = (effects: (typeof e.options)[number]["effects"]): void => {
+      for (const fx of effects) {
+        if (fx.type === "heat" && !zoneIds.has(fx.zoneId)) errors.push(`events.json › ${e.id}: zona desconocida "${fx.zoneId}"`);
+        if (fx.type === "chance") {
+          walk(fx.success);
+          walk(fx.failure);
+        }
+      }
+    };
+    for (const o of e.options) walk(o.effects);
+  }
+  for (const [name, profile] of Object.entries(data.ai.profiles)) {
+    for (const z of profile.allowedZones ?? []) if (!zoneIds.has(z)) errors.push(`ai.json › ${name}: zona desconocida "${z}"`);
+  }
+
   // Trait task lists point to real tasks
   const taskIds = new Set(data.tasks.map((t) => t.id));
   for (const [trait, affinity] of Object.entries(data.traits.tasks)) {

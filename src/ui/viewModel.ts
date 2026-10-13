@@ -10,6 +10,10 @@ import { chanceWithPresident, voters } from "../sim/systems/council";
 import { diplomaticState, getStance } from "../sim/systems/diplomacy";
 import { averageLoyalty } from "../sim/systems/loyalty";
 import { factionMembers } from "../sim/systems/members";
+import { cartelId } from "../sim/management";
+import { businessDef, freeSlots, launderCapacity, storageCapacity } from "../sim/systems/businesses";
+import { marketPrice } from "../sim/systems/economy";
+import { canAfford } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
 
 export function mapViewModel(state: GameState, data: GameData, viewer: string, selectedZoneId: string | null): MapViewModel {
@@ -174,5 +178,124 @@ export function diplomacyRows(state: GameState, data: GameData, viewer: string):
         truceWeeksLeft: stance?.type === "truce" ? data.balance.council.truceWeeks - (state.week - stance.sinceWeek) : null,
         warWeeks: stance?.type === "war" ? state.week - stance.sinceWeek : null,
       };
+    });
+}
+
+export interface BusinessRow {
+  id: string;
+  typeKey: string;
+  zone: string;
+  statusKey: string;
+  legal: boolean;
+}
+
+export function businessRows(state: GameState, data: GameData, viewer: string): BusinessRow[] {
+  return state.businesses
+    .filter((b) => b.ownerFactionId === viewer)
+    .map((b) => ({
+      id: b.id,
+      typeKey: `business.${b.typeId}`,
+      zone: data.zones.find((z) => z.id === b.zoneId)?.name ?? b.zoneId,
+      statusKey: b.suspended ? "ui.biz.suspended" : b.builtWeek >= state.week ? "ui.biz.new" : "ui.biz.working",
+      legal: businessDef(data, b.typeId)?.legal ?? true,
+    }));
+}
+
+export interface GoodRow {
+  id: string;
+  nameKey: string;
+  stock: number;
+  /** null if it can't be sold directly. */
+  price: number | null;
+  currencyKey: string | null;
+}
+
+export function goodRows(state: GameState, data: GameData, viewer: string): GoodRow[] {
+  return data.goods.map((g) => ({
+    id: g.id,
+    nameKey: `good.${g.id}`,
+    stock: state.factions[viewer]?.stock[g.id] ?? 0,
+    price: marketPrice(state, data, g.id),
+    currencyKey: g.saleCurrency ? `currency.${g.saleCurrency}` : null,
+  }));
+}
+
+/** Zones where the viewer can build (owned, with free slots). */
+export function buildableZones(state: GameState, data: GameData, viewer: string): string[] {
+  return ownedZones(state, viewer, data.balance).filter((z) => freeSlots(state, data, z) > 0);
+}
+
+export interface LaunderingInfo {
+  capacity: number;
+  /** Most that can be laundered without drawing federal attention. */
+  safe: number;
+}
+
+export function launderingInfo(state: GameState, data: GameData, viewer: string): LaunderingInfo {
+  const capacity = launderCapacity(state, data, viewer);
+  return { capacity, safe: Math.floor(capacity * data.balance.laundering.federalAttentionCapacityRatio) };
+}
+
+export interface CartelInfo {
+  cartelId: string | null;
+  dealing: boolean;
+  price: number;
+  /** Free warehouse space for gun crates. */
+  space: number;
+  /** Weeks left to buy before the cartel considers the deal broken. */
+  weeksLeft: number | null;
+}
+
+export function cartelInfo(state: GameState, data: GameData, viewer: string): CartelInfo {
+  const cartel = cartelId(data);
+  const stance = cartel ? getStance(state, viewer, cartel) : null;
+  const goodId = data.balance.tasks.gunRun.goodId;
+  const capacity = storageCapacity(state, data, viewer, goodId) ?? 0;
+  const dealing = stance?.type === "deal";
+  return {
+    cartelId: cartel,
+    dealing,
+    price: data.balance.cartel.dealPrice,
+    space: Math.max(0, capacity - (state.factions[viewer]?.stock[goodId] ?? 0)),
+    weeksLeft: dealing ? data.balance.cartel.graceWeeks - (state.week - (stance?.lastPurchaseWeek ?? stance?.sinceWeek ?? state.week)) : null,
+  };
+}
+
+export interface EventView {
+  instanceId: string;
+  titleKey: string;
+  textKey: string;
+  subject: string;
+  options: { id: string; labelKey: string; affordable: boolean; isDefault: boolean }[];
+}
+
+export function pendingEventViews(state: GameState, data: GameData, viewer: string): EventView[] {
+  return state.pendingEvents
+    .filter((e) => e.factionId === viewer)
+    .map((e) => {
+      const def = data.events.find((d) => d.id === e.eventId);
+      const subject = e.subjectMemberId ? state.members[e.subjectMemberId] : undefined;
+      return {
+        instanceId: e.instanceId,
+        titleKey: `event.${e.eventId}.title`,
+        textKey: `event.${e.eventId}.text`,
+        subject: subject ? `${subject.nickname} (${subject.name})` : "",
+        options: (def?.options ?? []).map((o) => ({
+          id: o.id,
+          labelKey: `event.${e.eventId}.option.${o.id}`,
+          affordable: def ? canAfford(state, viewer, def, o.id) : false,
+          isDefault: def?.defaultOption === o.id,
+        })),
+      };
+    });
+}
+
+/** Businesses in a zone, for the zone panel. */
+export function zoneBusinesses(state: GameState, data: GameData, zoneId: string): { typeKey: string; owner: string; color: string }[] {
+  return state.businesses
+    .filter((b) => b.zoneId === zoneId)
+    .map((b) => {
+      const owner = data.factions.find((f) => f.id === b.ownerFactionId);
+      return { typeKey: `business.${b.typeId}`, owner: owner?.name ?? b.ownerFactionId, color: owner?.color ?? data.ui.colors.neutral };
     });
 }

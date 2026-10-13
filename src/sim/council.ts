@@ -3,7 +3,8 @@
 
 import { z } from "zod";
 import type { GameData } from "../data/schemas";
-import { atWar } from "./systems/diplomacy";
+import { buildProblem } from "./systems/businesses";
+import { atWar, getStance } from "./systems/diplomacy";
 import { IdSchema, ProposalTypeSchema, RankSchema, type GameState, type Rank } from "./state";
 
 export const ProposalSchema = z.object({
@@ -16,6 +17,9 @@ export const ProposalSchema = z.object({
   targetFactionId: IdSchema.optional(),
   /** promote */
   newRank: RankSchema.optional(),
+  /** open_illegal_business */
+  businessTypeId: IdSchema.optional(),
+  zoneId: IdSchema.optional(),
   /** If the vote is lost, do it anyway and pay the loyalty cost of ignoring the council. */
   force: z.boolean().optional(),
 });
@@ -65,6 +69,18 @@ export function validateProposal(state: GameState, data: GameData, p: Proposal, 
       if (!member || member.factionId !== p.factionId || member.status === "dead") return "proposal_error.bad_member";
       if (member.rank === "president") return "proposal_error.cannot_expel_president";
       return null;
+    }
+    case "cartel_deal": {
+      const cartel = data.factions.find((f) => f.kind === "cartel");
+      if (!cartel || p.targetFactionId !== cartel.id) return "proposal_error.bad_faction";
+      if (getStance(state, p.factionId, cartel.id)?.type === "deal") return "proposal_error.already_dealing";
+      return null;
+    }
+    case "open_illegal_business": {
+      const def = data.businesses.find((b) => b.id === p.businessTypeId);
+      if (!def || def.legal) return "proposal_error.bad_business";
+      if (!p.zoneId) return "proposal_error.bad_zone";
+      return buildProblem(state, data, p.factionId, def.id, p.zoneId);
     }
   }
 }

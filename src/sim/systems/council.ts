@@ -2,7 +2,8 @@
 // The president always votes for his own proposals; a tie goes his way.
 
 import type { GameData } from "../../data/schemas";
-import { factionName, type TurnContext } from "../context";
+import { factionName, zoneName, type TurnContext } from "../context";
+import { addBusiness, buildProblem } from "./businesses";
 import { validateProposal, type Proposal } from "../council";
 import type { GameState, MemberState, VoteType } from "../state";
 import { clamp } from "../util";
@@ -146,6 +147,24 @@ export function resolveCouncil(state: GameState, proposals: readonly Proposal[],
         c.report("report.council.promoted", params, p.factionId);
         return;
       }
+      case "cartel_deal": {
+        const cartel = p.targetFactionId!;
+        const regard = s.factions[cartel]?.relations[p.factionId] ?? 0;
+        if (regard < c.data.balance.cartel.dealMinRelation) {
+          c.report("report.council.deal_refused", params, p.factionId);
+          return;
+        }
+        s.stances[stanceKey(p.factionId, cartel)] = { type: "deal", sinceWeek: s.week, lastPurchaseWeek: s.week };
+        c.report("report.council.deal_signed", { ...params, price: c.data.balance.cartel.dealPrice, weeks: c.data.balance.cartel.graceWeeks }, p.factionId);
+        return;
+      }
+      case "open_illegal_business": {
+        if (!p.businessTypeId || !p.zoneId) return;
+        if (buildProblem(s, c.data, p.factionId, p.businessTypeId, p.zoneId)) return;
+        addBusiness(s, c.data, p.factionId, p.businessTypeId, p.zoneId);
+        c.report("report.management.built", { businessKey: `business.${p.businessTypeId}`, zone: zoneName(c.data, p.zoneId), cost: c.data.businesses.find((b) => b.id === p.businessTypeId)?.buildCost ?? 0 }, p.factionId);
+        return;
+      }
       case "expel": {
         const member = s.members[p.targetMemberId!];
         if (!member) return;
@@ -167,7 +186,13 @@ function proposalParams(state: GameState, ctx: TurnContext, p: Proposal): Record
   return {
     faction: factionName(ctx.data, p.factionId),
     proposalKey: `proposal.${p.type}`,
-    target: member ? memberLabel(member) : p.targetFactionId ? factionName(ctx.data, p.targetFactionId) : "",
+    target: member
+      ? memberLabel(member)
+      : p.targetFactionId
+        ? factionName(ctx.data, p.targetFactionId)
+        : p.zoneId
+          ? zoneName(ctx.data, p.zoneId)
+          : "",
     rankKey: p.newRank ? `rank.${p.newRank}` : "rank.member",
   };
 }

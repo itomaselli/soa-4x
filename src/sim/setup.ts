@@ -65,6 +65,11 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
     members,
     businesses: [],
     stances: {},
+    market: {},
+    shipments: [],
+    pendingEvents: [],
+    eventHistory: {},
+    businessSerial: 0,
     controlStreaks: {},
     outcome: null,
   };

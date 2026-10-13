@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "../src/ui/draft";
-import { diplomacyRows, mapViewModel, memberRows, topBarModel, votePreview, zoneDetails } from "../src/ui/viewModel";
+import {
+  buildableZones,
+  businessRows,
+  cartelInfo,
+  diplomacyRows,
+  goodRows,
+  launderingInfo,
+  mapViewModel,
+  memberRows,
+  pendingEventViews,
+  topBarModel,
+  votePreview,
+  zoneDetails,
+} from "../src/ui/viewModel";
+import { addBusiness } from "../src/sim/systems/businesses";
 import { stanceKey } from "../src/sim/systems/diplomacy";
 import { resolveTurn } from "../src/sim/turn";
 import { baseData, member, newState, PLAYER, PRESIDENT, SERGEANT, VP, WOLVES, zone } from "./helpers";
@@ -119,4 +133,40 @@ describe("interfaz: datos para mostrar", () => {
       expect.objectContaining({ id: WOLVES, stateKey: "diplomacy.truce", truceWeeksLeft: 6, warWeeks: null }),
     ]);
   });
+
+  it("la pestaña Negocios muestra stock con precios y qué no se vende", () => {
+    const state = newState();
+    state.factions[PLAYER]!.stock["good_parts"] = 4;
+    const rows = goodRows(state, baseData, PLAYER);
+    expect(rows.find((g) => g.id === "good_parts")).toMatchObject({ stock: 4, price: 72, currencyKey: "currency.dirty" });
+    expect(rows.find((g) => g.id === "good_stolen_bike")?.price).toBeNull();
+  });
+
+  it("solo se puede construir en zonas propias con lugar libre", () => {
+    expect(buildableZones(newState(), baseData, PLAYER)).toEqual(["zone_redwater"]);
+  });
+
+  it("muestra nuestros negocios con su estado y la capacidad de lavado segura (70%)", () => {
+    const state = newState();
+    addBusiness(state, baseData, PLAYER, "business_club_bar", "zone_redwater");
+    expect(businessRows(state, baseData, PLAYER)).toEqual([expect.objectContaining({ typeKey: "business.business_club_bar", statusKey: "ui.biz.new" })]);
+    state.week = 2;
+    expect(launderingInfo(state, baseData, PLAYER)).toEqual({ capacity: 300, safe: 210 });
+  });
+
+  it("sin trato con el cartel no hay compra de armas", () => {
+    expect(cartelInfo(newState(), baseData, PLAYER)).toMatchObject({ dealing: false, space: 0 });
+  });
+
+  it("los eventos pendientes muestran sus opciones y cuáles no se pueden pagar", () => {
+    const state = newState();
+    state.pendingEvents.push({ instanceId: "event_sheriff_campaign@1", eventId: "event_sheriff_campaign", factionId: PLAYER, subjectMemberId: null, week: 1 });
+    state.factions[PLAYER]!.money.dirty = 0;
+    const [view] = pendingEventViews(state, baseData, PLAYER);
+    expect(view?.options).toEqual([
+      expect.objectContaining({ id: "pay", affordable: false, isDefault: false }),
+      expect.objectContaining({ id: "refuse", affordable: true, isDefault: true }),
+    ]);
+  });
 });
+

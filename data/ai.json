@@ -23,7 +23,12 @@
       "lowMoneyInvestmentMultiplier": 0.3,
       "traitLikeWeight": 10,
       "traitDislikeWeight": 45,
-      "crackdownPenalty": 400
+      "crackdownPenalty": 400,
+      "goodsWeight": 0.7,
+      "attackWeight": 0.8,
+      "cashReserve": 300,
+      "allowedZones": null,
+      "defendWeight": 0.25
     },
     "balanced": {
       "incomeWeight": 1.2,
@@ -48,7 +53,44 @@
       "lowMoneyInvestmentMultiplier": 0.3,
       "traitLikeWeight": 10,
       "traitDislikeWeight": 45,
-      "crackdownPenalty": 400
+      "crackdownPenalty": 400,
+      "goodsWeight": 0.7,
+      "attackWeight": 0.1,
+      "cashReserve": 300,
+      "allowedZones": null,
+      "defendWeight": 0.25
+    },
+    "cartel": {
+      "incomeWeight": 1.2,
+      "controlWeight": 10,
+      "takeWeight": 14,
+      "ownershipBonus": 150,
+      "enemyBonus": 60,
+      "heatPenalty": 3,
+      "arrestPenalty": 500,
+      "lieLowHeatThreshold": 30,
+      "lieLowWeight": 10,
+      "bribeHeatThreshold": 45,
+      "bribeWeightPerHeat": 14,
+      "recruitTargetMembers": 0,
+      "recruitWeight": 250,
+      "moneyReserveWeeks": 5,
+      "lowMoneyIncomeMultiplier": 3,
+      "enemyRelationThreshold": -15,
+      "noise": 0.15,
+      "consolidationWeight": 1,
+      "defenseMultiplier": 3,
+      "lowMoneyInvestmentMultiplier": 0.3,
+      "traitLikeWeight": 10,
+      "traitDislikeWeight": 45,
+      "crackdownPenalty": 400,
+      "goodsWeight": 0.7,
+      "attackWeight": 0,
+      "cashReserve": 300,
+      "allowedZones": [
+        "zone_port_calloway"
+      ],
+      "defendWeight": 0.25
     }
   }
 }

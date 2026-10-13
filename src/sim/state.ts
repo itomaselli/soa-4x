@@ -40,7 +40,7 @@ export const FACTION_KINDS = ["club", "cartel", "sheriff", "federal"] as const;
 export const FactionKindSchema = z.enum(FACTION_KINDS);
 export type FactionKind = z.infer<typeof FactionKindSchema>;
 
-export const PROPOSAL_TYPES = ["declare_war", "truce", "promote", "expel"] as const;
+export const PROPOSAL_TYPES = ["declare_war", "truce", "promote", "expel", "cartel_deal", "open_illegal_business"] as const;
 export const ProposalTypeSchema = z.enum(PROPOSAL_TYPES);
 export type ProposalType = z.infer<typeof ProposalTypeSchema>;
 /** Everything the council votes on: the president's proposals plus a motion to remove him. */
@@ -124,17 +124,35 @@ export const BusinessStateSchema = z.object({
   ownerFactionId: IdSchema,
   /** The sheriff already warned about a raid on this business (GDD §10). */
   raidWarned: z.boolean(),
+  /** Week it was built: it starts working the following week. */
+  builtWeek: z.number().int(),
+  /** Maintenance unpaid: the business does nothing until it's paid again. */
+  suspended: z.boolean(),
+  /** Extra production for next week from members who worked here (garage). */
+  workCapacity: NonNegativeInt,
 });
 export type BusinessState = z.infer<typeof BusinessStateSchema>;
 
-export const STANCE_TYPES = ["war", "truce"] as const;
+export const STANCE_TYPES = ["war", "truce", "deal"] as const;
 
 /** Explicit diplomatic state between two factions (GDD §12). No stance = neutral or tension, from the relation value. */
 export const StanceSchema = z.object({
   type: z.enum(STANCE_TYPES),
   sinceWeek: z.number().int(),
+  /** Deals with the cartel: last week the club bought guns (GDD §12: "si incumplís, castiga"). */
+  lastPurchaseWeek: z.number().int().optional(),
 });
 export type Stance = z.infer<typeof StanceSchema>;
+
+export const PendingEventSchema = z.object({
+  /** Unique per occurrence, e.g. "event_route9_truck@12". */
+  instanceId: z.string(),
+  eventId: IdSchema,
+  factionId: IdSchema,
+  subjectMemberId: IdSchema.nullable(),
+  week: z.number().int(),
+});
+export type PendingEvent = z.infer<typeof PendingEventSchema>;
 
 export const OUTCOME_RESULTS = ["victory", "defeat"] as const;
 
@@ -163,6 +181,16 @@ export const GameStateSchema = z.object({
   stances: z.record(z.string(), StanceSchema),
   /** Consecutive weeks each faction has owned at least `victory.zonesToControl` zones (GDD §14). */
   controlStreaks: z.record(IdSchema, NonNegativeInt),
+  /** Recent units sold per good; drives prices (GDD §9). */
+  market: z.record(IdSchema, z.object({ supply: z.number().nonnegative() })),
+  /** Gun shipments bought from the cartel, delivered in the transport stage. */
+  shipments: z.array(z.object({ factionId: IdSchema, goodId: IdSchema, quantity: NonNegativeInt })),
+  /** Events waiting for the player's decision (GDD §13). */
+  pendingEvents: z.array(PendingEventSchema),
+  /** Last week each event happened, for cooldowns. */
+  eventHistory: z.record(IdSchema, z.number().int()),
+  /** Counter for unique business ids. */
+  businessSerial: NonNegativeInt,
   /** null while the game is running. */
   outcome: OutcomeSchema.nullable(),
 });

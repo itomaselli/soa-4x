@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { GameData } from "../data/schemas";
 import { factionZonePresence } from "./systems/control";
 import { ProposalSchema } from "./council";
+import { ManagementOrderSchema } from "./management";
 import { IdSchema, type GameState } from "./state";
 
 export const AssignmentSchema = z.object({
@@ -18,6 +19,10 @@ export const TurnOrdersSchema = z.object({
   assignments: z.array(AssignmentSchema),
   /** Proposals for the council (GDD §6). Voted at the start of the week, before tasks. */
   proposals: z.array(ProposalSchema).optional(),
+  /** Build, sell, launder, buy guns (GDD §4 step 4). */
+  management: z.array(ManagementOrderSchema).optional(),
+  /** Answers to last week's events (GDD §13). Unanswered events take their default option. */
+  eventChoices: z.array(z.object({ instanceId: z.string(), optionId: IdSchema })).optional(),
 });
 export type TurnOrders = z.infer<typeof TurnOrdersSchema>;
 

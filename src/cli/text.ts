@@ -94,6 +94,9 @@ export function formatStatus(state: GameState, data: GameData, viewer: string): 
         .map((f) => t(s, "play.relation_item", { faction: f.name, value: state.factions[f.id]?.relations[viewer] ?? 0 }))
         .join(" · "),
     }),
+    ...state.pendingEvents
+      .filter((e) => e.factionId === viewer)
+      .map((e) => t(s, "play.pending_event", { title: t(s, `event.${e.eventId}.title`) })),
     stockItems.length > 0
       ? t(s, "play.stock", { items: stockItems.map(([id, n]) => `${t(s, `good.${id}`)} ×${n}`).join(", ") })
       : t(s, "play.stock_empty"),

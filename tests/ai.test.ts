@@ -57,14 +57,20 @@ describe("IA: juega con las mismas reglas que el jugador (GDD §12)", () => {
     expect(state).toEqual(copy);
   });
 
-  it("una facción sin perfil de IA (el cartel, por ahora) no da órdenes", () => {
-    expect(aiOrders(newState(), baseData, "faction_cartel_valdes").assignments).toEqual([]);
+  it("una facción sin perfil de IA (el sheriff) no da órdenes", () => {
+    expect(aiOrders(newState(), baseData, "faction_sheriff").assignments).toEqual([]);
+  });
+
+  it("el cartel solo actúa en el puerto (GDD §12)", () => {
+    for (const state of samples) {
+      for (const a of aiOrders(state, baseData, "faction_cartel_valdes").assignments) expect(a.zoneId).toBe("zone_port_calloway");
+    }
   });
 
   it("allAiOrders deja afuera al jugador humano", () => {
     const orders = allAiOrders(newState(), baseData, PLAYER).assignments;
     expect(orders.length).toBeGreaterThan(0);
-    expect(orders.every((a) => a.memberId.startsWith("member_wolves_"))).toBe(true);
+    expect(orders.every((a) => newState().members[a.memberId]?.factionId !== PLAYER)).toBe(true);
   });
 });
 

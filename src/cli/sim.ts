@@ -8,6 +8,7 @@ import { DataValidationError, loadGameData } from "../data/load";
 import type { GameData } from "../data/schemas";
 import { checkInvariants } from "../sim/invariants";
 import { randomOrders } from "../sim/policies/random";
+import type { TurnOrders } from "../sim/orders";
 import type { ReportEntry } from "../sim/report";
 import { createRng, type Rng } from "../sim/rng";
 import { createInitialState } from "../sim/setup";
@@ -36,9 +37,11 @@ interface FactionStats {
   loyalty: number;
   federal: number;
   informants: number;
+  businesses: number;
+  sales: number;
 }
 
-const EMPTY_STATS: FactionStats = { arrests: 0, recruits: 0, protection: 0, unpaid: 0, zones: 0, deserted: 0, loyalty: 0, federal: 0, informants: 0 };
+const EMPTY_STATS: FactionStats = { arrests: 0, recruits: 0, protection: 0, unpaid: 0, zones: 0, deserted: 0, loyalty: 0, federal: 0, informants: 0, businesses: 0, sales: 0 };
 
 interface RunResult {
   seed: number;
@@ -47,7 +50,7 @@ interface RunResult {
   publicCounts: Record<string, number>;
 }
 
-const PUBLIC_KEYS = ["report.law.crackdown", "report.council.war_declared"];
+const PUBLIC_KEYS = ["report.law.crackdown", "report.council.war_declared", "report.combat.attacker_won", "report.combat.defender_won"];
 
 function clubIds(data: GameData): string[] {
   return data.factions.filter((f) => f.kind === "club").map((f) => f.id);
@@ -92,12 +95,16 @@ function collectStats(state: GameState, data: GameData, entries: ReportEntry[]):
       loyalty: averageLoyalty(state, id) ?? 0,
       federal: state.factions[id]?.federal ?? 0,
       informants: factionMembers(state, id).filter((m) => m.informant).length,
+      businesses: state.businesses.filter((b) => b.ownerFactionId === id).length,
+      sales: mine
+        .filter((e) => e.key === "report.sales.sold" || e.key === "report.task.gun_run")
+        .reduce((s, e) => s + Number(e.params.income ?? 0), 0),
     };
   }
   return stats;
 }
 
-function playerOrders(state: GameState, data: GameData, mode: PlayerMode, policyRng: Rng) {
+function playerOrders(state: GameState, data: GameData, mode: PlayerMode, policyRng: Rng): TurnOrders {
   if (mode === "ai") return aiOrders(state, data, state.playerFactionId);
   if (mode === "random") return randomOrders(state, data, state.playerFactionId, policyRng);
   return { assignments: [] };
@@ -112,7 +119,15 @@ function runOnce(data: GameData, seed: number, weeks: number, mode: PlayerMode, 
   for (let i = 0; i < weeks && !state.outcome; i++) {
     const ai = allAiOrders(state, data, state.playerFactionId);
     const mine = playerOrders(state, data, mode, policyRng);
-    const result = resolveTurn(state, { assignments: [...mine.assignments, ...ai.assignments] }, data);
+    const result = resolveTurn(
+      state,
+      {
+        assignments: [...mine.assignments, ...ai.assignments],
+        management: [...(mine.management ?? []), ...(ai.management ?? [])],
+        proposals: [...(mine.proposals ?? []), ...(ai.proposals ?? [])],
+      },
+      data,
+    );
     state = result.state;
     entries.push(...result.report);
 
@@ -191,7 +206,14 @@ function main(): number {
     console.log(t(s, "sim.aggregate_outcome", { outcome, count, percent: Math.round((count / runs) * 100) }));
   }
   const count = (key: string) => results.reduce((sum, r) => sum + r.publicCounts[key]!, 0) / runs;
-  console.log(t(s, "sim.aggregate_public", { crackdowns: count("report.law.crackdown").toFixed(1), wars: count("report.council.war_declared").toFixed(1) }));
+  console.log(
+    t(s, "sim.aggregate_public", {
+      crackdowns: count("report.law.crackdown").toFixed(1),
+      wars: count("report.council.war_declared").toFixed(1),
+      combats: (count("report.combat.attacker_won") + count("report.combat.defender_won")).toFixed(1),
+      attackerWins: count("report.combat.attacker_won").toFixed(1),
+    }),
+  );
   const avgEnd = results.reduce((sum, r) => sum + (r.state.outcome?.week ?? weeks), 0) / runs;
   console.log(t(s, "sim.avg_end_week", { week: avgEnd.toFixed(1) }));
   for (const id of clubIds(data)) {
@@ -213,6 +235,8 @@ function main(): number {
         loyalty: avg((x) => x.loyalty),
         federal: avg((x) => x.federal),
         informants: avg((x) => x.informants),
+        businesses: avg((x) => x.businesses),
+        sales: avg((x) => x.sales),
       }),
     );
   }

@@ -4,6 +4,7 @@
 import { factionName, type TurnContext } from "../context";
 import type { GameState, Outcome } from "../state";
 import { controlOf, ownedZones } from "./control";
+import { decayMarket } from "./economy";
 import { activeMembers, memberLabel } from "./members";
 
 export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
@@ -11,6 +12,7 @@ export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
   updateControlStreaks(state, ctx);
   recordHistory(state, ctx);
   expireTruces(state, ctx);
+  decayMarket(state, ctx.data);
   // An outcome may already be set earlier in the week (e.g. impeachment in the loyalty stage).
   state.outcome = state.outcome ?? checkOutcome(state, ctx);
   if (state.outcome) {

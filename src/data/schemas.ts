@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import {
+  CurrencySchema,
   FactionKindSchema,
   IdSchema,
   MoneySchema,
@@ -81,10 +82,50 @@ export const BalanceSchema = z.object({
     truceAcceptRelation: z.number(),
   }),
   laundering: z.object({
+    /** Laundering above this share of capacity draws federal attention (GDD §8). */
     federalAttentionCapacityRatio: z.number().min(0).max(1),
+    /** Federal points per whole capacity laundered above the ratio. */
+    federalPerExcess: z.number().nonnegative(),
   }),
   market: z.object({
+    /** Price goes from base × (1 + variance) with no recent supply to base × (1 − variance) at the reference. */
     priceVariance: z.number().min(0).max(1),
+    /** Share of the recent supply that remains each week. */
+    supplyDecay: z.number().min(0).max(1),
+  }),
+  combat: z.object({
+    randomMax: Int.nonnegative(),
+    gunBonusPerCrate: z.number().nonnegative(),
+    cratesPerFighter: Int.nonnegative(),
+    hqDefenseBonus: z.number().nonnegative(),
+    /** Control the winner takes from the loser in the zone. */
+    controlSwing: z.number().nonnegative(),
+    loserWoundChance: Probability,
+    loserJailChance: Probability,
+    loserDeathChance: Probability,
+    winnerWoundChance: Probability,
+    woundWeeksMin: Int.positive(),
+    woundWeeksMax: Int.positive(),
+    /** Heat a fight adds to the zone on top of the task's own heat. */
+    extraHeat: z.number().nonnegative(),
+  }),
+  cartel: z.object({
+    /** Dirty money per gun crate under a deal. */
+    dealPrice: z.number().positive(),
+    /** The cartel only deals with clubs it regards at least this well. */
+    dealMinRelation: z.number(),
+    purchaseRelationGain: z.number().nonnegative(),
+    /** Weeks without buying before the cartel considers the deal broken. */
+    graceWeeks: Int.positive(),
+    breachRelationPenalty: z.number().nonnegative(),
+    /** Where shipments are picked up. */
+    portZoneId: IdSchema,
+    /** Chance per heat point at the port that a shipment is seized. */
+    interceptPerHeat: z.number().nonnegative(),
+  }),
+  events: z.object({
+    weeklyChance: Probability,
+    cooldownWeeks: Int.nonnegative(),
   }),
   federal: z.object({
     visibleFrom: z.number(),
@@ -94,6 +135,9 @@ export const BalanceSchema = z.object({
     /** Drop for a week without any illegal task. */
     lowProfileDrop: z.number().nonnegative(),
     informantExpelledDrop: z.number().nonnegative(),
+    perGunRun: z.number().nonnegative(),
+    perCombat: z.number().nonnegative(),
+    perDeath: z.number().nonnegative(),
     /** After a federal raid on an AI club, its investigation drops to this. */
     raidResetTo: z.number(),
   }),
@@ -131,6 +175,8 @@ export const BalanceSchema = z.object({
     }),
     protection: z.object({ rate: z.number(), charmBase: z.number(), perCharm: z.number() }),
     stealBikes: z.object({ goodId: IdSchema, min: Int.nonnegative(), max: Int.nonnegative() }),
+    /** Crates sold per gun run: baseCrates + Cunning / cunningDivisor (GDD §9, chain B). */
+    gunRun: z.object({ goodId: IdSchema, baseCrates: Int.nonnegative(), cunningDivisor: Int.positive() }),
     bribe: z.object({ cost: z.number().nonnegative(), heatReduction: z.number(), sheriffRelationGain: z.number() }),
     recruit: z.object({
       baseChance: Probability,
@@ -156,6 +202,8 @@ export const BalanceSchema = z.object({
     zoneLostPenalty: z.number().nonnegative(),
     /** Lost by every other member for each member of the club arrested this week. */
     arrestPenalty: z.number().nonnegative(),
+    /** Lost by every member when a fellow member dies. */
+    deathPenalty: z.number().nonnegative(),
     warLongWeeks: Int.nonnegative(),
     warWeeklyPenalty: z.number().nonnegative(),
     traitLikeBonus: z.number().nonnegative(),
@@ -258,6 +306,12 @@ export type TaskDef = z.infer<typeof TaskDefSchema>;
 export const GoodDefSchema = z.object({
   id: IdSchema,
   glyph: GlyphSchema,
+  /** Market base price (GDD §9), or null if it can't be sold directly (stolen bikes go to the chop shop). */
+  basePrice: z.number().positive().nullable(),
+  /** Money received when sold. */
+  saleCurrency: CurrencySchema.nullable(),
+  /** Units sold per week that push the price to its minimum. */
+  marketReference: z.number().nonnegative(),
 });
 export type GoodDef = z.infer<typeof GoodDefSchema>;
 
@@ -267,15 +321,84 @@ export const BusinessDefSchema = z.object({
   id: IdSchema,
   legal: z.boolean(),
   glyph: GlyphSchema,
+  /** Paid in clean money (GDD §8). */
+  buildCost: z.number().nonnegative(),
+  /** Weekly upkeep (GDD §8). */
+  maintenance: z.number().nonnegative(),
+  /** Dirty money this business can launder per week (GDD §8). */
+  launderCapacity: z.number().nonnegative(),
+  /** Chop shop: stolen bikes → parts (GDD §9, chain A). */
+  chop: z
+    .object({ inputGoodId: IdSchema, outputGoodId: IdSchema, bikesPerWeek: Int.positive(), partsPerBike: Int.positive() })
+    .optional(),
+  /** Garage: parts → custom bikes; members working there add capacity for the next week. */
+  garage: z
+    .object({
+      inputGoodId: IdSchema,
+      outputGoodId: IdSchema,
+      baseOutput: Int.nonnegative(),
+      partsPerUnit: Int.positive(),
+      handsPerExtraUnit: Int.positive(),
+    })
+    .optional(),
+  /** Club bar: small clean income and a loyalty bonus for the whole club. */
+  bar: z.object({ incomePerWealth: z.number().nonnegative(), loyaltyBonus: z.number().nonnegative() }).optional(),
+  /** Warehouse: how many units of a good the faction can hold. */
+  storage: z.object({ goodId: IdSchema, capacity: Int.positive() }).optional(),
 });
 export type BusinessDef = z.infer<typeof BusinessDefSchema>;
 
 // ---------- events.json ----------
-// Only the skeleton for now; conditions and effects arrive in phase 5.
+// Narrative events (GDD §13): conditions, a subject, options and effects, all as data.
+
+export type EventEffect =
+  | { type: "money"; currency: "clean" | "dirty"; amount: number }
+  | { type: "loyalty"; target: "all" | "subject" | "others"; amount: number }
+  | { type: "sheriff"; amount: number }
+  | { type: "rival_relation"; amount: number }
+  | { type: "heat"; zoneId: string; amount: number }
+  | { type: "promote_subject"; rank: "member" }
+  | { type: "defect_subject" }
+  | { type: "jail_random"; weeks: number }
+  | { type: "expose_informant" }
+  | { type: "chance"; probability: number; success: EventEffect[]; failure: EventEffect[] };
+
+export const EventEffectSchema: z.ZodType<EventEffect> = z.lazy(() =>
+  z.discriminatedUnion("type", [
+    z.object({ type: z.literal("money"), currency: CurrencySchema, amount: z.number() }),
+    z.object({ type: z.literal("loyalty"), target: z.enum(["all", "subject", "others"]), amount: z.number() }),
+    z.object({ type: z.literal("sheriff"), amount: z.number() }),
+    z.object({ type: z.literal("rival_relation"), amount: z.number() }),
+    z.object({ type: z.literal("heat"), zoneId: IdSchema, amount: z.number() }),
+    z.object({ type: z.literal("promote_subject"), rank: z.literal("member") }),
+    z.object({ type: z.literal("defect_subject") }),
+    z.object({ type: z.literal("jail_random"), weeks: Int.positive() }),
+    z.object({ type: z.literal("expose_informant") }),
+    z.object({
+      type: z.literal("chance"),
+      probability: Probability,
+      success: z.array(EventEffectSchema),
+      failure: z.array(EventEffectSchema),
+    }),
+  ]),
+);
 
 export const EventDefSchema = z.object({
   id: IdSchema,
-  options: z.array(z.object({ id: IdSchema })).min(1),
+  /** Relative chance among the events that can happen this week. */
+  weight: z.number().positive(),
+  conditions: z.object({
+    minWeek: Int.optional(),
+    hasProspect: z.boolean().optional(),
+    hasInformant: z.boolean().optional(),
+    /** The rival club (victory.rivalToExpel) has at least this many living members. */
+    rivalMinMembers: Int.optional(),
+  }),
+  /** Who the event is about: one of our prospects, a member of the rival club, or nobody. */
+  subject: z.enum(["prospect", "rival_member"]).nullable(),
+  /** Applied if the player doesn't choose, or can't afford the chosen option. */
+  defaultOption: IdSchema,
+  options: z.array(z.object({ id: IdSchema, effects: z.array(EventEffectSchema) })).min(1),
 });
 export type EventDef = z.infer<typeof EventDefSchema>;
 
@@ -323,6 +446,16 @@ export const AiProfileSchema = z.object({
   traitDislikeWeight: z.number().nonnegative(),
   /** Cost of an illegal task that would push a zone to the crackdown threshold. */
   crackdownPenalty: z.number().nonnegative(),
+  /** Value of goods relative to their market price (they still have to be processed or sold). */
+  goodsWeight: z.number().nonnegative(),
+  /** Value of destroying a rival business, × its build cost × the estimated chance of winning. */
+  attackWeight: z.number().nonnegative(),
+  /** Value of guarding a zone with our businesses that rivals can reach, × their build cost (first guard only). */
+  defendWeight: z.number().nonnegative(),
+  /** Money the AI keeps aside before building, laundering or buying. */
+  cashReserve: z.number().nonnegative(),
+  /** If set, the AI only acts in these zones (the cartel stays at the port). */
+  allowedZones: z.array(IdSchema).nullable(),
   /** Random variation applied to each score (0.15 = ±15%). */
   noise: z.number().min(0).max(1),
 });

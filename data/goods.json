@@ -1,6 +1,6 @@
 [
-  { "id": "good_stolen_bike", "glyph": "b" },
-  { "id": "good_parts", "glyph": "%" },
-  { "id": "good_custom_bike", "glyph": "B" },
-  { "id": "good_gun_crate", "glyph": "&" }
+  {"id": "good_stolen_bike", "glyph": "b", "basePrice": null, "saleCurrency": null, "marketReference": 0},
+  {"id": "good_parts", "glyph": "%", "basePrice": 60, "saleCurrency": "dirty", "marketReference": 12},
+  {"id": "good_custom_bike", "glyph": "B", "basePrice": 600, "saleCurrency": "clean", "marketReference": 3},
+  {"id": "good_gun_crate", "glyph": "&", "basePrice": 400, "saleCurrency": "dirty", "marketReference": 6}
 ]

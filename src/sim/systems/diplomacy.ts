@@ -4,7 +4,7 @@
 import type { Balance } from "../../data/schemas";
 import type { GameState, Stance } from "../state";
 
-export type DiplomaticState = "war" | "tension" | "neutral" | "truce";
+export type DiplomaticState = "war" | "tension" | "neutral" | "truce" | "deal";
 
 export function stanceKey(a: string, b: string): string {
   return [a, b].sort().join("|");

@@ -121,7 +121,11 @@ async function main(): Promise<void> {
     if (assignments === null) break;
     const week = state.week;
     const ai = allAiOrders(state, data, state.playerFactionId);
-    const result = resolveTurn(state, { assignments: [...assignments, ...ai.assignments] }, data);
+    const result = resolveTurn(
+      state,
+      { assignments: [...assignments, ...ai.assignments], management: ai.management, proposals: ai.proposals },
+      data,
+    );
     state = result.state;
     console.log(`\n${t(s, "play.report_title", { week })}`);
     console.log(formatReport(result.report, data, state.playerFactionId).join("\n"));

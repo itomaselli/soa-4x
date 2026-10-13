@@ -6,15 +6,20 @@
 // projected copy of the state (so two members don't chase the same thing), and repeats.
 // Weights come from data/ai.json; the "expansive" profile is the Grim Wolves.
 
-import type { AiProfile, GameData } from "../../data/schemas";
+import type { AiProfile, BusinessDef, GameData } from "../../data/schemas";
 import { availableTasks, reachableZones, type Assignment, type TurnOrders } from "../orders";
 import { createRng } from "../rng";
 import type { GameState, MemberState, ZoneState } from "../state";
-import { controlOf, freeControl, gainControl, loseControl, zoneOwner } from "./control";
+import { controlOf, freeControl, gainControl, loseControl, ownedZones, zoneOwner } from "./control";
 import { arrestChance } from "./law";
 import { activeMembers, effectiveStat, livingMembers } from "./members";
-import { atWar, warEnemies } from "./diplomacy";
-import { guardAmount, intimidateAmount, intimidationTarget, protectionIncome, taskHeat } from "./tasks";
+import { atWar, inTruce, warEnemies } from "./diplomacy";
+import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, protectionIncome, taskHeat } from "./tasks";
+import type { Proposal } from "../council";
+import type { ManagementOrder } from "../management";
+import { businessDef, factionBusinesses, freeSlots, launderCapacity, workingBusinesses } from "./businesses";
+import { attackTarget, sideStrength } from "./combat";
+import { marketPrice } from "./economy";
 
 interface Plan {
   /** Projected state: starts as a copy and absorbs the expected effect of each chosen action. */
@@ -24,6 +29,14 @@ interface Plan {
   enemyId: string | null;
   /** Recruit attempts already planned this week (each counts as a likely new member). */
   plannedRecruits: number;
+  /** Gun crates not yet promised to a gun run this week. */
+  gunsLeft: number;
+  /** Strength already sent to attack each zone this week. */
+  attackStrength: Record<string, number>;
+  /** Zones that already have a guard planned this week. */
+  guarded: Set<string>;
+  /** Stolen bikes expected from thefts planned this week. */
+  plannedBikes: number;
 }
 
 interface Candidate {
@@ -55,10 +68,15 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
     lowMoney: isLowMoney(state, data, factionId, profile),
     enemyId: warEnemies(state, factionId)[0] ?? findEnemy(state, factionId, profile),
     plannedRecruits: 0,
+    gunsLeft: state.factions[factionId]?.stock[data.balance.tasks.gunRun.goodId] ?? 0,
+    attackStrength: {},
+    guarded: new Set(),
+    plannedBikes: 0,
   };
 
   const tasks = availableTasks(data);
-  const zones = reachableZones(state, data, factionId);
+  const allowed = profile.allowedZones;
+  const zones = reachableZones(state, data, factionId).filter((z) => allowed === null || allowed.includes(z));
   const free = activeMembers(state, factionId).sort((a, b) => a.id.localeCompare(b.id));
   const assignments: Assignment[] = [];
 
@@ -79,15 +97,65 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
     applyExpected(plan, data, best);
     free.splice(free.indexOf(best.member), 1);
   }
-  return { assignments };
+  const { management, proposals } = aiManagement(state, data, factionId, profile);
+  return { assignments, management, proposals };
 }
 
 /** Orders for every faction with an AI profile except `exclude` (usually the human player). */
 export function allAiOrders(state: GameState, data: GameData, exclude: string | null): TurnOrders {
-  const assignments = data.factions
-    .filter((f) => f.aiProfile !== null && f.id !== exclude)
-    .flatMap((f) => aiOrders(state, data, f.id).assignments);
-  return { assignments };
+  const orders = data.factions.filter((f) => f.aiProfile !== null && f.id !== exclude).map((f) => aiOrders(state, data, f.id));
+  return {
+    assignments: orders.flatMap((o) => o.assignments),
+    management: orders.flatMap((o) => o.management ?? []),
+    proposals: orders.flatMap((o) => o.proposals ?? []),
+  };
+}
+
+/**
+ * Business decisions with simple rules (same orders as the player):
+ * sell finished goods, launder up to the safe share of capacity, build a bar and then a garage,
+ * and ask the council for a chop shop. Only clubs manage businesses.
+ */
+function aiManagement(state: GameState, data: GameData, factionId: string, p: AiProfile): { management: ManagementOrder[]; proposals: Proposal[] } {
+  const management: ManagementOrder[] = [];
+  const proposals: Proposal[] = [];
+  const faction = state.factions[factionId];
+  if (!faction || data.factions.find((f) => f.id === factionId)?.kind !== "club") return { management, proposals };
+
+  for (const good of data.goods) {
+    const quantity = faction.stock[good.id] ?? 0;
+    if (good.basePrice !== null && good.id !== data.balance.tasks.gunRun.goodId && quantity > 0) {
+      management.push({ kind: "sell", factionId, goodId: good.id, quantity });
+    }
+  }
+
+  const capacity = launderCapacity(state, data, factionId);
+  const safe = Math.floor(capacity * data.balance.laundering.federalAttentionCapacityRatio);
+  const launder = Math.min(safe, Math.floor(faction.money.dirty - p.cashReserve));
+  if (launder > 0) management.push({ kind: "launder", factionId, amount: launder });
+
+  const owned = ownedZones(state, factionId, data.balance).filter((z) => freeSlots(state, data, z) > 0);
+  const has = (pred: (d: BusinessDef) => boolean) =>
+    factionBusinesses(state, factionId).some((b) => {
+      const d = businessDef(data, b.typeId);
+      return d !== undefined && pred(d);
+    });
+  // Build order: a bar (clean income, laundering, loyalty), then a chop shop (needs the council), then a garage.
+  const zone = owned[0];
+  if (zone) {
+    const next = !has((d) => d.bar !== undefined)
+      ? data.businesses.find((d) => d.bar)
+      : !has((d) => d.chop !== undefined)
+        ? data.businesses.find((d) => d.chop && !d.legal)
+        : !has((d) => d.garage !== undefined)
+          ? data.businesses.find((d) => d.garage)
+          : undefined;
+    if (next && faction.money.clean >= next.buildCost + p.cashReserve) {
+      if (next.legal) management.push({ kind: "build", factionId, typeId: next.id, zoneId: zone });
+      else proposals.push({ factionId, type: "open_illegal_business", businessTypeId: next.id, zoneId: zone });
+    }
+  }
+  return { management, proposals };
 }
 
 function weeklyWages(state: GameState, data: GameData, factionId: string): number {
@@ -147,7 +215,11 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
     switch (taskId) {
       case "task_guard_zone": {
         const gain = Math.min(guardAmount(member, balance), freeControl(zone, balance));
-        return gain * controlValue + investment * ownershipBonus(zone, member.factionId, gain, 0, null, ownerBefore, data, p);
+        return (
+          gain * controlValue +
+          investment * ownershipBonus(zone, member.factionId, gain, 0, null, ownerBefore, data, p) +
+          (plan.guarded.has(zoneId) ? 0 : businessesAtRisk(plan.state, data, member.factionId, zoneId) * p.defendWeight)
+        );
       }
       case "task_collect_protection": {
         if (plan.collected.has(zoneId)) return null;
@@ -180,7 +252,51 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
         const drop = Math.min(zone.heat, balance.tasks.bribe.heatReduction);
         return drop * p.bribeWeightPerHeat - cost * incomeWeight;
       }
-      case "task_recruit": {
+      case "task_steal_bikes": {
+      const rule = balance.tasks.stealBikes;
+      const chop = data.businesses.find((d) => d.chop?.inputGoodId === rule.goodId)?.chop;
+      const chopCapacity = workingBusinesses(plan.state, member.factionId).reduce(
+        (sum, b) => sum + (businessDef(data, b.typeId)?.chop?.bikesPerWeek ?? 0),
+        0,
+      );
+      const partsPrice = chop ? (marketPrice(plan.state, data, chop.outputGoodId) ?? 0) : 0;
+      // Only steal what the chop shops can take: up to two weeks of their capacity in stock.
+      const backlog = (faction.stock[rule.goodId] ?? 0) + plan.plannedBikes;
+      if (!chop || chopCapacity === 0 || backlog >= 2 * chopCapacity) return null;
+      const bikes = (rule.min + rule.max) / 2;
+      return bikes * chop.partsPerBike * partsPrice * p.goodsWeight * incomeWeight - risk - heatCost;
+    }
+    case "task_work_garage": {
+      const garage = plan.state.businesses.find(
+        (b) => b.ownerFactionId === member.factionId && b.zoneId === zoneId && !b.suspended && businessDef(data, b.typeId)?.garage,
+      );
+      const rule = garage ? businessDef(data, garage.typeId)?.garage : undefined;
+      if (!garage || !rule) return null;
+      const parts = faction.stock[rule.inputGoodId] ?? 0;
+      const spareUnits = Math.floor(parts / rule.partsPerUnit) - rule.baseOutput - garage.workCapacity;
+      const extra = Math.min(spareUnits, Math.floor(effectiveStat(member, "hands", balance) / rule.handsPerExtraUnit));
+      if (extra <= 0) return null;
+      return extra * (marketPrice(plan.state, data, rule.outputGoodId) ?? 0) * p.goodsWeight * incomeWeight;
+    }
+    case "task_gun_run": {
+      const crates = Math.min(plan.gunsLeft, gunRunCrates(member, balance));
+      if (crates <= 0) return null;
+      const price = marketPrice(plan.state, data, balance.tasks.gunRun.goodId) ?? 0;
+      return crates * price * incomeWeight - risk - heatCost;
+    }
+    case "task_attack_business": {
+      const target = attackTarget(plan.state, data, member.factionId, zoneId);
+      if (!target || p.attackWeight === 0) return null;
+      const ownStrength = sideStrength(plan.state, data, member.factionId, [member], false);
+      const attack = (plan.attackStrength[zoneId] ?? 0) + ownStrength;
+      const isHq = data.factions.find((f) => f.id === target.ownerFactionId)?.hqZoneId === zoneId;
+      const defense = isHq ? balance.combat.hqDefenseBonus : 0;
+      const spread = Math.max(1, 2 * balance.combat.randomMax);
+      const winChance = Math.min(1, Math.max(0, (attack - defense + balance.combat.randomMax) / spread));
+      const cost = businessDef(data, target.typeId)?.buildCost ?? 0;
+      return cost * p.attackWeight * winChance * investment - risk - heatCost;
+    }
+    case "task_recruit": {
         const living = livingMembers(plan.state, member.factionId).length + plan.plannedRecruits;
         if (plan.lowMoney || living >= p.recruitTargetMembers || living >= balance.club.memberCap) return null;
         const chance = balance.tasks.recruit.baseChance + effectiveStat(member, "charm", balance) * balance.tasks.recruit.perCharm;
@@ -198,6 +314,16 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
 /** Same heat rule as the sim (sheriff goodwill included), evaluated on the plan. */
 function taskHeatEstimate(plan: Plan, data: GameData, factionId: string, heat: number): number {
   return taskHeat(plan.state, { data } as Parameters<typeof taskHeat>[1], factionId, heat);
+}
+
+/** Build cost of our businesses in a zone that another club could attack this week (it can reach the zone). */
+function businessesAtRisk(state: GameState, data: GameData, factionId: string, zoneId: string): number {
+  const ours = state.businesses.filter((b) => b.ownerFactionId === factionId && b.zoneId === zoneId);
+  if (ours.length === 0) return 0;
+  const threatened = data.factions.some(
+    (f) => f.kind === "club" && f.id !== factionId && !inTruce(state, f.id, factionId) && reachableZones(state, data, f.id).includes(zoneId),
+  );
+  return threatened ? ours.reduce((sum, b) => sum + (businessDef(data, b.typeId)?.buildCost ?? 0), 0) : 0;
 }
 
 /** Bonus if, after the action, the faction would own a zone it didn't own before. */
@@ -228,6 +354,7 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
   switch (c.taskId) {
     case "task_guard_zone":
       gainControl(zone, c.member.factionId, guardAmount(c.member, balance), balance);
+      plan.guarded.add(c.zoneId);
       break;
     case "task_intimidate": {
       const rival = intimidationTarget(plan.state, zone, c.member.factionId);
@@ -241,6 +368,15 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
       break;
     case "task_recruit":
       plan.plannedRecruits++;
+      break;
+    case "task_steal_bikes":
+      plan.plannedBikes += (balance.tasks.stealBikes.min + balance.tasks.stealBikes.max) / 2;
+      break;
+    case "task_gun_run":
+      plan.gunsLeft -= Math.min(plan.gunsLeft, gunRunCrates(c.member, balance));
+      break;
+    case "task_attack_business":
+      plan.attackStrength[c.zoneId] = (plan.attackStrength[c.zoneId] ?? 0) + sideStrength(plan.state, data, c.member.factionId, [c.member], false);
       break;
     case "task_bribe":
       faction.money.dirty -= balance.tasks.bribe.cost;

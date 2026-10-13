@@ -1,6 +1,55 @@
 [
-  { "id": "business_garage", "legal": true, "glyph": "T" },
-  { "id": "business_club_bar", "legal": true, "glyph": "Y" },
-  { "id": "business_chop_shop", "legal": false, "glyph": "D" },
-  { "id": "business_warehouse", "legal": false, "glyph": "W" }
+  {
+    "id": "business_garage",
+    "legal": true,
+    "glyph": "T",
+    "buildCost": 1500,
+    "maintenance": 50,
+    "launderCapacity": 400,
+    "garage": {
+      "inputGoodId": "good_parts",
+      "outputGoodId": "good_custom_bike",
+      "baseOutput": 1,
+      "partsPerUnit": 2,
+      "handsPerExtraUnit": 4
+    }
+  },
+  {
+    "id": "business_club_bar",
+    "legal": true,
+    "glyph": "Y",
+    "buildCost": 1000,
+    "maintenance": 40,
+    "launderCapacity": 300,
+    "bar": {
+      "incomePerWealth": 25,
+      "loyaltyBonus": 1
+    }
+  },
+  {
+    "id": "business_chop_shop",
+    "legal": false,
+    "glyph": "D",
+    "buildCost": 800,
+    "maintenance": 30,
+    "launderCapacity": 0,
+    "chop": {
+      "inputGoodId": "good_stolen_bike",
+      "outputGoodId": "good_parts",
+      "bikesPerWeek": 3,
+      "partsPerBike": 3
+    }
+  },
+  {
+    "id": "business_warehouse",
+    "legal": false,
+    "glyph": "W",
+    "buildCost": 600,
+    "maintenance": 20,
+    "launderCapacity": 0,
+    "storage": {
+      "goodId": "good_gun_crate",
+      "capacity": 10
+    }
+  }
 ]

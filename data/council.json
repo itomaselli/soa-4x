@@ -39,6 +39,22 @@
       "cautious": 0,
       "loyal": 0.25,
       "ambitious": -0.25
+    },
+    "cartel_deal": {
+      "traditionalist": -0.15,
+      "greedy": 0.25,
+      "violent": 0.1,
+      "cautious": -0.25,
+      "loyal": 0.05,
+      "ambitious": 0.1
+    },
+    "open_illegal_business": {
+      "traditionalist": -0.05,
+      "greedy": 0.2,
+      "violent": 0.05,
+      "cautious": -0.2,
+      "loyal": 0.05,
+      "ambitious": 0.1
     }
   }
 }

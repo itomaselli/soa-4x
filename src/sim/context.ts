@@ -16,6 +16,10 @@ export interface TurnScratch {
   illegalFactions: Set<string>;
   /** Owned zones per faction at the start of the week. */
   ownedBefore: Record<string, string[]>;
+  /** Members who set out to attack a business, keyed `${factionId}|${zoneId}` (resolved in the combat stage). */
+  attacks: Record<string, string[]>;
+  /** Members killed this week, per faction. */
+  deaths: Record<string, number>;
 }
 
 export function newScratch(): TurnScratch {
@@ -26,6 +30,8 @@ export function newScratch(): TurnScratch {
     memberTasks: {},
     illegalFactions: new Set(),
     ownedBefore: {},
+    attacks: {},
+    deaths: {},
   };
 }
 

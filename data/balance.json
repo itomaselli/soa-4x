@@ -74,10 +74,12 @@
     "truceAcceptRelation": -40
   },
   "laundering": {
-    "federalAttentionCapacityRatio": 0.7
+    "federalAttentionCapacityRatio": 0.7,
+    "federalPerExcess": 10
   },
   "market": {
-    "priceVariance": 0.2
+    "priceVariance": 0.2,
+    "supplyDecay": 0.5
   },
   "federal": {
     "visibleFrom": 50,
@@ -85,7 +87,10 @@
     "perInformant": 2,
     "lowProfileDrop": 2,
     "informantExpelledDrop": 10,
-    "raidResetTo": 50
+    "raidResetTo": 50,
+    "perGunRun": 2,
+    "perCombat": 1,
+    "perDeath": 3
   },
   "victory": {
     "zonesToControl": 12,
@@ -140,6 +145,11 @@
       "statMin": 2,
       "statMax": 6,
       "startingLoyalty": 50
+    },
+    "gunRun": {
+      "goodId": "good_gun_crate",
+      "baseCrates": 2,
+      "cunningDivisor": 3
     }
   },
   "wages": {
@@ -162,7 +172,8 @@
     "traitDislikePenalty": 3,
     "desertChance": 0.15,
     "informantChance": 0.1,
-    "informantHintChance": 0.25
+    "informantHintChance": 0.25,
+    "deathPenalty": 5
   },
   "relations": {
     "intimidatedPenalty": 5,
@@ -175,5 +186,32 @@
     "crackdownHeatDrop": 30,
     "sheriffHeatReductionMax": 0.5,
     "sheriffRelationDecay": 2
+  },
+  "combat": {
+    "randomMax": 6,
+    "gunBonusPerCrate": 1,
+    "cratesPerFighter": 1,
+    "hqDefenseBonus": 4,
+    "controlSwing": 10,
+    "loserWoundChance": 0.4,
+    "loserJailChance": 0.1,
+    "loserDeathChance": 0.05,
+    "winnerWoundChance": 0.15,
+    "woundWeeksMin": 2,
+    "woundWeeksMax": 4,
+    "extraHeat": 10
+  },
+  "cartel": {
+    "dealPrice": 250,
+    "dealMinRelation": -20,
+    "purchaseRelationGain": 2,
+    "graceWeeks": 2,
+    "breachRelationPenalty": 40,
+    "portZoneId": "zone_port_calloway",
+    "interceptPerHeat": 0.005
+  },
+  "events": {
+    "weeklyChance": 0.3,
+    "cooldownWeeks": 10
   }
 }

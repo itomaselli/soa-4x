@@ -32,13 +32,13 @@
     "name": "Cartel Valdés",
     "kind": "cartel",
     "glyph": "C",
-    "hqZoneId": null,
+    "hqZoneId": "zone_port_calloway",
     "startingMoney": {
       "clean": 0,
-      "dirty": 0
+      "dirty": 5000
     },
     "initialRelations": {},
-    "aiProfile": null,
+    "aiProfile": "cartel",
     "color": "#d4a82a"
   },
   {

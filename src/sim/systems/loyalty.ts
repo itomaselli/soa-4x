@@ -7,6 +7,7 @@
 import type { TurnContext } from "../context";
 import type { GameState, MemberState } from "../state";
 import { clamp } from "../util";
+import { businessDef, workingBusinesses } from "./businesses";
 import { ownedZones } from "./control";
 import { holdVote } from "./council";
 import { getStance, warEnemies } from "./diplomacy";
@@ -54,7 +55,18 @@ function weeklyLoyalty(state: GameState, ctx: TurnContext, factionId: string): v
     return stance !== null && state.week - stance.sinceWeek >= l.warLongWeeks;
   }).length;
 
-  const shared = gained * l.zoneGainedBonus - lost * l.zoneLostPenalty - arrests * l.arrestPenalty - longWars * l.warWeeklyPenalty;
+  const deaths = ctx.scratch.deaths[factionId] ?? 0;
+  const barBonus = workingBusinesses(state, factionId).reduce(
+    (best, b) => Math.max(best, businessDef(ctx.data, b.typeId)?.bar?.loyaltyBonus ?? 0),
+    0,
+  );
+  const shared =
+    gained * l.zoneGainedBonus -
+    lost * l.zoneLostPenalty -
+    arrests * l.arrestPenalty -
+    deaths * l.deathPenalty -
+    longWars * l.warWeeklyPenalty +
+    barBonus;
   for (const m of members) {
     change(m, shared + (unpaid.has(m.id) ? -l.unpaidPenalty : l.paidBonus), ctx);
     const task = ctx.scratch.memberTasks[m.id];
@@ -72,6 +84,8 @@ function weeklyLoyalty(state: GameState, ctx: TurnContext, factionId: string): v
   if (lost > 0) ctx.report("report.loyalty.zones_lost", { count: lost, penalty: lost * l.zoneLostPenalty }, factionId);
   if (arrests > 0) ctx.report("report.loyalty.arrests", { count: arrests, penalty: arrests * l.arrestPenalty }, factionId);
   if (longWars > 0) ctx.report("report.loyalty.long_war", { penalty: longWars * l.warWeeklyPenalty }, factionId);
+  if (deaths > 0) ctx.report("report.loyalty.deaths", { count: deaths, penalty: deaths * l.deathPenalty }, factionId);
+  if (barBonus > 0) ctx.report("report.loyalty.bar", { bonus: barBonus }, factionId);
 }
 
 function lowLoyaltyConsequences(state: GameState, ctx: TurnContext, factionId: string): void {

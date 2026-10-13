@@ -71,3 +71,13 @@ h3 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); text-transform: u
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 ul.votes { list-style: none; padding: 0; max-width: 300px; }
 ul.votes li { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 2px 0; }
+.row { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+input.num { width: 72px; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
+table.goods { border-collapse: collapse; width: 100%; }
+table.goods td { padding: 4px; border-bottom: 1px solid var(--border); }
+.business ul { padding-left: 18px; margin: 4px 0; }
+.events { display: grid; gap: 10px; margin-bottom: 16px; }
+.event { border: 1px solid var(--accent); border-radius: 6px; padding: 10px; background: #221f12; }
+.event h3 { color: var(--accent); margin-top: 0; }
+.event label { display: flex; margin: 4px 0; }
+.warn-chip { background: #3a2a10; border-color: var(--accent); color: var(--accent); }

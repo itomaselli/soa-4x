@@ -254,5 +254,53 @@
     },
     "loyalty": 45,
     "glyph": "p"
+  },
+  {
+    "id": "member_cartel_ramon_valdes",
+    "name": "Ramón Valdés",
+    "nickname": "El Patrón",
+    "factionId": "faction_cartel_valdes",
+    "rank": "president",
+    "trait": "cautious",
+    "stats": {
+      "strength": 5,
+      "cunning": 8,
+      "hands": 3,
+      "charm": 8
+    },
+    "loyalty": 100,
+    "glyph": "@"
+  },
+  {
+    "id": "member_cartel_hector_luna",
+    "name": "Héctor Luna",
+    "nickname": "Machete",
+    "factionId": "faction_cartel_valdes",
+    "rank": "sergeant_at_arms",
+    "trait": "violent",
+    "stats": {
+      "strength": 8,
+      "cunning": 5,
+      "hands": 3,
+      "charm": 3
+    },
+    "loyalty": 80,
+    "glyph": "S"
+  },
+  {
+    "id": "member_cartel_ines_ochoa",
+    "name": "Inés Ochoa",
+    "nickname": "La Contadora",
+    "factionId": "faction_cartel_valdes",
+    "rank": "treasurer",
+    "trait": "greedy",
+    "stats": {
+      "strength": 3,
+      "cunning": 7,
+      "hands": 4,
+      "charm": 7
+    },
+    "loyalty": 80,
+    "glyph": "T"
   }
 ]

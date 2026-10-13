@@ -43,11 +43,12 @@ Estética: sprites low-res tipo *Moonring* / *Caves of Qud*. Sin sonido.
 El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este documento.
 
 **Detalles del turno:**
+- **Orden completo de la resolución (Fase 5):** decisiones sobre los eventos de la semana anterior → mesa → gestión (construcciones y compras al cartel) → producción → transporte → ventas → tareas → combates → lavado → gastos → calor y ley → lealtad → eventos (cartel y eventos nuevos) → fin de turno.
 - **La mesa se vota al comienzo de la resolución**, antes que todo lo demás (paso 2). Si se expulsa a un miembro, su tarea de esa semana se cancela.
 - **Iniciativa:** las tareas de todas las facciones se resuelven juntas, ordenadas por iniciativa = stat de la tarea + azar de 0 a 5. Gana el número más alto; los empates se rompen por id del miembro. El orden en que se cargan las órdenes no influye.
 - **Órdenes inválidas** (miembro no activo, dos tareas al mismo miembro, tarea no disponible o zona fuera de alcance) se descartan y el informe explica por qué.
 - **Heridas y cárcel** se descuentan en el fin de turno. "N semanas" incluye la semana en que empezó: preso 3 semanas en la semana 1 → vuelve a trabajar en la semana 4.
-- **Transporte:** mover stock entre negocios. Llega con las cadenas de producción (Fase 5).
+- **Transporte:** llegan las armas compradas al cartel. Pasan por Port Calloway: con calor alto en el puerto, la policía puede incautarlas (calor × 0,5% de chance).
 
 ## 5. Mapa
 
@@ -147,6 +148,9 @@ Todos los números viven en `data/balance.json`.
 - **Sueldos semanales por rango:** prospecto $10, miembro $30, sargento de armas $50, tesorero $50, vicepresidente $60, presidente $0. Se pagan en mano: **primero con plata sucia y, si no alcanza, con limpia.** Cada miembro cobra completo o no cobra. También cobran los presos y los heridos.
 - **Plata inicial de los clubes:** $2000 limpios y $500 sucios.
 
+- **Gastos (Fase 5):** el mantenimiento de cada negocio se paga con plata limpia y, si no alcanza, con sucia. Un negocio que no se puede mantener queda **parado**: no produce ni lava hasta que se pague.
+- **Lavado (Fase 5):** la capacidad es la suma de los negocios legales que funcionan. Lavar por encima del 70% suma investigación federal (10 puntos por capacidad completa en exceso).
+
 ### Negocios (MVP)
 
 | Negocio | Tipo | Función |
@@ -155,6 +159,18 @@ Todos los números viven en `data/balance.json`.
 | Bar del club | Legal | Ingreso bajo, lava plata, +lealtad |
 | Desarmadero | Ilegal | Convierte motos robadas en piezas |
 | Depósito | Ilegal | Guarda armas (si se allana, perdés el stock) |
+
+**Valores (Fase 5, en `data/businesses.json`):**
+
+| Negocio | Costo | Mantenimiento/semana | Lavado/semana | Función |
+|---|---|---|---|---|
+| Taller | $1500 | $50 | $400 | 1 moto custom por semana (2 piezas cada una), +1 por cada 4 de Manos de quien trabaje ahí (rinde la semana siguiente) |
+| Bar | $1000 | $40 | $300 | $25 limpios × riqueza de la zona; +1 de lealtad a todo el club |
+| Desarmadero | $800 | $30 | — | hasta 3 motos robadas por semana → 3 piezas cada una |
+| Depósito | $600 | $20 | — | guarda hasta 10 cajas de armas |
+
+- Solo se construye en **zonas propias** con lugar libre, y se paga con plata limpia. Un negocio funciona desde la semana siguiente a su construcción.
+- Los legales se construyen desde la gestión; los ilegales necesitan el voto de la mesa.
 
 ## 9. Bienes y cadenas de producción
 
@@ -174,6 +190,18 @@ Trato con Cartel Valdés → compra en Port Calloway → [Caja de armas] → Dep
 **Cadena C — Protección:** sin bienes. Es ingreso por control de zona.
 
 Los precios tienen un mercado simple por bien: el precio base varía ±20% según la oferta reciente (si vendés mucho, baja).
+
+**Mercado (Fase 5):** precio = base × (1 + 0,2 × (1 − 2 × saturación)), donde saturación = ventas recientes ÷ referencia del bien (tope 1). Sin ventas recientes, +20%; con la referencia alcanzada, −20%. Las ventas recientes se reducen a la mitad cada semana.
+
+| Bien | Precio base | Moneda | Referencia |
+|---|---|---|---|
+| Moto robada | no se vende: va al desarmadero | — | — |
+| Piezas | $60 | sucia | 12 |
+| Moto custom | $600 | limpia | 3 |
+| Caja de armas | $400 (al cartel se compra a $250) | sucia | 6 |
+
+- **Corrida de armas:** vende 2 + Astucia/3 cajas al precio de mercado y suma +2 de investigación federal.
+- **Robar motos:** las motos van al stock; el desarmadero las procesa.
 
 ## 10. Calor y ley
 
@@ -198,12 +226,21 @@ Los precios tienen un mercado simple por bien: el precio base varía ±20% segú
 - Resultado: ganador, cambio de control, bajas por miembro (`herido` / `preso` / `muerto`), daño a negocios.
 - Cada combate suma calor fuerte en la zona y una pequeña cantidad a la investigación federal.
 
+**Reglas detalladas (Fase 5):**
+- **Ataque:** todos los miembros de un club que eligieron "Atacar negocio rival" en la misma zona pelean juntos. Atacan el negocio rival más caro de la zona (nunca uno de un club con tregua).
+- **Defensa:** los miembros del dueño que custodiaron esa zona esa semana. Si es la sede del dueño, suma +4.
+- **Fuerza de cada bando** = Σ Fuerza efectiva + 1 por caja de armas en stock (hasta 1 por combatiente) + bonus + azar de 0 a 6. El atacante gana solo si supera a la defensa.
+- **Si gana el atacante:** destruye el negocio y le saca 10 de control al dueño.
+- **Si gana el defensor:** le saca 10 de control al atacante.
+- **Bajas del bando perdedor**, por miembro: 5% de morir, 10% de caer preso y 40% de quedar herido (2 a 4 semanas). Del ganador, 15% de quedar herido.
+- **Efectos:** +10 de calor en la zona; +1 de investigación federal para cada bando y +3 por cada muerto; −5 de lealtad para todo el club por cada muerto. La víctima empeora su relación con el atacante.
+
 ## 12. Facciones IA
 
 | Facción | Comportamiento |
 |---|---|
 | Grim Wolves MC | Expansiva: disputa zonas vecinas, ataca negocios, responde a agresiones |
-| Cartel Valdés | Comercial: ofrece tratos de armas. Si incumplís, castiga. No busca territorio salvo en el puerto. |
+| Cartel Valdés | Comercial: ofrece tratos de armas. Si incumplís, castiga. No busca territorio salvo en el puerto. (Fase 5: tiene 3 miembros que solo actúan en Port Calloway.) |
 | Sheriff | Reactivo al calor; corruptible |
 | Federales | Invisibles hasta que la investigación pasa 50% |
 
@@ -215,11 +252,21 @@ La IA usa las mismas reglas y tareas que el jugador. Nada de trampas.
   - **`expansive`** (Grim Wolves): disputa zonas vecinas y le saca control al rival.
   - **`balanced`**: valora más consolidar lo propio y defender su sede. Lo usa el simulador para jugar por los Iron Saints.
   - Las dos defienden lo propio con más fuerza, responden a las agresiones (la facción que peor las trata pasa a ser su enemiga) y, si les falta plata, priorizan cobrar antes que expandirse o reclutar.
-- La IA todavía no ataca negocios: no hay negocios ni combate (ver §18).
+- **Gestión de la IA (Fase 5):** vende lo que produce, lava hasta el 70% de su capacidad, construye un bar, pide a la mesa un desarmadero y después construye un taller. Roba motos solo si el desarmadero puede procesarlas, custodia las zonas con negocios propios que un rival puede alcanzar y ataca negocios rivales según su chance estimada de ganar.
+- **Trato con el cartel (Fase 5):** lo vota la mesa. El cartel acepta si su relación con el club es de −20 o más. Las cajas cuestan $250 sucios y necesitan lugar en un depósito. Si pasan 2 semanas sin comprar, el cartel da el trato por roto: su relación baja 40 y le da una paliza a un miembro (herido 2 a 4 semanas).
 
 ## 13. Eventos
 
-Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opciones y efectos. Ejemplos:
+Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opciones y efectos.
+
+**Funcionamiento (Fase 5):**
+- Cada semana hay 30% de chance de un evento para el club del jugador; los clubs de la IA no tienen eventos.
+- Se elige uno al azar (según su peso) entre los que cumplen sus condiciones y no ocurrieron en las últimas 10 semanas.
+- El jugador decide antes de avanzar la semana y la decisión se aplica al comienzo de la siguiente. Si no decide, o no puede pagar la opción elegida, se aplica la opción por defecto.
+- **Condiciones posibles:** semana mínima, tener un prospecto, tener un informante, que el rival tenga al menos N miembros.
+- **Efectos posibles:** plata, lealtad (todos, el protagonista o el resto), relación con el sheriff o con el rival, calor en una zona, ascender al protagonista, que el protagonista se pase al club, un preso al azar, descubrir al informante y efectos con probabilidad (sale bien / sale mal).
+
+Ejemplos:
 - Un prospecto pide un parche completo antes de tiempo.
 - El sheriff pide un "aporte para la campaña".
 - Un miembro de los Grim Wolves quiere cambiarse de club.
@@ -298,6 +345,12 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Qué es "semana de perfil bajo"? (Fase 4) | Una semana en la que el club no hizo ninguna tarea ilegal: −2 de investigación. |
 | ¿Dónde mandan los sobornos del sheriff? (Fase 4) | En todo el condado. Su buena voluntad se desgasta 2 por semana; los "sobornos activos" como gasto fijo quedan pendientes. |
 | ¿Qué pasa con un club de la IA al 100% federal? (Fase 4) | Sus miembros activos caen presos y la investigación vuelve a 50. |
+| ¿El combate? (Fase 5) | Entra con los negocios. Ver §11. |
+| ¿Dónde se guarda el stock? (Fase 5) | Por facción, no por negocio. Los depósitos solo limitan cuántas armas se pueden tener. Si allanan el último depósito, se pierden las armas que no entran. |
+| ¿Qué es el "transporte"? (Fase 5) | La entrega de las armas del cartel, con riesgo de incautación en el puerto. |
+| ¿Cuándo rinde "trabajar en taller"? (Fase 5) | Las tareas se resuelven después de la producción, así que el trabajo suma capacidad para la semana siguiente. |
+| ¿Quién paga sueldos? (Fase 5) | Solo los clubs. El cartel no paga sueldos ni tiene mesa. |
+| ¿Eventos para la IA? (Fase 5) | No por ahora: solo el jugador tiene eventos. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

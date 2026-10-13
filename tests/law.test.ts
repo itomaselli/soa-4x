@@ -74,11 +74,12 @@ describe("operativos (calor ≥ 85)", () => {
 describe("allanamientos (calor ≥ 60)", () => {
   const sureRaid = dataWith((d) => {
     d.balance.law.raidChance = 1;
+    d.balance.events.weeklyChance = 0;
   });
   function withBusiness(typeId: string): GameState {
     const state = newState();
     zone(state, "zone_redwater").heat = 70;
-    state.businesses.push({ id: "biz_1", typeId, zoneId: "zone_redwater", ownerFactionId: PLAYER, raidWarned: false });
+    state.businesses.push({ id: "biz_1", typeId, zoneId: "zone_redwater", ownerFactionId: PLAYER, raidWarned: false, builtWeek: 0, suspended: false, workCapacity: 0 });
     return state;
   }
 
@@ -86,6 +87,14 @@ describe("allanamientos (calor ≥ 60)", () => {
     const { state, report } = run(withBusiness("business_chop_shop"), [], sureRaid);
     expect(state.businesses).toHaveLength(0);
     expect(keysOf(report)).toContain("report.law.raid");
+  });
+
+  it("si allanan el depósito, se pierden las armas que ya no entran", () => {
+    const state = withBusiness("business_warehouse");
+    state.factions[PLAYER]!.stock["good_gun_crate"] = 7;
+    const { state: next, report } = run(state, [], sureRaid);
+    expect(next.factions[PLAYER]?.stock["good_gun_crate"]).toBe(0);
+    expect(keysOf(report)).toContain("report.law.raid_stock_lost");
   });
 
   it("los negocios legales no se allanan", () => {

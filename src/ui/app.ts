@@ -15,18 +15,35 @@ import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draf
 import { reportSections } from "./report";
 import { clearAutosave, loadAutosave, saveAutosave } from "./storage";
 import { t } from "./strings";
-import { diplomacyRows, mapViewModel, memberRows, topBarModel, votePreview, zoneDetails } from "./viewModel";
+import {
+  buildableZones,
+  businessRows,
+  cartelInfo,
+  diplomacyRows,
+  goodRows,
+  launderingInfo,
+  mapViewModel,
+  memberRows,
+  pendingEventViews,
+  topBarModel,
+  votePreview,
+  zoneBusinesses,
+  zoneDetails,
+} from "./viewModel";
+import { validateManagement, type ManagementOrder } from "../sim/management";
 
-type Tab = "club" | "council" | "zone" | "report";
+type Tab = "club" | "council" | "business" | "zone" | "report";
 
 const PLAYER_FACTION = "faction_iron_saints";
-const TABS: Tab[] = ["club", "council", "zone", "report"];
+const TABS: Tab[] = ["club", "council", "business", "zone", "report"];
 
 interface ProposalForm {
   type: ProposalType;
   targetMemberId: string;
   targetFactionId: string;
   newRank: string;
+  businessTypeId: string;
+  zoneId: string;
   force: boolean;
 }
 
@@ -54,7 +71,13 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   let selectedZoneId: string | null = data.factions.find((f) => f.id === state.playerFactionId)?.hqZoneId ?? null;
   let focusedMemberId: string | null = null;
   let proposals: Proposal[] = [];
-  let form: ProposalForm = { type: "promote", targetMemberId: "", targetFactionId: "", newRank: "", force: false };
+  let form: ProposalForm = { type: "promote", targetMemberId: "", targetFactionId: "", newRank: "", businessTypeId: "", zoneId: "", force: false };
+  let management: ManagementOrder[] = [];
+  let eventChoices: Record<string, string> = {};
+  let buildForm = { typeId: "", zoneId: "" };
+  let launderAmount = 0;
+  let gunQuantity = 1;
+  const sellAmounts: Record<string, number> = {};
 
   const map: MapView = await createMapView(els.mapHost, data, (zoneId) => {
     selectedZoneId = zoneId;
@@ -70,9 +93,21 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   function advanceWeek(): void {
     if (state.outcome) return;
     const mine = draftToOrders(draft).assignments;
-    const ai = allAiOrders(state, data, state.playerFactionId).assignments;
-    const result = resolveTurn(state, { assignments: [...mine, ...ai], proposals }, data);
+    const aiOrders = allAiOrders(state, data, state.playerFactionId);
+    const ai = aiOrders.assignments;
+    const result = resolveTurn(
+      state,
+      {
+        assignments: [...mine, ...ai],
+        proposals: [...proposals, ...(aiOrders.proposals ?? [])],
+        management: [...management, ...(aiOrders.management ?? [])],
+        eventChoices: Object.entries(eventChoices).map(([instanceId, optionId]) => ({ instanceId, optionId })),
+      },
+      data,
+    );
     proposals = [];
+    management = [];
+    eventChoices = {};
     state = result.state;
     report = result.report;
     draft = carryOverDraft(draft, state, data);
@@ -89,6 +124,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     report = [];
     draft = {};
     proposals = [];
+    management = [];
+    eventChoices = {};
     tab = "club";
     saveAutosave(state);
     render();
@@ -115,6 +152,9 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       h("div", { class: m.federal === null ? "stat muted" : "stat warn" }, [
         m.federal === null ? tr("ui.federal_hidden") : tr("ui.federal", { value: m.federal }),
       ]),
+      state.pendingEvents.length > 0
+        ? h("button", { class: "warn-chip", onclick: () => { tab = "report"; render(); } }, [tr("ui.events_pending", { count: state.pendingEvents.length })])
+        : null,
       h("div", { class: "spacer" }),
       outcome
         ? h("div", { class: `outcome ${outcome.result}` }, [tr(outcome.reasonKey)])
@@ -243,7 +283,9 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       factionId: state.playerFactionId,
       type: form.type,
       targetMemberId: form.targetMemberId || undefined,
-      targetFactionId: form.targetFactionId || undefined,
+      targetFactionId: form.type === "cartel_deal" ? (cartelInfo(state, data, state.playerFactionId).cartelId ?? undefined) : form.targetFactionId || undefined,
+      businessTypeId: form.businessTypeId || undefined,
+      zoneId: form.zoneId || undefined,
       newRank: (form.newRank || undefined) as Rank | undefined,
       force: form.force,
     };
@@ -268,7 +310,25 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       { onchange: (e: Event) => set({ type: (e.target as HTMLSelectElement).value as ProposalType, newRank: "" }) },
       PROPOSAL_TYPES.map((type) => h("option", { value: type, selected: type === form.type }, [tr(`proposal.${type}`)])),
     );
-    const targetSelect = needsMember
+    const illegalTypes = data.businesses.filter((b) => !b.legal);
+    const buildZones = buildableZones(state, data, viewer);
+    const targetSelect =
+      form.type === "cartel_deal"
+        ? h("span", {}, [data.factions.find((f) => f.kind === "cartel")?.name ?? ""])
+        : form.type === "open_illegal_business"
+          ? h("span", { class: "row" }, [
+              h(
+                "select",
+                { onchange: (e: Event) => set({ businessTypeId: (e.target as HTMLSelectElement).value }) },
+                [h("option", { value: "" }, [tr("ui.biz.pick_type")]), ...illegalTypes.map((b) => h("option", { value: b.id, selected: b.id === form.businessTypeId }, [`${tr(`business.${b.id}`)} ($${b.buildCost})`]))],
+              ),
+              h(
+                "select",
+                { onchange: (e: Event) => set({ zoneId: (e.target as HTMLSelectElement).value }) },
+                [h("option", { value: "" }, [tr("ui.biz.pick_zone")]), ...buildZones.map((z) => h("option", { value: z, selected: z === form.zoneId }, [data.zones.find((d) => d.id === z)?.name ?? z]))],
+              ),
+            ])
+          : needsMember
       ? h(
           "select",
           { onchange: (e: Event) => set({ targetMemberId: (e.target as HTMLSelectElement).value, newRank: "" }) },
@@ -322,7 +382,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       h("h3", {}, [tr("ui.council.new_proposal")]),
       h("div", { class: "form" }, [
         field(tr("ui.council.type"), typeSelect),
-        field(needsMember ? tr("ui.council.member") : tr("ui.council.club"), targetSelect),
+        field(needsMember ? tr("ui.council.member") : form.type === "open_illegal_business" ? tr("ui.council.business") : tr("ui.council.club"), targetSelect),
         rankSelect,
         h("label", { class: "check" }, [
           h("input", { type: "checkbox", checked: form.force, onchange: (e: Event) => set({ force: (e.target as HTMLInputElement).checked }) }),
@@ -337,7 +397,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
             disabled: problem !== null,
             onclick: () => {
               proposals = [...proposals, pending];
-              form = { ...form, targetMemberId: "", targetFactionId: "", newRank: "", force: false };
+              form = { ...form, targetMemberId: "", targetFactionId: "", newRank: "", businessTypeId: "", zoneId: "", force: false };
               render();
             },
           },
@@ -375,9 +435,155 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
 
   function proposalLabel(p: Proposal): string {
     const member = p.targetMemberId ? state.members[p.targetMemberId] : undefined;
-    const target = member ? member.nickname || member.name : data.factions.find((f) => f.id === p.targetFactionId)?.name ?? "";
+    const target = member
+      ? member.nickname || member.name
+      : p.businessTypeId && p.zoneId
+        ? `${tr(`business.${p.businessTypeId}`)} (${data.zones.find((z) => z.id === p.zoneId)?.name ?? p.zoneId})`
+        : data.factions.find((f) => f.id === p.targetFactionId)?.name ?? "";
     const rank = p.newRank ? ` → ${tr(`rank.${p.newRank}`)}` : "";
     return `${tr(`proposal.${p.type}`)}: ${target}${rank}${p.force ? tr("ui.council.forced") : ""}`;
+  }
+
+  // ---------- Business tab ----------
+
+  function renderBusiness(): HTMLElement {
+    const viewer = state.playerFactionId;
+    const addOrder = (order: ManagementOrder) => {
+      management = [...management, order];
+      render();
+    };
+    const problemOf = (order: ManagementOrder) => validateManagement(state, data, order);
+    const zoneLabel = (id: string) => data.zones.find((z) => z.id === id)?.name ?? id;
+
+    const legalTypes = data.businesses.filter((b) => b.legal);
+    const zones = buildableZones(state, data, viewer);
+    const buildOrder: ManagementOrder | null =
+      buildForm.typeId && buildForm.zoneId ? { kind: "build", factionId: viewer, typeId: buildForm.typeId, zoneId: buildForm.zoneId } : null;
+    const buildProblemKey = buildOrder ? problemOf(buildOrder) : null;
+
+    const laundering = launderingInfo(state, data, viewer);
+    const launderOrder: ManagementOrder | null = launderAmount > 0 ? { kind: "launder", factionId: viewer, amount: launderAmount } : null;
+    const cartel = cartelInfo(state, data, viewer);
+    const gunsOrder: ManagementOrder = { kind: "buy_guns", factionId: viewer, quantity: gunQuantity };
+    const gunsProblem = problemOf(gunsOrder);
+
+    const numberInput = (value: number, onChange: (n: number) => void, max?: number) =>
+      h("input", {
+        type: "number",
+        min: "0",
+        max: max !== undefined ? String(max) : false,
+        value: String(value),
+        class: "num",
+        onchange: (e: Event) => {
+          onChange(Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value) || 0)));
+          render();
+        },
+      });
+
+    return h("div", { class: "business" }, [
+      h("p", { class: "hint" }, [tr("ui.biz.hint")]),
+      h("h3", {}, [tr("ui.biz.ours")]),
+      (() => {
+        const rows = businessRows(state, data, viewer);
+        return rows.length === 0
+          ? h("p", { class: "muted" }, [tr("ui.biz.none")])
+          : h("ul", {}, rows.map((b) => h("li", {}, [tr(b.typeKey), ` · ${b.zone} · `, tr(b.statusKey), b.legal ? "" : tr("ui.biz.illegal")])));
+      })(),
+
+      h("h3", {}, [tr("ui.biz.stock")]),
+      h(
+        "table",
+        { class: "goods" },
+        goodRows(state, data, viewer).map((g) => {
+          const qty = Math.min(sellAmounts[g.id] ?? g.stock, g.stock);
+          const order: ManagementOrder = { kind: "sell", factionId: viewer, goodId: g.id, quantity: qty };
+          return h("tr", {}, [
+            h("td", {}, [tr(g.nameKey)]),
+            h("td", { class: "mono" }, [String(g.stock)]),
+            h("td", { class: "mono" }, [g.price === null ? tr("ui.biz.not_sold") : `$${g.price} ${tr(g.currencyKey ?? "")}`]),
+            h("td", {}, [
+              g.price !== null && g.id !== data.balance.tasks.gunRun.goodId
+                ? h("span", { class: "row" }, [
+                    numberInput(qty, (n) => (sellAmounts[g.id] = n), g.stock),
+                    h("button", { disabled: qty <= 0 || problemOf(order) !== null, onclick: () => addOrder(order) }, [tr("ui.biz.sell")]),
+                  ])
+                : g.id === data.balance.tasks.gunRun.goodId
+                  ? h("span", { class: "muted" }, [tr("ui.biz.guns_by_run")])
+                  : null,
+            ]),
+          ]);
+        }),
+      ),
+
+      h("h3", {}, [tr("ui.biz.build")]),
+      h("div", { class: "form" }, [
+        h(
+          "select",
+          { onchange: (e: Event) => { buildForm = { ...buildForm, typeId: (e.target as HTMLSelectElement).value }; render(); } },
+          [h("option", { value: "" }, [tr("ui.biz.pick_type")]), ...legalTypes.map((b) => h("option", { value: b.id, selected: b.id === buildForm.typeId }, [`${tr(`business.${b.id}`)} ($${b.buildCost}, ${tr("ui.biz.upkeep", { cost: b.maintenance })})`]))],
+        ),
+        h(
+          "select",
+          { onchange: (e: Event) => { buildForm = { ...buildForm, zoneId: (e.target as HTMLSelectElement).value }; render(); } },
+          [h("option", { value: "" }, [zones.length === 0 ? tr("ui.biz.no_zone") : tr("ui.biz.pick_zone")]), ...zones.map((z) => h("option", { value: z, selected: z === buildForm.zoneId }, [zoneLabel(z)]))],
+        ),
+        buildProblemKey ? h("div", { class: "error" }, [tr(buildProblemKey)]) : null,
+        h("button", { disabled: !buildOrder || buildProblemKey !== null, onclick: () => { if (buildOrder) addOrder(buildOrder); buildForm = { typeId: "", zoneId: "" }; render(); } }, [tr("ui.biz.add_build")]),
+        h("p", { class: "muted" }, [tr("ui.biz.illegal_hint")]),
+      ]),
+
+      h("h3", {}, [tr("ui.biz.launder")]),
+      laundering.capacity === 0
+        ? h("p", { class: "muted" }, [tr("ui.biz.no_laundering")])
+        : h("div", { class: "form" }, [
+            h("p", { class: "muted" }, [tr("ui.biz.launder_info", { capacity: laundering.capacity, safe: laundering.safe })]),
+            h("span", { class: "row" }, [
+              numberInput(launderAmount, (n) => (launderAmount = n), laundering.capacity),
+              h("button", { disabled: !launderOrder, onclick: () => { if (launderOrder) addOrder(launderOrder); launderAmount = 0; render(); } }, [tr("ui.biz.add_launder")]),
+            ]),
+            launderAmount > laundering.safe ? h("div", { class: "error" }, [tr("ui.biz.launder_warning")]) : null,
+          ]),
+
+      h("h3", {}, [tr("ui.biz.cartel")]),
+      !cartel.dealing
+        ? h("p", { class: "muted" }, [tr("ui.biz.no_deal")])
+        : h("div", { class: "form" }, [
+            h("p", { class: "muted" }, [tr("ui.biz.deal_info", { price: cartel.price, space: cartel.space, weeks: cartel.weeksLeft ?? 0 })]),
+            h("span", { class: "row" }, [
+              numberInput(gunQuantity, (n) => (gunQuantity = Math.max(1, n)), Math.max(1, cartel.space)),
+              h("button", { disabled: gunsProblem !== null, onclick: () => addOrder(gunsOrder) }, [tr("ui.biz.buy_guns")]),
+            ]),
+            gunsProblem ? h("div", { class: "error" }, [tr(gunsProblem)]) : null,
+          ]),
+
+      h("h3", {}, [tr("ui.biz.pending")]),
+      management.length === 0
+        ? h("p", { class: "muted" }, [tr("ui.council.none")])
+        : h(
+            "ul",
+            {},
+            management.map((o, i) =>
+              h("li", {}, [
+                managementLabel(o),
+                " ",
+                h("button", { class: "chip", onclick: () => { management = management.filter((_, j) => j !== i); render(); } }, [tr("ui.council.remove")]),
+              ]),
+            ),
+          ),
+    ]);
+  }
+
+  function managementLabel(o: ManagementOrder): string {
+    switch (o.kind) {
+      case "build":
+        return `${tr("management.build")}: ${tr(`business.${o.typeId}`)} (${data.zones.find((z) => z.id === o.zoneId)?.name ?? o.zoneId})`;
+      case "sell":
+        return `${tr("management.sell")}: ${o.quantity} × ${tr(`good.${o.goodId}`)}`;
+      case "launder":
+        return `${tr("management.launder")}: $${o.amount}`;
+      case "buy_guns":
+        return `${tr("management.buy_guns")}: ${o.quantity}`;
+    }
   }
 
   // ---------- Zone tab ----------
@@ -407,6 +613,13 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         ]),
       ),
       h("p", { class: "muted" }, [tr("ui.zone.free_control", { value: d.freeControl })]),
+      h("h3", {}, [tr("ui.zone.businesses")]),
+      (() => {
+        const list = zoneBusinesses(state, data, d.id);
+        return list.length === 0
+          ? h("p", { class: "muted" }, [tr("ui.zone.nobody")])
+          : h("ul", {}, list.map((b) => h("li", {}, [tr(b.typeKey), " · ", h("span", { style: `color:${b.color}` }, [b.owner])])));
+      })(),
       h("h3", {}, [tr("ui.zone.neighbors")]),
       h(
         "div",
@@ -422,10 +635,42 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
 
   // ---------- Report tab ----------
 
+  function renderEvents(): HTMLElement | null {
+    const events = pendingEventViews(state, data, state.playerFactionId);
+    if (events.length === 0) return null;
+    return h(
+      "div",
+      { class: "events" },
+      events.map((ev) =>
+        h("div", { class: "event" }, [
+          h("h3", {}, [tr(ev.titleKey)]),
+          h("p", {}, [tr(ev.textKey, { subject: ev.subject })]),
+          ...ev.options.map((o) =>
+            h("label", { class: o.affordable ? "check" : "check muted" }, [
+              h("input", {
+                type: "radio",
+                name: ev.instanceId,
+                disabled: !o.affordable,
+                checked: (eventChoices[ev.instanceId] ?? ev.options.find((x) => x.isDefault)?.id) === o.id,
+                onchange: () => { eventChoices = { ...eventChoices, [ev.instanceId]: o.id }; },
+              }),
+              " ",
+              tr(o.labelKey),
+              o.isDefault ? tr("ui.event.default") : "",
+              o.affordable ? "" : tr("ui.event.cant_afford"),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
   function renderReport(): HTMLElement {
     const sections = reportSections(report, data, state.playerFactionId);
-    if (sections.length === 0) return h("p", { class: "hint" }, [tr("ui.report_empty")]);
+    const events = renderEvents();
+    if (sections.length === 0) return h("div", {}, [events, events ? null : h("p", { class: "hint" }, [tr("ui.report_empty")])]);
     return h("div", { class: "report" }, [
+      events,
       h("h2", {}, [tr("play.report_title", { week: state.week - 1 })]),
       ...sections.flatMap((sec) => [h("h3", {}, [sec.title]), h("ul", {}, sec.lines.map((l) => h("li", {}, [l])))]),
     ]);
@@ -442,7 +687,16 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         h("button", { class: id === tab ? "tab active" : "tab", onclick: () => { tab = id; render(); } }, [tr(`ui.tab.${id}`)]),
       ),
     );
-    const body = tab === "club" ? renderClub() : tab === "council" ? renderCouncil() : tab === "zone" ? renderZone() : renderReport();
+    const body =
+      tab === "club"
+        ? renderClub()
+        : tab === "council"
+          ? renderCouncil()
+          : tab === "business"
+            ? renderBusiness()
+            : tab === "zone"
+              ? renderZone()
+              : renderReport();
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
     map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId));
   }

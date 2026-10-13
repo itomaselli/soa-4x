@@ -9,6 +9,7 @@
 import { factionName, sheriffId, zoneName, type TurnContext } from "../context";
 import type { GameState } from "../state";
 import { clamp } from "../util";
+import { storageCapacity } from "./businesses";
 import { controlOf } from "./control";
 import { factionMembers, memberLabel } from "./members";
 import { jail } from "./tasks";
@@ -44,6 +45,7 @@ function raids(state: GameState, ctx: TurnContext): void {
   const { balance, businesses } = ctx.data;
   const sheriff = sheriffId(ctx.data);
   const kept = [];
+  const lostStorage: { factionId: string; goodId: string }[] = [];
   for (const business of state.businesses) {
     const def = businesses.find((b) => b.id === business.typeId);
     const zone = state.zones[business.zoneId];
@@ -61,11 +63,22 @@ function raids(state: GameState, ctx: TurnContext): void {
     }
     if (ctx.rng.chance(balance.law.raidChance)) {
       ctx.report("report.law.raid", { ...params, owner: factionName(ctx.data, business.ownerFactionId) });
+      if (def.storage) lostStorage.push({ factionId: business.ownerFactionId, goodId: def.storage.goodId });
       continue; // shut down
     }
     kept.push(business);
   }
   state.businesses = kept;
+  // "Si se allana, perdés el stock": goods that no longer fit in the remaining warehouses are seized.
+  for (const { factionId, goodId } of lostStorage) {
+    const faction = state.factions[factionId];
+    const capacity = storageCapacity(state, ctx.data, factionId, goodId) ?? 0;
+    const held = faction?.stock[goodId] ?? 0;
+    if (faction && held > capacity) {
+      faction.stock[goodId] = capacity;
+      ctx.report("report.law.raid_stock_lost", { quantity: held - capacity, goodKey: `good.${goodId}` }, factionId);
+    }
+  }
 }
 
 function policeDrift(state: GameState, ctx: TurnContext): void {

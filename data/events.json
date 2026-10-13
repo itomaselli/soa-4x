@@ -1,1 +1,202 @@
-[]
+[
+  {
+    "id": "event_prospect_patch",
+    "weight": 1,
+    "conditions": {
+      "minWeek": 3,
+      "hasProspect": true
+    },
+    "subject": "prospect",
+    "defaultOption": "refuse",
+    "options": [
+      {
+        "id": "accept",
+        "effects": [
+          {
+            "type": "promote_subject",
+            "rank": "member"
+          },
+          {
+            "type": "loyalty",
+            "target": "subject",
+            "amount": 15
+          },
+          {
+            "type": "loyalty",
+            "target": "others",
+            "amount": -2
+          }
+        ]
+      },
+      {
+        "id": "test",
+        "effects": [
+          {
+            "type": "loyalty",
+            "target": "subject",
+            "amount": -5
+          },
+          {
+            "type": "loyalty",
+            "target": "others",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "refuse",
+        "effects": [
+          {
+            "type": "loyalty",
+            "target": "subject",
+            "amount": -15
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "event_sheriff_campaign",
+    "weight": 1,
+    "conditions": {
+      "minWeek": 4
+    },
+    "subject": null,
+    "defaultOption": "refuse",
+    "options": [
+      {
+        "id": "pay",
+        "effects": [
+          {
+            "type": "money",
+            "currency": "dirty",
+            "amount": -300
+          },
+          {
+            "type": "sheriff",
+            "amount": 15
+          }
+        ]
+      },
+      {
+        "id": "refuse",
+        "effects": [
+          {
+            "type": "sheriff",
+            "amount": -10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "event_wolf_defector",
+    "weight": 1,
+    "conditions": {
+      "minWeek": 5,
+      "rivalMinMembers": 4
+    },
+    "subject": "rival_member",
+    "defaultOption": "refuse",
+    "options": [
+      {
+        "id": "accept",
+        "effects": [
+          {
+            "type": "defect_subject"
+          },
+          {
+            "type": "rival_relation",
+            "amount": -20
+          }
+        ]
+      },
+      {
+        "id": "refuse",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "event_route9_truck",
+    "weight": 1,
+    "conditions": {
+      "minWeek": 2
+    },
+    "subject": null,
+    "defaultOption": "ignore",
+    "options": [
+      {
+        "id": "hit",
+        "effects": [
+          {
+            "type": "chance",
+            "probability": 0.6,
+            "success": [
+              {
+                "type": "money",
+                "currency": "dirty",
+                "amount": 800
+              },
+              {
+                "type": "heat",
+                "zoneId": "zone_route9_south",
+                "amount": 20
+              }
+            ],
+            "failure": [
+              {
+                "type": "jail_random",
+                "weeks": 3
+              },
+              {
+                "type": "heat",
+                "zoneId": "zone_route9_south",
+                "amount": 20
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ignore",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "event_informant_suspicion",
+    "weight": 2,
+    "conditions": {
+      "hasInformant": true
+    },
+    "subject": null,
+    "defaultOption": "ignore",
+    "options": [
+      {
+        "id": "investigate",
+        "effects": [
+          {
+            "type": "loyalty",
+            "target": "all",
+            "amount": -3
+          },
+          {
+            "type": "chance",
+            "probability": 0.6,
+            "success": [
+              {
+                "type": "expose_informant"
+              }
+            ],
+            "failure": []
+          }
+        ]
+      },
+      {
+        "id": "ignore",
+        "effects": []
+      }
+    ]
+  }
+]
