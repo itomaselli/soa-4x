@@ -195,16 +195,16 @@ describe("cartel y armas (GDD §9 cadena B, §12)", () => {
   it("con trato y depósito, las armas compradas llegan esa misma semana por el puerto", () => {
     const state = dealing();
     const dirty = money(state).dirty;
-    const next = run(state, { management: [{ kind: "buy_guns", factionId: PLAYER, quantity: 2 }] }).state;
+    const next = run(state, { management: [{ kind: "buy", factionId: PLAYER, goodId: "good_gun_crate", quantity: 2 }] }).state;
     expect(stock(next, "good_gun_crate")).toBe(2);
-    expect(money(next).dirty).toBeLessThanOrEqual(dirty - 2 * baseData.balance.cartel.dealPrice);
+    expect(money(next).dirty).toBeLessThanOrEqual(dirty - 2 * baseData.balance.cartel.catalog.good_gun_crate!);
   });
 
   it("sin trato, o sin lugar en el depósito, no se pueden comprar armas", () => {
-    expect(run(newState(), { management: [{ kind: "buy_guns", factionId: PLAYER, quantity: 1 }] }).report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("management_error.no_deal");
+    expect(run(newState(), { management: [{ kind: "buy", factionId: PLAYER, goodId: "good_gun_crate", quantity: 1 }] }).report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("management_error.no_deal");
     const full = dealing();
     full.factions[PLAYER]!.stock["good_gun_crate"] = 10;
-    expect(run(full, { management: [{ kind: "buy_guns", factionId: PLAYER, quantity: 1 }] }).report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("management_error.no_storage");
+    expect(run(full, { management: [{ kind: "buy", factionId: PLAYER, goodId: "good_gun_crate", quantity: 1 }] }).report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("management_error.no_storage");
   });
 
   it("con el puerto muy caliente, la policía puede incautar el cargamento", () => {
@@ -214,7 +214,7 @@ describe("cartel y armas (GDD §9 cadena B, §12)", () => {
       d.balance.cartel.interceptPerHeat = 1;
       d.balance.events.weeklyChance = 0;
     });
-    const { state: next, report } = run(state, { management: [{ kind: "buy_guns", factionId: PLAYER, quantity: 2 }] }, seize);
+    const { state: next, report } = run(state, { management: [{ kind: "buy", factionId: PLAYER, goodId: "good_gun_crate", quantity: 2 }] }, seize);
     expect(keys(report)).toContain("report.transport.seized");
     expect(stock(next, "good_gun_crate")).toBe(0);
   });
@@ -250,7 +250,7 @@ describe("cartel y armas (GDD §9 cadena B, §12)", () => {
   it("el presidente puede trabajar en el taller aunque no sea su rasgo", () => {
     const state = withBusiness(newState(), "business_garage");
     const { report } = run(state, { assignments: [{ memberId: PRESIDENT, taskId: "task_work_garage", zoneId: "zone_redwater" }] });
-    expect(keys(report)).toContain("report.task.work_garage");
+    expect(keys(report)).toContain("report.task.work");
     expect(member(state, PRESIDENT).status).toBe("active");
   });
 });

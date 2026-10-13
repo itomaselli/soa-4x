@@ -80,7 +80,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   let eventChoices: Record<string, string> = {};
   let buildForm = { typeId: "", zoneId: "" };
   let launderAmount = 0;
-  let gunQuantity = 1;
+  const buyQuantities: Record<string, number> = {};
   const sellAmounts: Record<string, number> = {};
   let notice: { text: string; error: boolean } | null = null;
   let showHelp = false;
@@ -544,8 +544,6 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     const laundering = launderingInfo(state, data, viewer);
     const launderOrder: ManagementOrder | null = launderAmount > 0 ? { kind: "launder", factionId: viewer, amount: launderAmount } : null;
     const cartel = cartelInfo(state, data, viewer);
-    const gunsOrder: ManagementOrder = { kind: "buy_guns", factionId: viewer, quantity: gunQuantity };
-    const gunsProblem = problemOf(gunsOrder);
 
     const numberInput = (value: number, onChange: (n: number) => void, max?: number) =>
       h("input", {
@@ -582,14 +580,16 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
             h("td", { class: "mono" }, [String(g.stock)]),
             h("td", { class: "mono" }, [g.price === null ? tr("ui.biz.not_sold") : `$${g.price} ${tr(g.currencyKey ?? "")}`]),
             h("td", {}, [
-              g.price !== null && g.id !== data.balance.tasks.gunRun.goodId
+              g.price !== null && g.id !== data.balance.tasks.gunRun.goodId && !g.streetOnly
                 ? h("span", { class: "row" }, [
                     numberInput(qty, (n) => (sellAmounts[g.id] = n), g.stock),
                     h("button", { disabled: qty <= 0 || problemOf(order) !== null, onclick: () => addOrder(order) }, [tr("ui.biz.sell")]),
                   ])
                 : g.id === data.balance.tasks.gunRun.goodId
                   ? h("span", { class: "muted" }, [tr("ui.biz.guns_by_run")])
-                  : null,
+                  : g.streetOnly
+                    ? h("span", { class: "muted" }, [tr("ui.biz.street_only")])
+                    : null,
             ]),
           ]);
         }),
@@ -628,12 +628,20 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       !cartel.dealing
         ? h("p", { class: "muted" }, [tr("ui.biz.no_deal")])
         : h("div", { class: "form" }, [
-            h("p", { class: "muted" }, [tr("ui.biz.deal_info", { price: cartel.price, space: cartel.space, weeks: cartel.weeksLeft ?? 0 })]),
-            h("span", { class: "row" }, [
-              numberInput(gunQuantity, (n) => (gunQuantity = Math.max(1, n)), Math.max(1, cartel.space)),
-              h("button", { disabled: gunsProblem !== null, onclick: () => addOrder(gunsOrder) }, [tr("ui.biz.buy_guns")]),
-            ]),
-            gunsProblem ? h("div", { class: "error" }, [tr(gunsProblem)]) : null,
+            h("p", { class: "muted" }, [tr("ui.biz.deal_info", { weeks: cartel.weeksLeft ?? 0 })]),
+            ...cartel.catalog.map((item) => {
+              const quantity = Math.max(1, buyQuantities[item.goodId] ?? 1);
+              const order: ManagementOrder = { kind: "buy", factionId: viewer, goodId: item.goodId, quantity };
+              const problem = problemOf(order);
+              return h("div", {}, [
+                h("span", { class: "row" }, [
+                  `${tr(item.nameKey)} · $${item.price} · ${tr("ui.biz.space", { space: item.space })}`,
+                  numberInput(quantity, (n) => (buyQuantities[item.goodId] = Math.max(1, n)), Math.max(1, item.space)),
+                  h("button", { disabled: problem !== null, onclick: () => addOrder(order) }, [tr("ui.biz.buy")]),
+                ]),
+                problem ? h("div", { class: "error" }, [tr(problem)]) : null,
+              ]);
+            }),
           ]),
 
       h("h3", {}, [tr("ui.biz.pending")]),
@@ -661,8 +669,8 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
         return `${tr("management.sell")}: ${o.quantity} × ${tr(`good.${o.goodId}`)}`;
       case "launder":
         return `${tr("management.launder")}: $${o.amount}`;
-      case "buy_guns":
-        return `${tr("management.buy_guns")}: ${o.quantity}`;
+      case "buy":
+        return `${tr("management.buy")}: ${o.quantity} × ${tr(`good.${o.goodId}`)}`;
     }
   }
 

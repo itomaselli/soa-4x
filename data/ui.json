@@ -70,6 +70,14 @@
       "marker.heat": [
         34,
         21
+      ],
+      "business.business_plantation": [
+        2,
+        2
+      ],
+      "business.business_cut_house": [
+        33,
+        13
       ]
     }
   }

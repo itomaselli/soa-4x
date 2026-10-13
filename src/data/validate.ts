@@ -181,14 +181,20 @@ export function validateGameData(data: GameData): string[] {
   // Businesses, goods and events reference real things
   const goodIds = new Set(data.goods.map((g) => g.id));
   for (const b of data.businesses) {
-    for (const id of [b.chop?.inputGoodId, b.chop?.outputGoodId, b.garage?.inputGoodId, b.garage?.outputGoodId, b.storage?.goodId]) {
-      if (id !== undefined && !goodIds.has(id)) errors.push(`businesses.json › ${b.id}: bien desconocido "${id}"`);
+    for (const id of [b.processor?.inputGoodId, b.processor?.outputGoodId, b.workshop?.inputGoodId, b.workshop?.outputGoodId, b.storage?.goodId]) {
+      if (id !== undefined && id !== null && !goodIds.has(id)) errors.push(`businesses.json › ${b.id}: bien desconocido "${id}"`);
+    }
+    if (b.workshop && !data.tasks.some((t) => t.id === b.workshop!.workTaskId)) {
+      errors.push(`businesses.json › ${b.id}: tarea de trabajo desconocida "${b.workshop.workTaskId}"`);
     }
   }
   for (const g of data.goods) {
     if ((g.basePrice === null) !== (g.saleCurrency === null)) errors.push(`goods.json › ${g.id}: basePrice y saleCurrency van juntos`);
   }
   if (!goodIds.has(data.balance.tasks.gunRun.goodId)) errors.push(`balance.json: tasks.gunRun.goodId desconocido`);
+  for (const goodId of Object.keys(data.balance.cartel.catalog)) {
+    if (!goodIds.has(goodId)) errors.push(`balance.json: el catálogo del cartel tiene un bien desconocido "${goodId}"`);
+  }
   if (!zoneIds.has(data.balance.cartel.portZoneId)) errors.push(`balance.json: cartel.portZoneId desconocido`);
   if (!data.factions.some((f) => f.kind === "cartel")) errors.push("factions.json: falta una facción de tipo cartel");
   for (const e of data.events) {

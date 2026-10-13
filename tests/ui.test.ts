@@ -155,8 +155,13 @@ describe("interfaz: datos para mostrar", () => {
     expect(launderingInfo(state, baseData, PLAYER)).toEqual({ capacity: 300, safe: 210 });
   });
 
-  it("sin trato con el cartel no hay compra de armas", () => {
-    expect(cartelInfo(newState(), baseData, PLAYER)).toMatchObject({ dealing: false, space: 0 });
+  it("sin trato con el cartel no hay compras; el catálogo muestra precios y lugar libre", () => {
+    const info = cartelInfo(newState(), baseData, PLAYER);
+    expect(info.dealing).toBe(false);
+    expect(info.catalog).toEqual([
+      expect.objectContaining({ goodId: "good_gun_crate", price: 250, space: 0 }),
+      expect.objectContaining({ goodId: "good_coke_brick", price: 1200, space: 0 }),
+    ]);
   });
 
   it("los eventos pendientes muestran sus opciones y cuáles no se pueden pagar", () => {

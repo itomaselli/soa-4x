@@ -38,7 +38,8 @@
         "expelLoyalty": 15,
         "cartelDealDirty": 1500,
         "wantsGuns": true,
-        "unrestCaution": 2
+        "unrestCaution": 2,
+        "wantsDrugs": true
       }
     },
     "balanced": {
@@ -79,7 +80,8 @@
         "expelLoyalty": 15,
         "cartelDealDirty": 1500,
         "wantsGuns": true,
-        "unrestCaution": 2
+        "unrestCaution": 2,
+        "wantsDrugs": true
       }
     },
     "cartel": {
@@ -122,7 +124,8 @@
         "expelLoyalty": 15,
         "cartelDealDirty": 1000000000,
         "wantsGuns": false,
-        "unrestCaution": 2
+        "unrestCaution": 2,
+        "wantsDrugs": false
       }
     }
   },

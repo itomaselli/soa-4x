@@ -59,12 +59,13 @@ export function aiProposals(state: GameState, data: GameData, factionId: string,
   else if (prospect) proposals.push({ factionId, type: "promote", targetMemberId: prospect.id, newRank: "member" });
 
   const cartel = cartelId(data);
+  // Anywhere to keep what the cartel sells (warehouse for guns, cut house for kilos).
   const hasWarehouse = factionBusinesses(state, factionId).some((b) => businessDef(data, b.typeId)?.storage);
   const dirty = state.factions[factionId]?.money.dirty ?? 0;
   const cartelRegard = cartel ? (state.factions[cartel]?.relations[factionId] ?? 0) : 0;
   if (
     cartel &&
-    c.wantsGuns &&
+    (c.wantsGuns || c.wantsDrugs) &&
     hasWarehouse &&
     dirty >= c.cartelDealDirty &&
     getStance(state, factionId, cartel) === null &&

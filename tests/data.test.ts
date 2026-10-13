@@ -37,8 +37,10 @@ describe("carga de datos", () => {
     expect(saints.filter((m) => m.rank === "prospect")).toHaveLength(data.balance.club.startingProspects);
   });
 
-  it("las 10 tareas del GDD §7 están definidas", () => {
-    expect(loadGameData().tasks).toHaveLength(10);
+  it("están las 10 tareas del GDD §7 más las 2 de las drogas (Fase 9)", () => {
+    const ids = loadGameData().tasks.map((t) => t.id);
+    expect(ids).toHaveLength(12);
+    expect(ids).toEqual(expect.arrayContaining(["task_cultivate", "task_retail"]));
   });
 
   it("todo el contenido tiene su texto en español", () => {

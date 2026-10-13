@@ -19,7 +19,10 @@ export function marketPrice(state: GameState, data: GameData, goodId: string): n
   return Math.round(good.basePrice * (1 + data.balance.market.priceVariance * (1 - 2 * saturation)));
 }
 
-/** Sells units at the current price and adds them to the recent supply. Returns the money earned. */
+/**
+ * Sells units at the current price and adds them to the recent supply. Returns the money earned.
+ * Goods with `federalPerUnit` (cocaine) also raise the seller's federal investigation.
+ */
 export function sellGoods(state: GameState, data: GameData, factionId: string, goodId: string, quantity: number): number {
   const good = data.goods.find((g) => g.id === goodId);
   const faction = state.factions[factionId];
@@ -29,6 +32,9 @@ export function sellGoods(state: GameState, data: GameData, factionId: string, g
   faction.stock[goodId] = (faction.stock[goodId] ?? 0) - quantity;
   faction.money[good.saleCurrency] += income;
   state.market[goodId] = { supply: (state.market[goodId]?.supply ?? 0) + quantity };
+  if (good.federalPerUnit > 0) {
+    faction.federal = clamp(faction.federal + good.federalPerUnit * quantity, data.balance.ranges.federalInvestigation);
+  }
   return income;
 }
 
@@ -40,10 +46,10 @@ function reject(ctx: TurnContext, order: ManagementOrder, reasonKey: string): vo
   ctx.report("report.management.rejected", { orderKey: `management.${order.kind}`, reasonKey }, order.factionId);
 }
 
-/** Builds legal businesses and places gun orders with the cartel (shipments arrive in the transport stage). */
+/** Builds legal businesses and places orders with the cartel (shipments arrive in the transport stage). */
 export function resolveManagement(state: GameState, orders: readonly ManagementOrder[], ctx: TurnContext): void {
   const { data } = ctx;
-  for (const order of [...ordersOfKind(orders, "build"), ...ordersOfKind(orders, "buy_guns")]) {
+  for (const order of [...ordersOfKind(orders, "build"), ...ordersOfKind(orders, "buy")]) {
     const problem = validateManagement(state, data, order);
     if (problem) {
       reject(ctx, order, problem);
@@ -59,7 +65,7 @@ export function resolveManagement(state: GameState, orders: readonly ManagementO
     } else {
       const cartel = cartelId(data)!;
       const faction = state.factions[order.factionId]!;
-      const cost = order.quantity * data.balance.cartel.dealPrice;
+      const cost = order.quantity * (data.balance.cartel.catalog[order.goodId] ?? 0);
       faction.money.dirty -= cost;
       const cartelState = state.factions[cartel];
       if (cartelState) {
@@ -71,18 +77,18 @@ export function resolveManagement(state: GameState, orders: readonly ManagementO
       }
       const stance = getStance(state, order.factionId, cartel);
       if (stance) state.stances[stanceKey(order.factionId, cartel)] = { ...stance, lastPurchaseWeek: state.week };
-      state.shipments.push({ factionId: order.factionId, goodId: data.balance.tasks.gunRun.goodId, quantity: order.quantity });
-      ctx.report("report.management.guns_bought", { quantity: order.quantity, cost }, order.factionId);
+      state.shipments.push({ factionId: order.factionId, goodId: order.goodId, quantity: order.quantity });
+      ctx.report("report.management.bought", { quantity: order.quantity, goodKey: `good.${order.goodId}`, cost }, order.factionId);
     }
   }
 }
 
-/** Chop shops first (bikes → parts), then garages (parts → custom bikes), then bars (clean income). */
+/** Processors first (bikes → parts, kilos → bags), then workshops (parts → custom bikes, plants → weed), then bars. */
 export function resolveProduction(state: GameState, ctx: TurnContext): void {
   const { data } = ctx;
   const order = (typeId: string) => {
     const def = businessDef(data, typeId);
-    return def?.chop ? 0 : def?.garage ? 1 : 2;
+    return def?.processor ? 0 : def?.workshop ? 1 : 2;
   };
   for (const def of data.factions) {
     const faction = state.factions[def.id];
@@ -92,24 +98,33 @@ export function resolveProduction(state: GameState, ctx: TurnContext): void {
       const bdef = businessDef(data, business.typeId);
       if (!bdef) continue;
       const params = { zone: zoneName(data, business.zoneId), businessKey: `business.${bdef.id}` };
-      if (bdef.chop) {
-        const bikes = Math.min(faction.stock[bdef.chop.inputGoodId] ?? 0, bdef.chop.bikesPerWeek);
-        if (bikes > 0) {
-          const parts = bikes * bdef.chop.partsPerBike;
-          faction.stock[bdef.chop.inputGoodId] = (faction.stock[bdef.chop.inputGoodId] ?? 0) - bikes;
-          faction.stock[bdef.chop.outputGoodId] = (faction.stock[bdef.chop.outputGoodId] ?? 0) + parts;
-          ctx.report("report.production.chop", { ...params, bikes, parts }, def.id);
+      let worked = false;
+      if (bdef.processor) {
+        const p = bdef.processor;
+        const input = Math.min(faction.stock[p.inputGoodId] ?? 0, p.inputPerWeek);
+        if (input > 0) {
+          const output = input * p.outputPerInput;
+          faction.stock[p.inputGoodId] = (faction.stock[p.inputGoodId] ?? 0) - input;
+          faction.stock[p.outputGoodId] = (faction.stock[p.outputGoodId] ?? 0) + output;
+          ctx.report(
+            "report.production.processed",
+            { ...params, input, inputKey: `good.${p.inputGoodId}`, output, outputKey: `good.${p.outputGoodId}` },
+            def.id,
+          );
+          worked = true;
         }
       }
-      if (bdef.garage) {
-        const g = bdef.garage;
-        const capacity = g.baseOutput + business.workCapacity;
-        const units = Math.min(capacity, Math.floor((faction.stock[g.inputGoodId] ?? 0) / g.partsPerUnit));
+      if (bdef.workshop) {
+        const w = bdef.workshop;
+        const capacity = w.baseOutput + business.workCapacity;
+        const affordable = w.inputGoodId && w.inputPerUnit > 0 ? Math.floor((faction.stock[w.inputGoodId] ?? 0) / w.inputPerUnit) : capacity;
+        const units = Math.min(capacity, affordable);
         business.workCapacity = 0;
         if (units > 0) {
-          faction.stock[g.inputGoodId] = (faction.stock[g.inputGoodId] ?? 0) - units * g.partsPerUnit;
-          faction.stock[g.outputGoodId] = (faction.stock[g.outputGoodId] ?? 0) + units;
-          ctx.report("report.production.garage", { ...params, units, parts: units * g.partsPerUnit }, def.id);
+          if (w.inputGoodId) faction.stock[w.inputGoodId] = (faction.stock[w.inputGoodId] ?? 0) - units * w.inputPerUnit;
+          faction.stock[w.outputGoodId] = (faction.stock[w.outputGoodId] ?? 0) + units;
+          ctx.report("report.production.workshop", { ...params, units, outputKey: `good.${w.outputGoodId}` }, def.id);
+          worked = true;
         }
       }
       if (bdef.bar) {
@@ -118,6 +133,9 @@ export function resolveProduction(state: GameState, ctx: TurnContext): void {
         faction.money.clean += income;
         ctx.report("report.production.bar", { ...params, income }, def.id);
       }
+      // Illegal production draws attention to its zone.
+      const zone = state.zones[business.zoneId];
+      if (worked && bdef.heatPerWeek && zone) zone.heat = clamp(zone.heat + bdef.heatPerWeek, data.balance.ranges.heat);
     }
   }
 }

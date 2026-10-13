@@ -86,7 +86,7 @@ describe("la IA usa la mesa como el jugador (Fase 8)", () => {
     addBusiness(state, baseData, WOLVES, "business_warehouse", "zone_millbrook");
     state.stances[stanceKey(WOLVES, CARTEL)] = { type: "deal", sinceWeek: 2, lastPurchaseWeek: 2 };
     money(state, WOLVES).dirty = 3000;
-    expect(aiOrders(state, baseData, WOLVES).management).toContainEqual(expect.objectContaining({ kind: "buy_guns" }));
+    expect(aiOrders(state, baseData, WOLVES).management).toContainEqual(expect.objectContaining({ kind: "buy", goodId: "good_gun_crate" }));
   });
 });
 

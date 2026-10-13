@@ -155,7 +155,7 @@ export function resolveCouncil(state: GameState, proposals: readonly Proposal[],
           return;
         }
         s.stances[stanceKey(p.factionId, cartel)] = { type: "deal", sinceWeek: s.week, lastPurchaseWeek: s.week };
-        c.report("report.council.deal_signed", { ...params, price: c.data.balance.cartel.dealPrice, weeks: c.data.balance.cartel.graceWeeks }, p.factionId);
+        c.report("report.council.deal_signed", { ...params, price: c.data.balance.cartel.catalog[c.data.balance.tasks.gunRun.goodId] ?? 0, weeks: c.data.balance.cartel.graceWeeks }, p.factionId);
         return;
       }
       case "open_illegal_business": {

@@ -6,12 +6,13 @@
     "buildCost": 1500,
     "maintenance": 50,
     "launderCapacity": 400,
-    "garage": {
+    "workshop": {
       "inputGoodId": "good_parts",
       "outputGoodId": "good_custom_bike",
       "baseOutput": 1,
-      "partsPerUnit": 2,
-      "handsPerExtraUnit": 4
+      "inputPerUnit": 2,
+      "handsPerExtraUnit": 4,
+      "workTaskId": "task_work_garage"
     }
   },
   {
@@ -33,11 +34,11 @@
     "buildCost": 800,
     "maintenance": 30,
     "launderCapacity": 0,
-    "chop": {
+    "processor": {
       "inputGoodId": "good_stolen_bike",
       "outputGoodId": "good_parts",
-      "bikesPerWeek": 3,
-      "partsPerBike": 3
+      "inputPerWeek": 3,
+      "outputPerInput": 3
     }
   },
   {
@@ -51,5 +52,49 @@
       "goodId": "good_gun_crate",
       "capacity": 10
     }
+  },
+  {
+    "id": "business_plantation",
+    "legal": false,
+    "glyph": "P",
+    "buildCost": 700,
+    "maintenance": 25,
+    "launderCapacity": 0,
+    "workshop": {
+      "inputGoodId": null,
+      "outputGoodId": "good_weed",
+      "baseOutput": 2,
+      "inputPerUnit": 0,
+      "handsPerExtraUnit": 3,
+      "workTaskId": "task_cultivate"
+    },
+    "allowedZoneTypes": [
+      "rural"
+    ],
+    "heatPerWeek": 1
+  },
+  {
+    "id": "business_cut_house",
+    "legal": false,
+    "glyph": "L",
+    "buildCost": 1500,
+    "maintenance": 60,
+    "launderCapacity": 0,
+    "processor": {
+      "inputGoodId": "good_coke_brick",
+      "outputGoodId": "good_coke_bag",
+      "inputPerWeek": 2,
+      "outputPerInput": 8
+    },
+    "storage": {
+      "goodId": "good_coke_brick",
+      "capacity": 4
+    },
+    "allowedZoneTypes": [
+      "town",
+      "industrial",
+      "port"
+    ],
+    "heatPerWeek": 3
   }
 ]

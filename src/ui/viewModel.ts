@@ -225,6 +225,8 @@ export interface GoodRow {
   /** null if it can't be sold directly. */
   price: number | null;
   currencyKey: string | null;
+  /** Drugs: sold on the street by members, not from this panel. */
+  streetOnly: boolean;
 }
 
 export function goodRows(state: GameState, data: GameData, viewer: string): GoodRow[] {
@@ -234,6 +236,7 @@ export function goodRows(state: GameState, data: GameData, viewer: string): Good
     stock: state.factions[viewer]?.stock[g.id] ?? 0,
     price: marketPrice(state, data, g.id),
     currencyKey: g.saleCurrency ? `currency.${g.saleCurrency}` : null,
+    streetOnly: g.streetOnly,
   }));
 }
 
@@ -256,9 +259,8 @@ export function launderingInfo(state: GameState, data: GameData, viewer: string)
 export interface CartelInfo {
   cartelId: string | null;
   dealing: boolean;
-  price: number;
-  /** Free warehouse space for gun crates. */
-  space: number;
+  /** What the cartel sells: price and free storage space we have for it. */
+  catalog: { goodId: string; nameKey: string; price: number; space: number }[];
   /** Weeks left to buy before the cartel considers the deal broken. */
   weeksLeft: number | null;
 }
@@ -266,14 +268,16 @@ export interface CartelInfo {
 export function cartelInfo(state: GameState, data: GameData, viewer: string): CartelInfo {
   const cartel = cartelId(data);
   const stance = cartel ? getStance(state, viewer, cartel) : null;
-  const goodId = data.balance.tasks.gunRun.goodId;
-  const capacity = storageCapacity(state, data, viewer, goodId) ?? 0;
   const dealing = stance?.type === "deal";
   return {
     cartelId: cartel,
     dealing,
-    price: data.balance.cartel.dealPrice,
-    space: Math.max(0, capacity - (state.factions[viewer]?.stock[goodId] ?? 0)),
+    catalog: Object.entries(data.balance.cartel.catalog).map(([goodId, price]) => ({
+      goodId,
+      nameKey: `good.${goodId}`,
+      price,
+      space: Math.max(0, (storageCapacity(state, data, viewer, goodId) ?? 0) - (state.factions[viewer]?.stock[goodId] ?? 0)),
+    })),
     weeksLeft: dealing ? data.balance.cartel.graceWeeks - (state.week - (stance?.lastPurchaseWeek ?? stance?.sinceWeek ?? state.week)) : null,
   };
 }

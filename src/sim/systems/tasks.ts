@@ -278,19 +278,56 @@ const lieLow: TaskHandler = ({ ctx, member, params }) => {
   ctx.report("report.task.lie_low", params, member.factionId);
 };
 
-/** Working at one of our garages in the zone adds Hands/handsPerExtraUnit units to next week's production. */
-const workGarage: TaskHandler = ({ state, ctx, member, zone, params }) => {
-  const garage = state.businesses.find(
-    (b) => b.ownerFactionId === member.factionId && b.zoneId === zone.id && !b.suspended && businessDef(ctx.data, b.typeId)?.garage,
+/**
+ * Working at one of our businesses whose workshop uses this task (garage for "work garage", plantation for
+ * "cultivate") adds Hands/handsPerExtraUnit units to its next week's production.
+ */
+const workBusiness: TaskHandler = ({ state, ctx, member, zone, task, params }) => {
+  const business = state.businesses.find(
+    (b) =>
+      b.ownerFactionId === member.factionId &&
+      b.zoneId === zone.id &&
+      !b.suspended &&
+      businessDef(ctx.data, b.typeId)?.workshop?.workTaskId === task.id,
   );
-  const rule = garage ? businessDef(ctx.data, garage.typeId)?.garage : undefined;
-  if (!garage || !rule) {
-    ctx.report("report.task.work_garage_none", params, member.factionId);
+  const rule = business ? businessDef(ctx.data, business.typeId)?.workshop : undefined;
+  if (!business || !rule) {
+    ctx.report("report.task.work_none", params, member.factionId);
     return;
   }
   const extra = Math.floor(effectiveStat(member, "hands", ctx.data.balance) / rule.handsPerExtraUnit);
-  garage.workCapacity += extra;
-  ctx.report("report.task.work_garage", { ...params, extra }, member.factionId);
+  business.workCapacity += extra;
+  ctx.report("report.task.work", { ...params, extra, businessKey: `business.${business.typeId}` }, member.factionId);
+};
+
+/** Street units a member can move in a zone: baseUnits + Charm/charmDivisor, at most wealth × unitsPerWealth. */
+export function retailUnits(member: MemberState, wealth: number, balance: Balance): number {
+  const rule = balance.tasks.retail;
+  const byCharm = rule.baseUnits + Math.floor(effectiveStat(member, "charm", balance) / rule.charmDivisor);
+  return Math.min(byCharm, wealth * rule.unitsPerWealth);
+}
+
+/** Street sales of drugs (GDD §9, phase 9): sells the most valuable street goods first, up to the member's limit. */
+const retail: TaskHandler = ({ state, ctx, member, zone, params }) => {
+  const faction = state.factions[member.factionId];
+  const wealth = ctx.data.zones.find((z) => z.id === zone.id)?.wealth ?? 0;
+  let left = retailUnits(member, wealth, ctx.data.balance);
+  const goods = ctx.data.goods
+    .filter((g) => g.streetOnly && (faction?.stock[g.id] ?? 0) > 0)
+    .sort((a, b) => (marketPrice(state, ctx.data, b.id) ?? 0) - (marketPrice(state, ctx.data, a.id) ?? 0));
+  if (!faction || goods.length === 0 || left <= 0) {
+    ctx.report("report.task.retail_empty", params, member.factionId);
+    return;
+  }
+  for (const good of goods) {
+    const units = Math.min(left, faction.stock[good.id] ?? 0);
+    if (units <= 0) continue;
+    const price = marketPrice(state, ctx.data, good.id) ?? 0;
+    const income = sellGoods(state, ctx.data, member.factionId, good.id, units);
+    ctx.report("report.task.retail", { ...params, units, goodKey: `good.${good.id}`, price, income }, member.factionId);
+    left -= units;
+    if (left <= 0) break;
+  }
 };
 
 /** Crates a gun run moves: baseCrates + Cunning / cunningDivisor (GDD §9, chain B). */
@@ -329,7 +366,9 @@ const TASK_HANDLERS: Record<string, TaskHandler> = {
   task_bribe: bribe,
   task_recruit: recruit,
   task_lie_low: lieLow,
-  task_work_garage: workGarage,
+  task_work_garage: workBusiness,
+  task_cultivate: workBusiness,
+  task_retail: retail,
   task_gun_run: gunRun,
   task_attack_business: attackBusiness,
 };

@@ -5,13 +5,15 @@
         "task_guard_zone"
       ],
       "dislikes": [
-        "task_bribe"
+        "task_bribe",
+        "task_retail"
       ]
     },
     "greedy": {
       "likes": [
         "task_collect_protection",
-        "task_steal_bikes"
+        "task_steal_bikes",
+        "task_retail"
       ],
       "dislikes": [
         "task_lie_low"
@@ -35,7 +37,8 @@
       "dislikes": [
         "task_intimidate",
         "task_gun_run",
-        "task_attack_business"
+        "task_attack_business",
+        "task_retail"
       ]
     },
     "loyal": {

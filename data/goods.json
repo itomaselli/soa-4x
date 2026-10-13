@@ -1,6 +1,9 @@
 [
-  {"id": "good_stolen_bike", "glyph": "b", "basePrice": null, "saleCurrency": null, "marketReference": 0},
-  {"id": "good_parts", "glyph": "%", "basePrice": 60, "saleCurrency": "dirty", "marketReference": 12},
-  {"id": "good_custom_bike", "glyph": "B", "basePrice": 600, "saleCurrency": "clean", "marketReference": 3},
-  {"id": "good_gun_crate", "glyph": "&", "basePrice": 400, "saleCurrency": "dirty", "marketReference": 6}
+  {"id": "good_stolen_bike", "glyph": "b", "basePrice": null, "saleCurrency": null, "marketReference": 0, "streetOnly": false, "federalPerUnit": 0},
+  {"id": "good_parts", "glyph": "%", "basePrice": 60, "saleCurrency": "dirty", "marketReference": 12, "streetOnly": false, "federalPerUnit": 0},
+  {"id": "good_custom_bike", "glyph": "B", "basePrice": 600, "saleCurrency": "clean", "marketReference": 3, "streetOnly": false, "federalPerUnit": 0},
+  {"id": "good_gun_crate", "glyph": "&", "basePrice": 400, "saleCurrency": "dirty", "marketReference": 6, "streetOnly": false, "federalPerUnit": 0},
+  {"id": "good_weed", "glyph": "*", "basePrice": 90, "saleCurrency": "dirty", "marketReference": 10, "streetOnly": true, "federalPerUnit": 0},
+  {"id": "good_coke_brick", "glyph": "=", "basePrice": null, "saleCurrency": null, "marketReference": 0, "streetOnly": false, "federalPerUnit": 0},
+  {"id": "good_coke_bag", "glyph": "'", "basePrice": 220, "saleCurrency": "dirty", "marketReference": 16, "streetOnly": true, "federalPerUnit": 0.25}
 ]

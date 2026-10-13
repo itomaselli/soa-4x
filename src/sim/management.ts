@@ -11,7 +11,7 @@ export const ManagementOrderSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("build"), factionId: IdSchema, typeId: IdSchema, zoneId: IdSchema }),
   z.object({ kind: z.literal("sell"), factionId: IdSchema, goodId: IdSchema, quantity: z.number().int().positive() }),
   z.object({ kind: z.literal("launder"), factionId: IdSchema, amount: z.number().int().positive() }),
-  z.object({ kind: z.literal("buy_guns"), factionId: IdSchema, quantity: z.number().int().positive() }),
+  z.object({ kind: z.literal("buy"), factionId: IdSchema, goodId: IdSchema, quantity: z.number().int().positive() }),
 ]);
 export type ManagementOrder = z.infer<typeof ManagementOrderSchema>;
 
@@ -31,19 +31,21 @@ export function validateManagement(state: GameState, data: GameData, order: Mana
     case "sell": {
       const good = data.goods.find((g) => g.id === order.goodId);
       if (!good || good.basePrice === null) return "management_error.not_sellable";
+      if (good.streetOnly) return "management_error.street_only";
       if ((faction.stock[order.goodId] ?? 0) < order.quantity) return "management_error.not_enough_stock";
       return null;
     }
     case "launder":
       if (launderCapacity(state, data, order.factionId) <= 0) return "management_error.no_laundering";
       return null;
-    case "buy_guns": {
+    case "buy": {
       const cartel = cartelId(data);
       if (!cartel || getStance(state, order.factionId, cartel)?.type !== "deal") return "management_error.no_deal";
-      const goodId = data.balance.tasks.gunRun.goodId;
-      const capacity = storageCapacity(state, data, order.factionId, goodId) ?? 0;
-      if ((faction.stock[goodId] ?? 0) + order.quantity > capacity) return "management_error.no_storage";
-      if (faction.money.dirty < order.quantity * data.balance.cartel.dealPrice) return "management_error.no_money";
+      const price = data.balance.cartel.catalog[order.goodId];
+      if (price === undefined) return "management_error.not_in_catalog";
+      const capacity = storageCapacity(state, data, order.factionId, order.goodId) ?? 0;
+      if ((faction.stock[order.goodId] ?? 0) + order.quantity > capacity) return "management_error.no_storage";
+      if (faction.money.dirty < order.quantity * price) return "management_error.no_money";
       return null;
     }
   }

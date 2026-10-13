@@ -119,8 +119,8 @@ export const BalanceSchema = z.object({
     extraHeat: z.number().nonnegative(),
   }),
   cartel: z.object({
-    /** Dirty money per gun crate under a deal. */
-    dealPrice: z.number().positive(),
+    /** What the cartel sells under a deal, and the dirty-money price per unit. */
+    catalog: z.record(IdSchema, z.number().positive()),
     /** The cartel only deals with clubs it regards at least this well. */
     dealMinRelation: z.number(),
     purchaseRelationGain: z.number().nonnegative(),
@@ -184,6 +184,8 @@ export const BalanceSchema = z.object({
     }),
     protection: z.object({ rate: z.number(), charmBase: z.number(), perCharm: z.number() }),
     stealBikes: z.object({ goodId: IdSchema, min: Int.nonnegative(), max: Int.nonnegative() }),
+    /** Street sales: up to baseUnits + Charm/charmDivisor units, and at most wealth × unitsPerWealth in the zone. */
+    retail: z.object({ baseUnits: Int.nonnegative(), charmDivisor: Int.positive(), unitsPerWealth: Int.positive() }),
     /** Crates sold per gun run: baseCrates + Cunning / cunningDivisor (GDD §9, chain B). */
     gunRun: z.object({ goodId: IdSchema, baseCrates: Int.nonnegative(), cunningDivisor: Int.positive() }),
     bribe: z.object({ cost: z.number().nonnegative(), heatReduction: z.number(), sheriffRelationGain: z.number() }),
@@ -323,6 +325,10 @@ export const GoodDefSchema = z.object({
   saleCurrency: CurrencySchema.nullable(),
   /** Units sold per week that push the price to its minimum. */
   marketReference: z.number().nonnegative(),
+  /** Drugs: only sold on the street by members ("Menudeo"), never through management orders. */
+  streetOnly: z.boolean(),
+  /** Federal investigation added per unit sold (cocaine draws the federals). */
+  federalPerUnit: z.number().nonnegative(),
 });
 export type GoodDef = z.infer<typeof GoodDefSchema>;
 
@@ -338,20 +344,28 @@ export const BusinessDefSchema = z.object({
   maintenance: z.number().nonnegative(),
   /** Dirty money this business can launder per week (GDD §8). */
   launderCapacity: z.number().nonnegative(),
-  /** Chop shop: stolen bikes → parts (GDD §9, chain A). */
-  chop: z
-    .object({ inputGoodId: IdSchema, outputGoodId: IdSchema, bikesPerWeek: Int.positive(), partsPerBike: Int.positive() })
+  /** Converts an input good into an output good every week, on its own (chop shop, cut house). */
+  processor: z
+    .object({ inputGoodId: IdSchema, outputGoodId: IdSchema, inputPerWeek: Int.positive(), outputPerInput: Int.positive() })
     .optional(),
-  /** Garage: parts → custom bikes; members working there add capacity for the next week. */
-  garage: z
+  /**
+   * Produces baseOutput units per week (consuming inputPerUnit of the input, if any). Members doing `workTaskId`
+   * there add Hands/handsPerExtraUnit units for the next week (garage, plantation).
+   */
+  workshop: z
     .object({
-      inputGoodId: IdSchema,
+      inputGoodId: IdSchema.nullable(),
       outputGoodId: IdSchema,
       baseOutput: Int.nonnegative(),
-      partsPerUnit: Int.positive(),
+      inputPerUnit: Int.nonnegative(),
       handsPerExtraUnit: Int.positive(),
+      workTaskId: IdSchema,
     })
     .optional(),
+  /** Only buildable in these zone types (a plantation needs countryside). Missing = anywhere. */
+  allowedZoneTypes: z.array(ZoneTypeSchema).optional(),
+  /** Heat added to its zone every week it works (a cut house smells). */
+  heatPerWeek: z.number().nonnegative().optional(),
   /** Club bar: small clean income and a loyalty bonus for the whole club. */
   bar: z.object({ incomePerWealth: z.number().nonnegative(), loyaltyBonus: z.number().nonnegative() }).optional(),
   /** Warehouse: how many units of a good the faction can hold. */
@@ -487,6 +501,8 @@ export const AiProfileSchema = z.object({
     cartelDealDirty: z.number(),
     /** Builds a warehouse and trades guns. */
     wantsGuns: z.boolean(),
+    /** Grows weed and cuts cocaine (phase 9). */
+    wantsDrugs: z.boolean(),
     /** While the club is in unrest, arrest risk weighs this many times more. */
     unrestCaution: z.number().nonnegative(),
   }),

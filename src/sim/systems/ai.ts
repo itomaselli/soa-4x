@@ -18,10 +18,10 @@ import { controlOf, freeControl, gainControl, loseControl, ownedZones, zoneOwner
 import { arrestChance } from "./law";
 import { activeMembers, effectiveStat, livingMembers } from "./members";
 import { atWar, getStance, inTruce, warEnemies } from "./diplomacy";
-import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, protectionIncome, taskHeat } from "./tasks";
+import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, protectionIncome, retailUnits, taskHeat } from "./tasks";
 import type { Proposal } from "../council";
 import type { ManagementOrder } from "../management";
-import { businessDef, factionBusinesses, freeSlots, launderCapacity, storageCapacity, workingBusinesses } from "./businesses";
+import { buildLocationProblem, businessDef, factionBusinesses, launderCapacity, storageCapacity, workingBusinesses } from "./businesses";
 import { attackTarget, sideStrength } from "./combat";
 import { marketPrice } from "./economy";
 
@@ -41,6 +41,8 @@ interface Plan {
   guarded: Set<string>;
   /** Stolen bikes expected from thefts planned this week. */
   plannedBikes: number;
+  /** Street goods (drugs) not yet promised to a retail run this week. */
+  streetLeft: number;
 }
 
 interface Candidate {
@@ -76,6 +78,7 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
     attackStrength: {},
     guarded: new Set(),
     plannedBikes: 0,
+    streetLeft: data.goods.filter((g) => g.streetOnly).reduce((sum, g) => sum + (state.factions[factionId]?.stock[g.id] ?? 0), 0),
   };
 
   const tasks = availableTasks(data);
@@ -120,8 +123,8 @@ export function allAiOrders(state: GameState, data: GameData, exclude: string | 
 
 /**
  * Business decisions with simple rules (same orders as the player):
- * sell finished goods, launder up to the safe share of capacity, build a bar and then a garage,
- * and ask the council for a chop shop. Only clubs manage businesses.
+ * sell finished goods, launder up to the safe share of capacity, build along a wishlist (illegal businesses
+ * through the council) and buy from the cartel under a deal. Only clubs manage businesses.
  */
 function aiManagement(state: GameState, data: GameData, factionId: string, p: AiProfile): { management: ManagementOrder[]; proposals: Proposal[] } {
   const management: ManagementOrder[] = [];
@@ -141,39 +144,51 @@ function aiManagement(state: GameState, data: GameData, factionId: string, p: Ai
   const launder = Math.min(safe, Math.floor(faction.money.dirty - p.cashReserve));
   if (launder > 0) management.push({ kind: "launder", factionId, amount: launder });
 
-  const owned = ownedZones(state, factionId, data.balance).filter((z) => freeSlots(state, data, z) > 0);
+  // Build order: bar (clean income, laundering, loyalty) → chop shop → garage → plantation → warehouse → cut house.
+  // Illegal ones go to the council. Each goes in the first owned zone where it's allowed and there's a slot.
   const has = (pred: (d: BusinessDef) => boolean) =>
     factionBusinesses(state, factionId).some((b) => {
       const d = businessDef(data, b.typeId);
       return d !== undefined && pred(d);
     });
-  // Build order: a bar (clean income, laundering, loyalty), a chop shop (needs the council), a garage,
-  // and a warehouse for guns if the profile trades them.
-  const zone = owned[0];
-  if (zone) {
-    const next = !has((d) => d.bar !== undefined)
-      ? data.businesses.find((d) => d.bar)
-      : !has((d) => d.chop !== undefined)
-        ? data.businesses.find((d) => d.chop && !d.legal)
-        : !has((d) => d.garage !== undefined)
-          ? data.businesses.find((d) => d.garage)
-          : p.council.wantsGuns && !has((d) => d.storage !== undefined)
-            ? data.businesses.find((d) => d.storage && !d.legal)
-            : undefined;
-    if (next && faction.money.clean >= next.buildCost + p.cashReserve) {
-      if (next.legal) management.push({ kind: "build", factionId, typeId: next.id, zoneId: zone });
-      else proposals.push({ factionId, type: "open_illegal_business", businessTypeId: next.id, zoneId: zone });
+  const stolenBike = data.balance.tasks.stealBikes.goodId;
+  const cartelForWishlist = cartelId(data);
+  const cartelWouldSell =
+    cartelForWishlist !== null &&
+    (state.factions[cartelForWishlist]?.relations[factionId] ?? 0) >= data.balance.cartel.dealMinRelation;
+  const wishlist: Array<[boolean, BusinessDef | undefined]> = [
+    [true, data.businesses.find((d) => d.bar)],
+    [true, data.businesses.find((d) => d.processor?.inputGoodId === stolenBike)],
+    [true, data.businesses.find((d) => d.workshop?.workTaskId === "task_work_garage")],
+    [p.council.wantsDrugs, data.businesses.find((d) => d.workshop && d.workshop.inputGoodId === null)],
+    [p.council.wantsGuns, data.businesses.find((d) => d.storage?.goodId === data.balance.tasks.gunRun.goodId)],
+    // A cut house only makes sense if the cartel would sell us kilos.
+    [p.council.wantsDrugs && cartelWouldSell, data.businesses.find((d) => d.processor && d.storage && d.storage.goodId === d.processor.inputGoodId)],
+  ];
+  const owned = ownedZones(state, factionId, data.balance);
+  for (const [wanted, def] of wishlist) {
+    if (!wanted || !def || has((d) => d.id === def.id)) continue;
+    const zone = owned.find((z) => buildLocationProblem(state, data, factionId, def.id, z) === null);
+    if (!zone) continue; // no place for it yet: try the next one on the list
+    if (faction.money.clean >= def.buildCost + p.cashReserve) {
+      if (def.legal) management.push({ kind: "build", factionId, typeId: def.id, zoneId: zone });
+      else proposals.push({ factionId, type: "open_illegal_business", businessTypeId: def.id, zoneId: zone });
     }
+    break; // one business at a time
   }
 
-  // Guns: under a cartel deal, fill the warehouse with what we can afford.
+  // Under a cartel deal, fill storage with what we can afford (guns, kilos), most important first.
   const cartel = cartelId(data);
   if (cartel && getStance(state, factionId, cartel)?.type === "deal") {
-    const goodId = data.balance.tasks.gunRun.goodId;
-    const space = (storageCapacity(state, data, factionId, goodId) ?? 0) - (faction.stock[goodId] ?? 0);
-    const affordable = Math.floor((faction.money.dirty - p.cashReserve) / data.balance.cartel.dealPrice);
-    const quantity = Math.min(space, affordable);
-    if (quantity > 0) management.push({ kind: "buy_guns", factionId, quantity });
+    let budget = faction.money.dirty - p.cashReserve;
+    for (const [goodId, price] of Object.entries(data.balance.cartel.catalog)) {
+      const space = (storageCapacity(state, data, factionId, goodId) ?? 0) - (faction.stock[goodId] ?? 0);
+      const quantity = Math.min(space, Math.floor(budget / price));
+      if (quantity > 0) {
+        management.push({ kind: "buy", factionId, goodId, quantity });
+        budget -= quantity * price;
+      }
+    }
   }
   return { management, proposals };
 }
@@ -282,7 +297,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
         const gain = Math.min(guardAmount(member, balance), freeControl(zone, balance));
         return (
           gain * controlValue +
-          investment * ownershipBonus(zone, member.factionId, gain, 0, null, ownerBefore, data, p) +
+          investment * ownershipBonus(plan.state, zone, member.factionId, gain, 0, null, ownerBefore, data, p) +
           (plan.guarded.has(zoneId) ? 0 : businessesAtRisk(plan.state, data, member.factionId, zoneId) * p.defendWeight)
         );
       }
@@ -298,11 +313,15 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
         const taken = rival ? Math.min(amount, controlOf(zone, rival)) : 0;
         const gain = Math.min(amount, freeControl(zone, balance) + taken);
         const enemy = rival !== null && rival === plan.enemyId && taken > 0 ? p.enemyBonus : 0;
+      // Don't anger the cartel while we want to buy from it.
+      const cartel = cartelId(data);
+      const wantsCartel = (p.council.wantsGuns || p.council.wantsDrugs) && rival === cartel && taken > 0;
+      if (wantsCartel) return null;
         return (
           gain * controlValue +
           taken * takeValue +
           enemy +
-          investment * ownershipBonus(zone, member.factionId, gain, taken, rival, ownerBefore, data, p) -
+          investment * ownershipBonus(plan.state, zone, member.factionId, gain, taken, rival, ownerBefore, data, p) -
           risk -
           heatCost
         );
@@ -319,9 +338,9 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       }
       case "task_steal_bikes": {
       const rule = balance.tasks.stealBikes;
-      const chop = data.businesses.find((d) => d.chop?.inputGoodId === rule.goodId)?.chop;
+      const chop = data.businesses.find((d) => d.processor?.inputGoodId === rule.goodId)?.processor;
       const chopCapacity = workingBusinesses(plan.state, member.factionId).reduce(
-        (sum, b) => sum + (businessDef(data, b.typeId)?.chop?.bikesPerWeek ?? 0),
+        (sum, b) => sum + (businessDef(data, b.typeId)?.processor?.inputGoodId === rule.goodId ? (businessDef(data, b.typeId)?.processor?.inputPerWeek ?? 0) : 0),
         0,
       );
       const partsPrice = chop ? (marketPrice(plan.state, data, chop.outputGoodId) ?? 0) : 0;
@@ -329,19 +348,33 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       const backlog = (faction.stock[rule.goodId] ?? 0) + plan.plannedBikes;
       if (!chop || chopCapacity === 0 || backlog >= 2 * chopCapacity) return null;
       const bikes = (rule.min + rule.max) / 2;
-      return bikes * chop.partsPerBike * partsPrice * p.goodsWeight * incomeWeight - risk - heatCost;
+      return bikes * chop.outputPerInput * partsPrice * p.goodsWeight * incomeWeight - risk - heatCost;
     }
-    case "task_work_garage": {
-      const garage = plan.state.businesses.find(
-        (b) => b.ownerFactionId === member.factionId && b.zoneId === zoneId && !b.suspended && businessDef(data, b.typeId)?.garage,
+    case "task_work_garage":
+    case "task_cultivate": {
+      const business = plan.state.businesses.find(
+        (b) =>
+          b.ownerFactionId === member.factionId &&
+          b.zoneId === zoneId &&
+          !b.suspended &&
+          businessDef(data, b.typeId)?.workshop?.workTaskId === taskId,
       );
-      const rule = garage ? businessDef(data, garage.typeId)?.garage : undefined;
-      if (!garage || !rule) return null;
-      const parts = faction.stock[rule.inputGoodId] ?? 0;
-      const spareUnits = Math.floor(parts / rule.partsPerUnit) - rule.baseOutput - garage.workCapacity;
-      const extra = Math.min(spareUnits, Math.floor(effectiveStat(member, "hands", balance) / rule.handsPerExtraUnit));
+      const rule = business ? businessDef(data, business.typeId)?.workshop : undefined;
+      if (!business || !rule) return null;
+      const byHands = Math.floor(effectiveStat(member, "hands", balance) / rule.handsPerExtraUnit);
+      const spare =
+        rule.inputGoodId && rule.inputPerUnit > 0
+          ? Math.floor((faction.stock[rule.inputGoodId] ?? 0) / rule.inputPerUnit) - rule.baseOutput - business.workCapacity
+          : byHands;
+      const extra = Math.min(spare, byHands);
       if (extra <= 0) return null;
-      return extra * (marketPrice(plan.state, data, rule.outputGoodId) ?? 0) * p.goodsWeight * incomeWeight;
+      return extra * (marketPrice(plan.state, data, rule.outputGoodId) ?? 0) * p.goodsWeight * incomeWeight - risk - heatCost;
+    }
+    case "task_retail": {
+      const units = Math.min(plan.streetLeft, retailUnits(member, wealth, balance));
+      if (units <= 0) return null;
+      const best = Math.max(0, ...data.goods.filter((g) => g.streetOnly && (faction.stock[g.id] ?? 0) > 0).map((g) => marketPrice(plan.state, data, g.id) ?? 0));
+      return units * best * incomeWeight - risk - heatCost;
     }
     case "task_gun_run": {
       const crates = Math.min(plan.gunsLeft, gunRunCrates(member, balance));
@@ -391,8 +424,23 @@ function businessesAtRisk(state: GameState, data: GameData, factionId: string, z
   return threatened ? ours.reduce((sum, b) => sum + (businessDef(data, b.typeId)?.buildCost ?? 0), 0) : 0;
 }
 
+/**
+ * Zones worth more to own because they unlock a business we want but can't place anywhere yet
+ * (a rural zone for a plantation). Returns a multiplier for the ownership bonus.
+ */
+function strategicMultiplier(state: GameState, data: GameData, factionId: string, zoneId: string, p: AiProfile): number {
+  if (!p.council.wantsDrugs) return 1;
+  const zoneType = data.zones.find((z) => z.id === zoneId)?.type;
+  const wanted = data.businesses.filter(
+    (d) => d.allowedZoneTypes?.includes(zoneType!) && !factionBusinesses(state, factionId).some((b) => b.typeId === d.id),
+  );
+  const placeable = (id: string) => ownedZones(state, factionId, data.balance).some((z) => buildLocationProblem(state, data, factionId, id, z) === null);
+  return wanted.some((d) => !placeable(d.id)) ? 2 : 1;
+}
+
 /** Bonus if, after the action, the faction would own a zone it didn't own before. */
 function ownershipBonus(
+  state: GameState,
   zone: ZoneState,
   factionId: string,
   gain: number,
@@ -406,7 +454,7 @@ function ownershipBonus(
   const after: ZoneState = { ...zone, control: { ...zone.control } };
   after.control[factionId] = controlOf(zone, factionId) + gain;
   if (rival) after.control[rival] = controlOf(zone, rival) - taken;
-  return zoneOwner(after, data.balance) === factionId ? p.ownershipBonus : 0;
+  return zoneOwner(after, data.balance) === factionId ? p.ownershipBonus * strategicMultiplier(state, data, factionId, zone.id, p) : 0;
 }
 
 /** Applies the expected effect of the chosen action to the plan, so later choices see it. */
@@ -437,6 +485,11 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
     case "task_steal_bikes":
       plan.plannedBikes += (balance.tasks.stealBikes.min + balance.tasks.stealBikes.max) / 2;
       break;
+    case "task_retail": {
+      const wealth = data.zones.find((z) => z.id === c.zoneId)?.wealth ?? 0;
+      plan.streetLeft -= Math.min(plan.streetLeft, retailUnits(c.member, wealth, balance));
+      break;
+    }
     case "task_gun_run":
       plan.gunsLeft -= Math.min(plan.gunsLeft, gunRunCrates(c.member, balance));
       break;

@@ -198,6 +198,24 @@ Trato con Cartel Valdés → compra en Port Calloway → [Caja de armas] → Dep
 
 **Cadena C — Protección:** sin bienes. Es ingreso por control de zona.
 
+**Cadena D — Marihuana (Fase 9):**
+```
+Plantación (ilegal, solo en zonas rurales) → [Marihuana ×2 por semana, +Manos/3 si alguien hace "Cultivar"] → Menudeo (sucio)
+```
+
+**Cadena E — Cocaína (Fase 9):**
+```
+Trato con el cartel → compra de [Kilo] ($1200, llega por el puerto) → Cocina de corte (ilegal; pueblo, puerto o industrial)
+→ [Dosis ×8 por kilo, hasta 2 kilos por semana] → Menudeo (sucio, +0,25 de investigación federal por dosis)
+```
+
+- **Menudeo (tarea, Labia, ilegal, +4 de calor):** vende en la calle hasta 3 + Labia/2 unidades, con un tope de riqueza de la zona × 3. Vende primero lo más caro. Las drogas solo se venden así, nunca desde la gestión.
+- **Cultivar (tarea, Manos, ilegal, +2 de calor):** como "Trabajar en taller", pero en una plantación propia.
+- **Calor por producir:** la plantación suma +1 de calor por semana en su zona y la cocina, +3, cuando producen.
+- **Valores:** marihuana $90 (referencia 10); dosis $220 (referencia 16). Plantación: $700 y $25 de mantenimiento. Cocina: $1500 y $60 de mantenimiento, guarda 4 kilos.
+- **Catálogo del cartel:** caja de armas $250, kilo $1200. Los dos tipos de compra usan el mismo trato.
+- **Rasgos:** a los Tradicionalistas y a los Cautos no les gusta el menudeo; a los Codiciosos, sí.
+
 Los precios tienen un mercado simple por bien: el precio base varía ±20% según la oferta reciente (si vendés mucho, baja).
 
 **Mercado (Fase 5):** precio = base × (1 + 0,2 × (1 − 2 × saturación)), donde saturación = ventas recientes ÷ referencia del bien (tope 1). Sin ventas recientes, +20%; con la referencia alcanzada, −20%. Las ventas recientes se reducen a la mitad cada semana.
@@ -381,6 +399,8 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Con qué IA juega el simulador por el jugador? (Fase 6) | Con el mismo perfil que los Wolves ("expansive"), para que la comparación sea pareja. Ojo: en la simulación solo el jugador puede perder por destitución; los clubs de la IA no. |
 | ¿Hay sucesión? (Fase 8) | Para los clubes de la IA, sí (ver §6). Para el jugador, perder la presidencia sigue siendo derrota. La muerte del presidente sigue abierta. |
 | ¿La IA es prudente? (Fase 8) | Con el club en malestar, le pesa el doble el riesgo de arresto. No pide treguas ni tratos que le van a rechazar. |
+| ¿Cómo se generalizaron los negocios? (Fase 9) | En `businesses.json`, un **procesador** convierte un bien en otro solo (desarmadero, cocina de corte) y un **taller** produce, con o sin insumo, y rinde más si alguien hace su tarea de trabajo (taller, plantación). Cada negocio puede limitar los tipos de zona y sumar calor por semana. |
+| ¿La IA usa las drogas? (Fase 9) | Sí: construye cocinas solo si el cartel le vendería, no intimida al cartel mientras quiere negociar con él, cultiva si tiene buenas Manos y sale a vender cuando tiene stock. La plantación la usa poco porque rara vez es dueña de una zona rural. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

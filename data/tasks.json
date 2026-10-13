@@ -8,5 +8,7 @@
   {"id": "task_attack_business", "stat": "strength", "heat": 15, "illegal": true, "enabled": true},
   {"id": "task_bribe", "stat": "charm", "heat": 0, "illegal": false, "enabled": true},
   {"id": "task_recruit", "stat": "charm", "heat": 0, "illegal": false, "enabled": true},
-  {"id": "task_lie_low", "stat": null, "heat": -5, "illegal": false, "enabled": true}
+  {"id": "task_lie_low", "stat": null, "heat": -5, "illegal": false, "enabled": true},
+  {"id": "task_cultivate", "stat": "hands", "heat": 2, "illegal": true, "enabled": true},
+  {"id": "task_retail", "stat": "charm", "heat": 4, "illegal": true, "enabled": true}
 ]

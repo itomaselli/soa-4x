@@ -42,13 +42,22 @@ export function launderCapacity(state: GameState, data: GameData, factionId: str
  * and enough clean money. Returns a strings.es.json key or null.
  */
 export function buildProblem(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string): string | null {
+  const location = buildLocationProblem(state, data, factionId, typeId, zoneId);
+  if (location) return location;
+  if ((state.factions[factionId]?.money.clean ?? 0) < (businessDef(data, typeId)?.buildCost ?? 0)) return "build_error.no_money";
+  return null;
+}
+
+/** Same as buildProblem but ignoring money: can this business go in this zone at all? */
+export function buildLocationProblem(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string): string | null {
   const def = businessDef(data, typeId);
   const zone = state.zones[zoneId];
   if (!def) return "build_error.unknown_type";
   if (!zone) return "build_error.unknown_zone";
   if (zoneOwner(zone, data.balance) !== factionId) return "build_error.not_owner";
+  const zoneType = data.zones.find((z) => z.id === zoneId)?.type;
+  if (def.allowedZoneTypes && (!zoneType || !def.allowedZoneTypes.includes(zoneType))) return "build_error.wrong_zone_type";
   if (freeSlots(state, data, zoneId) <= 0) return "build_error.no_slot";
-  if ((state.factions[factionId]?.money.clean ?? 0) < def.buildCost) return "build_error.no_money";
   return null;
 }
 

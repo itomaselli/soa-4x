@@ -153,6 +153,11 @@
       "goodId": "good_gun_crate",
       "baseCrates": 2,
       "cunningDivisor": 3
+    },
+    "retail": {
+      "baseUnits": 3,
+      "charmDivisor": 2,
+      "unitsPerWealth": 3
     }
   },
   "wages": {
@@ -206,13 +211,16 @@
     "extraHeat": 10
   },
   "cartel": {
-    "dealPrice": 250,
     "dealMinRelation": -20,
     "purchaseRelationGain": 2,
     "graceWeeks": 2,
     "breachRelationPenalty": 40,
     "portZoneId": "zone_port_calloway",
-    "interceptPerHeat": 0.005
+    "interceptPerHeat": 0.005,
+    "catalog": {
+      "good_gun_crate": 250,
+      "good_coke_brick": 1200
+    }
   },
   "events": {
     "weeklyChance": 0.3,
