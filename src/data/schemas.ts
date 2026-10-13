@@ -3,6 +3,7 @@
 // ranges are checked afterwards in validate.ts.
 
 import { z } from "zod";
+import { extraTilePixelProblems } from "./validate";
 import {
   CurrencySchema,
   FactionKindSchema,
@@ -532,6 +533,11 @@ export type AiData = z.infer<typeof AiSchema>;
 // ---------- ui.json ----------
 // Presentation settings: tile size, map size in tiles, colors. No game rules here.
 
+export const ROAD_KINDS = ["asphalt", "dirt"] as const;
+export type RoadKind = (typeof ROAD_KINDS)[number];
+/** Connections of a road piece: any of N, E, S, W in this order, e.g. "NES" for a T. */
+const DirectionsSchema = z.string().regex(/^N?E?S?W?$/, "conexiones como N, E, S, W en ese orden (por ejemplo \"ES\")");
+
 export const UiSchema = z.object({
   tileSize: Int.positive(),
   maxScale: Int.positive(),
@@ -557,6 +563,42 @@ export const UiSchema = z.object({
   localMap: z.object({
     colors: z.record(z.string(), HexColorSchema),
     sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
+    /** ASCII glyph of each sprite, for the ASCII mode. */
+    glyphs: z.record(z.string(), z.string().length(1)),
+    /** Sprite variants drawn per tile: terrain kind → zone type (or "*" for any) → sprite ids. */
+    variants: z.record(z.string(), z.record(z.string(), z.array(z.string()))),
+    /** Roads drawn with a 4-neighbour mask: each piece's connections before rotating, e.g. "ES" for a curve. */
+    autotile: z.record(
+      z.enum(ROAD_KINDS),
+      z.object({
+        pieces: z.array(z.object({ sprite: z.string(), connects: DirectionsSchema })).min(1),
+        glyphs: z.object({ horizontal: z.string().length(1), vertical: z.string().length(1), junction: z.string().length(1) }),
+      }),
+    ),
+    rails: z.object({ sprite: z.string(), connects: DirectionsSchema }),
+    /** Fence sprite on the back row of building lots, per zone type. */
+    lotFence: z.record(ZoneTypeSchema, z.string()),
+    /** Landmarks drawn with tiles-extra.json textures ("extra.<id>"). */
+    landmarks: z.object({
+      clubHq: z.string(),
+      sheriffHq: z.string(),
+      parkedBike: z.string(),
+      parkedBikes: Int.nonnegative(),
+      gasStation: z.string(),
+      motel: z.string(),
+      barSign: z.string(),
+      member: z.string(),
+    }),
+  }),
+  /** Markers next to districts on the political map. */
+  markers: z.object({
+    colors: z.record(z.string(), HexColorSchema),
+    /** Planned task → marker on its district. */
+    tasks: z.record(z.string(), z.string()),
+    /** Club mood on its headquarters: first entry whose `min` the average loyalty reaches. */
+    mood: z.array(z.object({ min: z.number(), sprite: z.string() })).min(1),
+    /** Markers shown per district at most. */
+    max: Int.positive(),
   }),
   /** Political map: tiles farther than maxDistance from every district center are outside the county. */
   regions: z.object({ maxDistance: z.number().positive() }),
@@ -569,6 +611,8 @@ export const UiSchema = z.object({
     credit: z.string(),
     tileSize: Int.positive(),
     sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
+    /** ASCII glyph of sprites that have no glyph elsewhere in the content (markers). */
+    glyphs: z.record(z.string(), z.string().length(1)),
   }),
 });
 export type UiConfig = z.infer<typeof UiSchema>;
@@ -647,6 +691,32 @@ export const PortraitsSchema = z.object({
 });
 export type PortraitsData = z.infer<typeof PortraitsSchema>;
 
+// ---------- tiles-extra.json ----------
+// The project's own 16×16 tiles, 1-bit like the Kenney sheet: white pixels on transparent, tinted at runtime.
+
+export const EXTRA_TILE_SIZE = 16;
+
+export const ExtraTileSchema = z
+  .object({
+    /** EXTRA_TILE_SIZE rows of EXTRA_TILE_SIZE characters: "#" = pixel on, "." = transparent. */
+    pixels: z.array(z.string()),
+    /** Character for the ASCII mode. */
+    glyph: z.string().length(1, "el glyph tiene que ser un solo carácter"),
+    description: z.string(),
+  })
+  .superRefine((tile, ctx) => {
+    for (const message of extraTilePixelProblems(tile.pixels, EXTRA_TILE_SIZE)) ctx.addIssue({ code: "custom", path: ["pixels"], message });
+  });
+export type ExtraTile = z.infer<typeof ExtraTileSchema>;
+
+export const TilesExtraSchema = z.object({
+  tileSize: z.literal(EXTRA_TILE_SIZE),
+  credit: z.string(),
+  legend: z.record(z.string(), z.string()),
+  tiles: z.record(IdSchema, ExtraTileSchema),
+});
+export type TilesExtraData = z.infer<typeof TilesExtraSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -680,6 +750,7 @@ export const GameDataSchema = z.object({
   council: CouncilSchema,
   patches: PatchesSchema,
   portraits: PortraitsSchema,
+  tilesExtra: TilesExtraSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

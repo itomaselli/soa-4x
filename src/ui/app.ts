@@ -1089,7 +1089,8 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
     const planned = Object.values(draft).map((e) => e.zoneId).filter((z): z is string => z !== null);
     const local = localZoneId ? localViewModel(state, data, state.playerFactionId, localZoneId, selectedLot, planned) : null;
-    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned, renderMode, local));
+    const plannedTasks = Object.values(draft).flatMap((e) => (e.zoneId ? [{ taskId: e.taskId, zoneId: e.zoneId }] : []));
+    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned, renderMode, local, { plannedTasks, lastReport: report }));
     els.mapBar.replaceChildren(
       localZoneId
         ? h("div", { class: "map-bar" }, [

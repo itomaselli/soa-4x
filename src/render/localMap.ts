@@ -1,20 +1,38 @@
 // Local map of a district (phase 10): what you see when you zoom into a zone on the political map.
 // Generated deterministically from the zone id and its type, so it's always the same place.
-// It holds the zone's building lots (one per business slot), exits towards neighbouring zones and
-// spots where our members show up while working there. Pure: tested in Node.
+// It holds the zone's building lots (one per business slot), exits towards neighbouring zones, spots where our
+// members show up while working there and landmarks (club and sheriff headquarters, gas station, motel).
+// Roads are one tile wide and drawn with a 4-neighbour mask (autotiling); trees, buildings and ground get a
+// sprite variant per tile. Sprites, glyphs and variants come from data/ui.json. Pure: tested in Node.
 
-import type { GameData, ZoneDef } from "../data/schemas";
+import type { GameData, RoadKind, ZoneDef } from "../data/schemas";
 import { createRng, type Rng } from "../sim/rng";
 import { hashId } from "./hash";
 
 /** What a tile shows: terrain kind (for color) and an optional sprite from the tileset. */
-export type LocalTerrain = "ground" | "grass" | "road" | "building" | "tree" | "water" | "dock" | "crate" | "rail" | "boat";
+export type LocalTerrain =
+  | "ground"
+  | "sidewalk"
+  | "grass"
+  | "road"
+  | "building"
+  | "tree"
+  | "water"
+  | "dock"
+  | "crate"
+  | "rail"
+  | "boat"
+  | "fence";
 
 export interface LocalTile {
   terrain: LocalTerrain;
   glyph: string;
-  /** Key in ui.json localMap.sprites, e.g. "building", "tree". */
+  /** Key in ui.json localMap.sprites, e.g. "building", "asphalt_curve". */
   sprite: string | null;
+  /** Quarter turns clockwise applied to the sprite (autotiled roads and rails). */
+  rotation: number;
+  /** Which kind of road, for autotiling. */
+  road?: RoadKind;
 }
 
 export interface Lot {
@@ -22,6 +40,8 @@ export interface Lot {
   /** Top-left tile of the 3×3 lot. */
   x: number;
   y: number;
+  /** Free corner on the street side, where a bar hangs its sign. */
+  signSpot: { x: number; y: number };
 }
 
 export interface Exit {
@@ -30,6 +50,20 @@ export interface Exit {
   y: number;
   /** Arrow pointing out of the map. */
   arrow: string;
+}
+
+export type LandmarkKind = "club_hq" | "sheriff_hq" | "parked_bike" | "gas_station" | "motel";
+
+/** Something drawn on top of the terrain with a tiles-extra.json texture. */
+export interface Landmark {
+  kind: LandmarkKind;
+  /** Texture id, e.g. "extra.club_hq". */
+  sprite: string;
+  glyph: string;
+  x: number;
+  y: number;
+  /** Whose color it takes (headquarters and their bikes), or null. */
+  factionId: string | null;
 }
 
 export interface LocalMap {
@@ -41,29 +75,110 @@ export interface LocalMap {
   exits: Exit[];
   /** Where working members are drawn, in order. */
   memberSpots: { x: number; y: number }[];
+  landmarks: Landmark[];
 }
 
 const LOT_SIZE = 3;
+/** Half-width and half-height of the space kept clear around an exit arrow and its name. */
+const EXIT_CLEAR = { x: 5, y: 1 };
+/** Tries before falling back to a scan when placing roadside landmarks. */
+const ROADSIDE_TRIES = 40;
+/** Columns kept between the gas station and the motel. */
+const ROADSIDE_GAP = 4;
 
 function blank(width: number, height: number, tile: LocalTile): LocalTile[][] {
   return Array.from({ length: height }, () => Array.from({ length: width }, () => ({ ...tile })));
 }
 
 const T = {
-  ground: { terrain: "ground", glyph: ".", sprite: null } as LocalTile,
-  grass: { terrain: "grass", glyph: '"', sprite: null } as LocalTile,
-  roadH: { terrain: "road", glyph: "=", sprite: null } as LocalTile,
-  roadV: { terrain: "road", glyph: "|", sprite: null } as LocalTile,
-  dirt: { terrain: "road", glyph: ":", sprite: null } as LocalTile,
-  building: { terrain: "building", glyph: "n", sprite: "building" } as LocalTile,
-  factory: { terrain: "building", glyph: "M", sprite: "factory" } as LocalTile,
-  tree: { terrain: "tree", glyph: "T", sprite: "tree" } as LocalTile,
-  water: { terrain: "water", glyph: "~", sprite: null } as LocalTile,
-  dock: { terrain: "dock", glyph: "#", sprite: null } as LocalTile,
-  crate: { terrain: "crate", glyph: "x", sprite: "crate" } as LocalTile,
-  rail: { terrain: "rail", glyph: "+", sprite: null } as LocalTile,
-  boat: { terrain: "boat", glyph: "b", sprite: "boat" } as LocalTile,
+  ground: { terrain: "ground", glyph: ".", sprite: null, rotation: 0 } as LocalTile,
+  grass: { terrain: "grass", glyph: '"', sprite: null, rotation: 0 } as LocalTile,
+  asphalt: { terrain: "road", glyph: "=", sprite: null, rotation: 0, road: "asphalt" } as LocalTile,
+  dirt: { terrain: "road", glyph: ":", sprite: null, rotation: 0, road: "dirt" } as LocalTile,
+  building: { terrain: "building", glyph: "n", sprite: "building", rotation: 0 } as LocalTile,
+  factory: { terrain: "building", glyph: "M", sprite: "factory", rotation: 0 } as LocalTile,
+  tree: { terrain: "tree", glyph: "T", sprite: "tree", rotation: 0 } as LocalTile,
+  water: { terrain: "water", glyph: "~", sprite: null, rotation: 0 } as LocalTile,
+  dock: { terrain: "dock", glyph: "#", sprite: null, rotation: 0 } as LocalTile,
+  crate: { terrain: "crate", glyph: "x", sprite: "crate", rotation: 0 } as LocalTile,
+  rail: { terrain: "rail", glyph: "+", sprite: null, rotation: 0 } as LocalTile,
+  boat: { terrain: "boat", glyph: "b", sprite: "boat", rotation: 0 } as LocalTile,
 };
+
+/** Terrain an element must never be placed on (GDD: landmarks don't cover roads or water). */
+const BLOCKING: ReadonlySet<LocalTerrain> = new Set(["road", "water", "dock", "boat", "rail"]);
+/** Terrain members can stand on as is; anything else is cleared under them. */
+const WALKABLE: ReadonlySet<LocalTerrain> = new Set(["ground", "sidewalk", "grass", "road", "dock"]);
+
+// ---------- Autotiling ----------
+
+const DIRECTIONS = [
+  { name: "N", bit: 1, dx: 0, dy: -1 },
+  { name: "E", bit: 2, dx: 1, dy: 0 },
+  { name: "S", bit: 4, dx: 0, dy: 1 },
+  { name: "W", bit: 8, dx: -1, dy: 0 },
+] as const;
+const ALL = 15;
+const VERTICAL = 1 | 4;
+const HORIZONTAL = 2 | 8;
+
+export function connectionMask(connects: string): number {
+  return DIRECTIONS.filter((d) => connects.includes(d.name)).reduce((mask, d) => mask | d.bit, 0);
+}
+
+/** Turns a mask a quarter clockwise `turns` times (N→E→S→W→N). */
+export function rotateMask(mask: number, turns: number): number {
+  let m = mask;
+  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) m = ((m << 1) | (m >> 3)) & ALL;
+  return m;
+}
+
+/**
+ * Picks the piece and rotation that match a 4-neighbour mask. Masks no piece covers (a dead end without an
+ * "end" piece, an isolated tile) fall back to the straight piece along the axis of the connection.
+ */
+export function autotile(pieces: readonly { sprite: string; connects: string }[], mask: number): { sprite: string; rotation: number } {
+  for (const piece of pieces) {
+    const base = connectionMask(piece.connects);
+    for (let turns = 0; turns < 4; turns++) if (rotateMask(base, turns) === mask) return { sprite: piece.sprite, rotation: turns };
+  }
+  const straight = pieces.find((p) => connectionMask(p.connects) === VERTICAL || connectionMask(p.connects) === HORIZONTAL) ?? pieces[0]!;
+  const base = connectionMask(straight.connects);
+  const wanted = mask & VERTICAL && !(mask & HORIZONTAL) ? VERTICAL : HORIZONTAL;
+  return { sprite: straight.sprite, rotation: rotateMask(base, 1) === wanted ? 1 : 0 };
+}
+
+function maskAt(tiles: LocalTile[][], x: number, y: number, connects: (t: LocalTile) => boolean): number {
+  let mask = 0;
+  for (const d of DIRECTIONS) {
+    const n = tiles[y + d.dy]?.[x + d.dx];
+    // Roads and rails run off the map: the edge counts as connected.
+    if (n === undefined || connects(n)) mask |= d.bit;
+  }
+  return mask;
+}
+
+function applyAutotile(data: GameData, tiles: LocalTile[][]): void {
+  const local = data.ui.localMap;
+  for (let y = 0; y < tiles.length; y++) {
+    for (let x = 0; x < tiles[y]!.length; x++) {
+      const cell = tiles[y]![x]!;
+      if (cell.terrain === "road" && cell.road) {
+        const set = local.autotile[cell.road];
+        const mask = maskAt(tiles, x, y, (t) => t.terrain === "road");
+        const piece = autotile(set.pieces, mask);
+        const glyph = (mask & ALL) === 0 || (mask & ~HORIZONTAL) === 0 ? set.glyphs.horizontal : (mask & ~VERTICAL) === 0 ? set.glyphs.vertical : set.glyphs.junction;
+        tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation, glyph };
+      } else if (cell.terrain === "rail") {
+        const mask = maskAt(tiles, x, y, (t) => t.terrain === "rail");
+        const piece = autotile([local.rails], mask);
+        tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation, glyph: local.glyphs[piece.sprite] ?? cell.glyph };
+      }
+    }
+  }
+}
+
+// ---------- Painting per zone type ----------
 
 /** Lot positions (top-left) per zone type: up to 3, placed next to the main street/road. */
 function lotPositions(type: ZoneDef["type"], width: number, height: number): { x: number; y: number }[] {
@@ -81,9 +196,15 @@ function lotPositions(type: ZoneDef["type"], width: number, height: number): { x
 
 function paintTown(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
   const mid = Math.floor(h / 2);
-  for (let x = 0; x < w; x++) for (const y of [mid - 1, mid]) tiles[y]![x] = { ...T.roadH };
+  for (let x = 0; x < w; x++) tiles[mid]![x] = { ...T.asphalt };
   for (const sx of [Math.floor(w * 0.12), Math.floor(w * 0.38), Math.floor(w * 0.63), Math.floor(w * 0.88)]) {
-    for (let y = 0; y < h; y++) if (y !== mid - 1 && y !== mid) tiles[y]![sx] = { ...T.roadV };
+    for (let y = 0; y < h; y++) tiles[y]![sx] = { ...T.asphalt };
+  }
+  // Sidewalks along every street.
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (tiles[y]![x]!.terrain !== "ground") continue;
+    const nextToRoad = DIRECTIONS.some((d) => tiles[y + d.dy]?.[x + d.dx]?.terrain === "road");
+    if (nextToRoad) tiles[y]![x] = { ...T.ground, terrain: "sidewalk", glyph: "," };
   }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (tiles[y]![x]!.terrain !== "ground") continue;
@@ -116,11 +237,7 @@ function paintRural(tiles: LocalTile[][], rng: Rng, w: number, h: number): void 
 
 function paintRoad(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
   const mid = Math.floor(h / 2);
-  for (let x = 0; x < w; x++) {
-    tiles[mid - 1]![x] = { ...T.roadH };
-    tiles[mid]![x] = { terrain: "road", glyph: x % 4 < 2 ? "-" : " ", sprite: null };
-    tiles[mid + 1]![x] = { ...T.roadH };
-  }
+  for (let x = 0; x < w; x++) tiles[mid]![x] = { ...T.asphalt };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (tiles[y]![x]!.terrain === "ground" && rng.chance(0.06)) tiles[y]![x] = rng.chance(0.5) ? { ...T.tree } : { ...T.grass };
   }
@@ -134,8 +251,8 @@ function paintPort(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
     if (tiles[py - 1]?.[shore + 9]) tiles[py - 1]![shore + 9] = { ...T.boat };
   }
   const mid = Math.floor(h / 2);
-  for (let y = 0; y < h; y++) tiles[y]![shore - 3] = { ...T.roadV };
-  for (let x = 0; x < shore - 3; x++) tiles[mid]![x] = { ...T.roadH };
+  for (let y = 0; y < h; y++) tiles[y]![shore - 3] = { ...T.asphalt };
+  for (let x = 0; x < shore - 3; x++) tiles[mid]![x] = { ...T.asphalt };
   for (let y = 0; y < h; y++) for (let x = 0; x < shore - 3; x++) {
     if (tiles[y]![x]!.terrain !== "ground") continue;
     const roll = rng.next();
@@ -147,7 +264,7 @@ function paintPort(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
 function paintIndustrial(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
   const mid = Math.floor(h / 2);
   for (let x = 0; x < w; x++) {
-    tiles[mid]![x] = { ...T.roadH };
+    tiles[mid]![x] = { ...T.asphalt };
     tiles[h - 4]![x] = { ...T.rail };
   }
   for (let b = 0; b < 8; b++) {
@@ -173,20 +290,123 @@ function exitTowards(from: ZoneDef, to: ZoneDef, w: number, h: number): Omit<Exi
   return { x: clampX(w / 2 + (dx * (h / 2)) / Math.abs(dy)), y: dy > 0 ? h - 1 : 0, arrow: dy > 0 ? "v" : "^" };
 }
 
+// ---------- Variants ----------
+
+/** Same zone and tile, same variant; independent from the painting RNG so variants never move lots or exits. */
+function variantIndex(zoneId: string, x: number, y: number, count: number): number {
+  return hashId(`${zoneId}:${x},${y}`) % count;
+}
+
+function applyVariants(data: GameData, zone: ZoneDef, tiles: LocalTile[][]): void {
+  const { variants, glyphs } = data.ui.localMap;
+  for (let y = 0; y < tiles.length; y++) {
+    for (let x = 0; x < tiles[y]!.length; x++) {
+      const cell = tiles[y]![x]!;
+      const byType = variants[cell.terrain];
+      const options = byType?.[zone.type] ?? byType?.["*"] ?? [];
+      if (options.length === 0) continue;
+      const sprite = options[variantIndex(zone.id, x, y, options.length)]!;
+      tiles[y]![x] = { ...cell, sprite, glyph: glyphs[sprite] ?? cell.glyph };
+    }
+  }
+}
+
+// ---------- Landmarks ----------
+
+function extraGlyph(data: GameData, textureId: string): string {
+  return data.tilesExtra.tiles[textureId.replace(/^extra\./, "")]?.glyph ?? "?";
+}
+
+/** Tiles no landmark may cover: lots, the space around exits, member spots, roads and water. */
+function forbiddenTiles(lots: Lot[], exits: Exit[], memberSpots: { x: number; y: number }[]): Set<string> {
+  const forbidden = new Set<string>();
+  for (const lot of lots) for (let y = lot.y; y < lot.y + LOT_SIZE; y++) for (let x = lot.x; x < lot.x + LOT_SIZE; x++) forbidden.add(`${x},${y}`);
+  for (const exit of exits) {
+    for (let y = exit.y - EXIT_CLEAR.y; y <= exit.y + EXIT_CLEAR.y; y++) for (let x = exit.x - EXIT_CLEAR.x; x <= exit.x + EXIT_CLEAR.x; x++) forbidden.add(`${x},${y}`);
+  }
+  for (const p of memberSpots) forbidden.add(`${p.x},${p.y}`);
+  return forbidden;
+}
+
+function placeLandmarks(data: GameData, zone: ZoneDef, tiles: LocalTile[][], forbidden: Set<string>): Landmark[] {
+  const lm = data.ui.localMap.landmarks;
+  const width = tiles[0]!.length;
+  const height = tiles.length;
+  const mid = Math.floor(height / 2);
+  const landmarks: Landmark[] = [];
+  const free = (x: number, y: number) => {
+    const cell = tiles[y]?.[x];
+    return cell !== undefined && !BLOCKING.has(cell.terrain) && !forbidden.has(`${x},${y}`);
+  };
+  const add = (kind: LandmarkKind, sprite: string, x: number, y: number, factionId: string | null) => {
+    landmarks.push({ kind, sprite, glyph: extraGlyph(data, sprite), x, y, factionId });
+    forbidden.add(`${x},${y}`);
+    tiles[y]![x] = { ...T.ground };
+  };
+
+  // Headquarters: a fixed spot (first fit, scanning rows near the main street first), with parked bikes beside clubs.
+  const rows = [mid - 2, mid + 2, mid - 6, mid + 6, ...Array.from({ length: height }, (_, y) => y)];
+  for (const faction of data.factions.filter((f) => f.hqZoneId === zone.id && (f.kind === "club" || f.kind === "sheriff"))) {
+    const club = faction.kind === "club";
+    const span = club ? 1 + lm.parkedBikes : 1;
+    let spot: { x: number; y: number } | null = null;
+    for (const y of rows) {
+      for (let x = 1; x + span < width && !spot; x++) {
+        if (Array.from({ length: span }, (_, i) => free(x + i, y)).every(Boolean)) spot = { x, y };
+      }
+      if (spot) break;
+    }
+    if (!spot) continue;
+    add(club ? "club_hq" : "sheriff_hq", club ? lm.clubHq : lm.sheriffHq, spot.x, spot.y, faction.id);
+    if (club) for (let i = 1; i <= lm.parkedBikes; i++) add("parked_bike", lm.parkedBike, spot.x + i, spot.y, faction.id);
+  }
+
+  // Highways: a gas station above the road and a motel below it, somewhere along the way.
+  if (zone.type === "road") {
+    const rng = createRng(hashId(`${zone.id}:roadside`));
+    const pick = (y: number, avoidX: number | null): number | null => {
+      const ok = (x: number) => free(x, y) && (avoidX === null || Math.abs(x - avoidX) >= ROADSIDE_GAP);
+      for (let i = 0; i < ROADSIDE_TRIES; i++) {
+        const x = rng.int(1, width - 2);
+        if (ok(x)) return x;
+      }
+      for (let x = 1; x < width - 1; x++) if (ok(x)) return x;
+      return null;
+    };
+    const gasX = pick(mid - 1, null);
+    if (gasX !== null) add("gas_station", lm.gasStation, gasX, mid - 1, null);
+    const motelX = pick(mid + 1, gasX);
+    if (motelX !== null) add("motel", lm.motel, motelX, mid + 1, null);
+  }
+  return landmarks;
+}
+
 export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
   const zone = data.zones.find((z) => z.id === zoneId);
   if (!zone) throw new Error(`Unknown zone ${zoneId}`);
   const { width, height } = data.ui.map;
+  const local = data.ui.localMap;
   const rng = createRng(hashId(zoneId));
   const tiles = blank(width, height, T.ground);
   ({ town: paintTown, rural: paintRural, road: paintRoad, port: paintPort, industrial: paintIndustrial })[zone.type](tiles, rng, width, height);
+  const mid = Math.floor(height / 2);
 
-  // Lots: cleared 3×3 areas (they're drawn on top by the renderer).
-  const lots = lotPositions(zone.type, width, height)
+  // Lots: cleared 3×3 areas (they're drawn on top by the renderer), fenced on the side away from the street.
+  const fence = local.lotFence[zone.type];
+  const lots: Lot[] = lotPositions(zone.type, width, height)
     .slice(0, zone.businessSlots)
-    .map((p, index) => ({ index, ...p }));
+    .map((p, index) => {
+      const aboveStreet = p.y + 1 < mid;
+      const streetRow = aboveStreet ? p.y + LOT_SIZE - 1 : p.y;
+      return { index, ...p, signSpot: { x: p.x + LOT_SIZE - 1, y: streetRow } };
+    });
   for (const lot of lots) {
-    for (let y = lot.y; y < lot.y + LOT_SIZE; y++) for (let x = lot.x; x < lot.x + LOT_SIZE; x++) tiles[y]![x] = { ...T.ground };
+    const backRow = lot.signSpot.y === lot.y ? lot.y + LOT_SIZE - 1 : lot.y;
+    for (let y = lot.y; y < lot.y + LOT_SIZE; y++) {
+      for (let x = lot.x; x < lot.x + LOT_SIZE; x++) {
+        tiles[y]![x] = y === backRow ? { terrain: "fence", glyph: local.glyphs[fence] ?? "-", sprite: fence, rotation: 0 } : { ...T.ground };
+      }
+    }
   }
 
   const exits = zone.adjacent
@@ -195,20 +415,25 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
     .map((to) => ({ zoneId: to.id, ...exitTowards(zone, to, width, height) }));
   // Clear a little space around each exit so its arrow and name are readable.
   for (const exit of exits) {
-    for (let y = exit.y - 1; y <= exit.y + 1; y++) {
-      for (let x = exit.x - 5; x <= exit.x + 5; x++) {
+    for (let y = exit.y - EXIT_CLEAR.y; y <= exit.y + EXIT_CLEAR.y; y++) {
+      for (let x = exit.x - EXIT_CLEAR.x; x <= exit.x + EXIT_CLEAR.x; x++) {
         const cell = tiles[y]?.[x];
-        if (cell && cell.terrain !== "water" && cell.terrain !== "road") tiles[y]![x] = { ...T.ground };
+        if (cell && !BLOCKING.has(cell.terrain) && cell.terrain !== "fence") tiles[y]![x] = { ...T.ground };
       }
     }
   }
 
   // Members stand along the main street, left to right.
-  const mid = Math.floor(height / 2);
-  const memberSpots = Array.from({ length: data.balance.club.memberCap }, (_, i) => ({ x: 3 + i * 3, y: zone.type === "port" ? mid + 1 : mid + (zone.type === "road" ? 2 : 1) }));
-  for (const spot of memberSpots) if (tiles[spot.y]?.[spot.x]?.terrain !== "water") tiles[spot.y]![spot.x] = { ...T.ground };
+  const memberSpots = Array.from({ length: data.balance.club.memberCap }, (_, i) => ({ x: 3 + i * 3, y: zone.type === "road" ? mid + 2 : mid + 1 }));
+  for (const spot of memberSpots) {
+    const cell = tiles[spot.y]?.[spot.x];
+    if (cell && !WALKABLE.has(cell.terrain) && cell.terrain !== "water") tiles[spot.y]![spot.x] = { ...T.ground };
+  }
 
-  return { zoneId, width, height, tiles, lots, exits, memberSpots };
+  const landmarks = placeLandmarks(data, zone, tiles, forbiddenTiles(lots, exits, memberSpots));
+  applyAutotile(data, tiles);
+  applyVariants(data, zone, tiles);
+  return { zoneId, width, height, tiles, lots, exits, memberSpots, landmarks };
 }
 
 export const LOCAL_LOT_SIZE = LOT_SIZE;

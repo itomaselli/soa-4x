@@ -103,6 +103,8 @@ export function resolveCombat(state: GameState, ctx: TurnContext): void {
       attacker: factionName(data, attackerId),
       defender: factionName(data, defenderId),
       zone: zoneLabel,
+      zoneId,
+      deaths,
       businessKey: `business.${target.typeId}`,
       attack,
       defense,

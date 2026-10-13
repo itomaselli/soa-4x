@@ -83,7 +83,55 @@
       "business.business_cut_house": [
         33,
         13
+      ],
+      "marker.combat": [
+        30,
+        11
+      ],
+      "marker.raid_warned": [
+        37,
+        13
+      ],
+      "marker.gun_run": [
+        37,
+        9
+      ],
+      "marker.money": [
+        35,
+        16
+      ],
+      "marker.death": [
+        34,
+        12
+      ],
+      "marker.mood_great": [
+        37,
+        14
+      ],
+      "marker.mood_good": [
+        35,
+        14
+      ],
+      "marker.mood_low": [
+        38,
+        14
+      ],
+      "marker.mood_angry": [
+        36,
+        14
       ]
+    },
+    "glyphs": {
+      "marker.heat": "!",
+      "marker.combat": "X",
+      "marker.raid_warned": "?",
+      "marker.gun_run": "g",
+      "marker.money": "$",
+      "marker.death": "+",
+      "marker.mood_great": "^",
+      "marker.mood_good": "o",
+      "marker.mood_low": "~",
+      "marker.mood_angry": "x"
     }
   },
   "regions": {
@@ -103,7 +151,10 @@
       "boat": "#e6e6e6",
       "lot": "#ffd75e",
       "exit": "#ffd75e",
-      "member": "#5fb0ff"
+      "member": "#5fb0ff",
+      "sidewalk": "#55555e",
+      "fence": "#9a8a74",
+      "landmark": "#c9b79c"
     },
     "sprites": {
       "building": [
@@ -129,7 +180,425 @@
       "member": [
         25,
         0
+      ],
+      "dirt_a": [
+        5,
+        0
+      ],
+      "dirt_b": [
+        7,
+        0
+      ],
+      "grass_a": [
+        0,
+        2
+      ],
+      "grass_b": [
+        6,
+        0
+      ],
+      "pavement_a": [
+        3,
+        0
+      ],
+      "pavement_b": [
+        4,
+        0
+      ],
+      "pine": [
+        1,
+        1
+      ],
+      "tree_round": [
+        4,
+        1
+      ],
+      "tree_pair": [
+        3,
+        1
+      ],
+      "forest": [
+        3,
+        2
+      ],
+      "tree_dead": [
+        1,
+        2
+      ],
+      "bush": [
+        5,
+        2
+      ],
+      "cactus_a": [
+        6,
+        1
+      ],
+      "cactus_b": [
+        7,
+        1
+      ],
+      "asphalt_end": [
+        13,
+        4
+      ],
+      "asphalt_straight": [
+        14,
+        4
+      ],
+      "asphalt_curve": [
+        15,
+        4
+      ],
+      "asphalt_cross": [
+        16,
+        4
+      ],
+      "asphalt_tee": [
+        17,
+        4
+      ],
+      "dirt_road_straight": [
+        13,
+        1
+      ],
+      "dirt_road_curve": [
+        14,
+        1
+      ],
+      "dirt_road_tee": [
+        15,
+        1
+      ],
+      "dirt_road_cross": [
+        16,
+        1
+      ],
+      "rails": [
+        0,
+        5
+      ],
+      "fence_picket_low": [
+        1,
+        3
+      ],
+      "fence_picket": [
+        2,
+        3
+      ],
+      "fence_door": [
+        3,
+        3
+      ],
+      "fence_posts": [
+        4,
+        3
+      ],
+      "fence_iron": [
+        5,
+        3
+      ],
+      "fence_rail": [
+        6,
+        3
+      ],
+      "house_1": [
+        0,
+        19
+      ],
+      "house_2": [
+        1,
+        19
+      ],
+      "house_3": [
+        0,
+        20
+      ],
+      "house_4": [
+        4,
+        20
+      ],
+      "house_5": [
+        0,
+        21
+      ],
+      "house_6": [
+        1,
+        21
+      ],
+      "shop_1": [
+        5,
+        21
+      ],
+      "shop_2": [
+        6,
+        21
+      ],
+      "shop_3": [
+        7,
+        21
+      ],
+      "tower": [
+        3,
+        21
+      ],
+      "church": [
+        3,
+        20
       ]
+    },
+    "glyphs": {
+      "building": "n",
+      "factory": "M",
+      "tree": "T",
+      "crate": "x",
+      "boat": "b",
+      "member": "@",
+      "dirt_a": ".",
+      "dirt_b": ".",
+      "grass_a": "\"",
+      "grass_b": "\"",
+      "pavement_a": ",",
+      "pavement_b": ",",
+      "pine": "A",
+      "tree_round": "T",
+      "tree_pair": "T",
+      "forest": "A",
+      "tree_dead": "Y",
+      "bush": "*",
+      "cactus_a": "!",
+      "cactus_b": "!",
+      "asphalt_end": "=",
+      "asphalt_straight": "=",
+      "asphalt_curve": "+",
+      "asphalt_cross": "+",
+      "asphalt_tee": "+",
+      "dirt_road_straight": ":",
+      "dirt_road_curve": ":",
+      "dirt_road_tee": ":",
+      "dirt_road_cross": ":",
+      "rails": "#",
+      "fence_picket_low": "-",
+      "fence_picket": "-",
+      "fence_door": "-",
+      "fence_posts": "-",
+      "fence_iron": "-",
+      "fence_rail": "-",
+      "house_1": "n",
+      "house_2": "n",
+      "house_3": "n",
+      "house_4": "n",
+      "house_5": "n",
+      "house_6": "n",
+      "shop_1": "s",
+      "shop_2": "s",
+      "shop_3": "s",
+      "tower": "I",
+      "church": "t"
+    },
+    "variants": {
+      "ground": {
+        "rural": [
+          "dirt_a",
+          "dirt_b"
+        ],
+        "road": [
+          "dirt_a",
+          "dirt_b"
+        ],
+        "industrial": [
+          "dirt_a",
+          "dirt_b"
+        ],
+        "port": [
+          "pavement_a",
+          "pavement_b"
+        ]
+      },
+      "sidewalk": {
+        "*": [
+          "pavement_a",
+          "pavement_b"
+        ]
+      },
+      "grass": {
+        "*": [
+          "grass_a",
+          "grass_b"
+        ]
+      },
+      "tree": {
+        "town": [
+          "tree_round",
+          "tree_pair"
+        ],
+        "rural": [
+          "pine",
+          "tree_round",
+          "tree_pair",
+          "forest",
+          "tree_dead",
+          "bush"
+        ],
+        "road": [
+          "cactus_a",
+          "cactus_b",
+          "bush",
+          "tree_dead"
+        ],
+        "*": [
+          "tree_round",
+          "bush"
+        ]
+      },
+      "building": {
+        "town": [
+          "house_1",
+          "house_2",
+          "house_3",
+          "house_4",
+          "house_5",
+          "house_6",
+          "shop_1",
+          "shop_2",
+          "shop_3",
+          "tower",
+          "church"
+        ],
+        "rural": [
+          "house_1",
+          "house_2",
+          "house_3",
+          "house_4",
+          "house_5",
+          "house_6"
+        ],
+        "road": [
+          "house_5",
+          "house_6",
+          "shop_1"
+        ],
+        "port": [
+          "shop_1",
+          "shop_2",
+          "shop_3",
+          "tower"
+        ]
+      }
+    },
+    "autotile": {
+      "asphalt": {
+        "pieces": [
+          {
+            "sprite": "asphalt_end",
+            "connects": "S"
+          },
+          {
+            "sprite": "asphalt_straight",
+            "connects": "NS"
+          },
+          {
+            "sprite": "asphalt_curve",
+            "connects": "ES"
+          },
+          {
+            "sprite": "asphalt_tee",
+            "connects": "NES"
+          },
+          {
+            "sprite": "asphalt_cross",
+            "connects": "NESW"
+          }
+        ],
+        "glyphs": {
+          "horizontal": "=",
+          "vertical": "|",
+          "junction": "+"
+        }
+      },
+      "dirt": {
+        "pieces": [
+          {
+            "sprite": "dirt_road_straight",
+            "connects": "NS"
+          },
+          {
+            "sprite": "dirt_road_curve",
+            "connects": "NE"
+          },
+          {
+            "sprite": "dirt_road_tee",
+            "connects": "NEW"
+          },
+          {
+            "sprite": "dirt_road_cross",
+            "connects": "NESW"
+          }
+        ],
+        "glyphs": {
+          "horizontal": ":",
+          "vertical": ":",
+          "junction": ":"
+        }
+      }
+    },
+    "rails": {
+      "sprite": "rails",
+      "connects": "NS"
+    },
+    "lotFence": {
+      "town": "fence_iron",
+      "rural": "fence_rail",
+      "road": "fence_picket",
+      "port": "fence_iron",
+      "industrial": "fence_iron"
+    },
+    "landmarks": {
+      "clubHq": "extra.club_hq",
+      "sheriffHq": "extra.sheriff_office",
+      "parkedBike": "extra.bike_side",
+      "parkedBikes": 2,
+      "gasStation": "extra.gas_station",
+      "motel": "extra.motel",
+      "barSign": "extra.bar_sign",
+      "member": "extra.bike_rider_side"
     }
+  },
+  "markers": {
+    "colors": {
+      "marker.combat": "#ff6a3d",
+      "marker.raid_warned": "#ffd75e",
+      "marker.gun_run": "#c8c8c8",
+      "marker.money": "#8fd16a",
+      "marker.death": "#e6e6e6",
+      "marker.mood_great": "#8fd16a",
+      "marker.mood_good": "#c8e08a",
+      "marker.mood_low": "#ffd75e",
+      "marker.mood_angry": "#ff6a3d"
+    },
+    "tasks": {
+      "task_attack_business": "marker.combat",
+      "task_gun_run": "marker.gun_run",
+      "task_collect_protection": "marker.money",
+      "task_retail": "marker.money"
+    },
+    "mood": [
+      {
+        "min": 70,
+        "sprite": "marker.mood_great"
+      },
+      {
+        "min": 45,
+        "sprite": "marker.mood_good"
+      },
+      {
+        "min": 20,
+        "sprite": "marker.mood_low"
+      },
+      {
+        "min": 0,
+        "sprite": "marker.mood_angry"
+      }
+    ],
+    "max": 3
   }
 }

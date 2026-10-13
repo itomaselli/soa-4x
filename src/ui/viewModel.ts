@@ -2,7 +2,8 @@
 // No DOM here, so it's testable in Node.
 
 import type { GameData } from "../data/schemas";
-import type { LocalViewModel, MapViewModel, RenderMode } from "../render/map";
+import type { LocalViewModel, MapViewModel, MarkerLook, RenderMode } from "../render/map";
+import type { ReportEntry } from "../sim/report";
 import { reachableZones } from "../sim/orders";
 import { RANKS, STAT_KEYS, type GameState, type MemberState, type StatKey } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
@@ -16,6 +17,49 @@ import { marketPrice } from "../sim/systems/economy";
 import { canAfford } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
 
+/** What feeds the political map's markers besides the state: this week's orders and last week's report. */
+export interface MarkerSources {
+  plannedTasks?: readonly { taskId: string; zoneId: string }[];
+  lastReport?: readonly ReportEntry[];
+}
+
+const COMBAT_REPORT_KEYS = new Set(["report.combat.attacker_won", "report.combat.defender_won"]);
+
+function markerLook(data: GameData, spriteId: string): MarkerLook {
+  return { spriteId, glyph: data.ui.tileset.glyphs[spriteId] ?? "?", color: data.ui.markers.colors[spriteId] ?? data.ui.colors.label };
+}
+
+/**
+ * Markers per district, in priority order: deaths and fights from last week's combats, raids the sheriff warned
+ * us about, then our planned tasks (attack, gun run, collecting money). At most ui.markers.max each, no repeats.
+ */
+export function zoneMarkers(state: GameState, data: GameData, viewer: string, sources: MarkerSources = {}): Record<string, MarkerLook[]> {
+  const ids: Record<string, string[]> = {};
+  const add = (zoneId: string, spriteId: string) => {
+    const list = (ids[zoneId] ??= []);
+    if (!list.includes(spriteId)) list.push(spriteId);
+  };
+  for (const entry of sources.lastReport ?? []) {
+    if (!COMBAT_REPORT_KEYS.has(entry.key) || typeof entry.params.zoneId !== "string") continue;
+    if (Number(entry.params.deaths) > 0) add(entry.params.zoneId, "marker.death");
+    add(entry.params.zoneId, "marker.combat");
+  }
+  for (const b of state.businesses) if (b.ownerFactionId === viewer && b.raidWarned) add(b.zoneId, "marker.raid_warned");
+  for (const task of sources.plannedTasks ?? []) {
+    const marker = data.ui.markers.tasks[task.taskId];
+    if (marker) add(task.zoneId, marker);
+  }
+  return Object.fromEntries(Object.entries(ids).map(([zoneId, list]) => [zoneId, list.slice(0, data.ui.markers.max).map((id) => markerLook(data, id))]));
+}
+
+/** Face for the club's average loyalty, shown on its headquarters (first threshold reached). */
+export function moodMarker(state: GameState, data: GameData, factionId: string): MarkerLook | null {
+  const avg = averageLoyalty(state, factionId);
+  if (avg === null) return null;
+  const step = [...data.ui.markers.mood].sort((a, b) => b.min - a.min).find((m) => avg >= m.min);
+  return step ? markerLook(data, step.sprite) : null;
+}
+
 export function mapViewModel(
   state: GameState,
   data: GameData,
@@ -24,7 +68,11 @@ export function mapViewModel(
   plannedZoneIds: readonly string[] = [],
   mode: RenderMode = "tiles",
   local: LocalViewModel | null = null,
+  sources: MarkerSources = {},
 ): MapViewModel {
+  const markers = zoneMarkers(state, data, viewer, sources);
+  const hqZoneId = data.factions.find((f) => f.id === viewer)?.hqZoneId ?? null;
+  const mood = moodMarker(state, data, viewer);
   const planned = new Set(plannedZoneIds);
   const reachable = new Set(reachableZones(state, data, viewer));
   const { colors } = data.ui;
@@ -49,6 +97,8 @@ export function mapViewModel(
         })),
       labelColor: reachable.has(def.id) ? colors.label : colors.labelDim,
       heatWarning: zone.heat >= data.balance.heat.patrolThreshold,
+      markers: markers[def.id] ?? [],
+      mood: def.id === hqZoneId ? mood : null,
     };
   }
   return { zones, selectedZoneId, mode, local };
@@ -410,6 +460,7 @@ export function localViewModel(
               color: data.factions.find((f) => f.id === business.ownerFactionId)?.color ?? data.ui.colors.neutral,
             }
           : null,
+        sign: business ? businessDef(data, business.typeId)?.bar !== undefined : false,
         buildable: !business && ownsZone,
         selected: selectedLot === index,
       };
