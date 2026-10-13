@@ -302,6 +302,10 @@ export function validateGameData(data: GameData): string[] {
     for (const g of Object.values(set.glyphs)) if (!asciiOk(g)) errors.push(`ui.json › localMap.autotile.${kind}: "${g}" no está en la fuente ASCII`);
   }
   localSprite(local.rails.sprite, "rails");
+  local.river.sets.forEach((set, i) => {
+    for (const piece of set) localSprite(piece.sprite, `river.sets.${i}`);
+    if (!set.some((p) => p.connects.length === 2 && p.connects !== "NS" && p.connects !== "EW")) errors.push(`ui.json › localMap.river.sets.${i}: falta una curva`);
+  });
   for (const id of Object.values(local.lotFence)) localSprite(id, "lotFence");
   for (const [key, id] of Object.entries(local.landmarks)) {
     if (typeof id === "string" && !extraIds.has(id)) errors.push(`ui.json › localMap.landmarks.${key}: no existe "${id}" en tiles-extra.json`);

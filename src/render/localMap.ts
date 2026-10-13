@@ -1,5 +1,6 @@
 // Local map of a district (phase 10): what you see when you zoom into a zone on the political map.
 // Generated deterministically from the zone id and its type, so it's always the same place.
+// Rural zones (and some towns) have a river running from the top edge to the bottom one; roads cross it on bridges.
 // It holds the zone's building lots (one per business slot), exits towards neighbouring zones, spots where our
 // members show up while working there and landmarks (club and sheriff headquarters, gas station, motel).
 // Roads are one tile wide and drawn with a 4-neighbour mask (autotiling); trees, buildings and ground get a
@@ -33,6 +34,8 @@ export interface LocalTile {
   rotation: number;
   /** Which kind of road, for autotiling. */
   road?: RoadKind;
+  /** Part of a river (autotiled with the river pieces). */
+  river?: boolean;
 }
 
 export interface Lot {
@@ -290,6 +293,65 @@ function exitTowards(from: ZoneDef, to: ZoneDef, w: number, h: number): Omit<Exi
   return { x: clampX(w / 2 + (dx * (h / 2)) / Math.abs(dy)), y: dy > 0 ? h - 1 : 0, arrow: dy > 0 ? "v" : "^" };
 }
 
+// ---------- River ----------
+
+/**
+ * A river from the top edge to the bottom one, drifting a column sideways now and then. It never touches lots,
+ * exits, member spots or existing water, and only crosses roads straight across (a bridge). Several paths are
+ * tried with the zone's own seed; if none fits, the zone has no river. Returns the river tiles, bridges included.
+ */
+function placeRiver(data: GameData, zone: ZoneDef, tiles: LocalTile[][], forbidden: ReadonlySet<string>): Set<string> {
+  const cfg = data.ui.localMap.river;
+  const width = tiles[0]!.length;
+  const height = tiles.length;
+  const rng = createRng(hashId(`${zone.id}:river`));
+  if (!rng.chance(cfg.chance[zone.type] ?? 0)) return new Set();
+  const isRoad = (x: number, y: number) => tiles[y]?.[x]?.terrain === "road";
+  for (let attempt = 0; attempt < cfg.attempts; attempt++) {
+    let x = rng.int(2, width - 3);
+    const path: { x: number; y: number }[] = [];
+    for (let y = 0; y < height; y++) {
+      path.push({ x, y });
+      if (y < height - 1 && rng.chance(cfg.meander)) {
+        const nx = x + (rng.chance(0.5) ? 1 : -1);
+        if (nx >= 1 && nx <= width - 2) {
+          path.push({ x: nx, y });
+          x = nx;
+        }
+      }
+    }
+    const keys = new Set(path.map((p) => `${p.x},${p.y}`));
+    const fits = path.every((p) => {
+      const cell = tiles[p.y]![p.x]!;
+      if (forbidden.has(`${p.x},${p.y}`) || cell.terrain === "water" || cell.terrain === "dock" || cell.terrain === "rail") return false;
+      if (!isRoad(p.x, p.y)) return true;
+      // A bridge: the river goes straight under a road that runs across it.
+      return keys.has(`${p.x},${p.y - 1}`) && keys.has(`${p.x},${p.y + 1}`) && !isRoad(p.x, p.y - 1) && !isRoad(p.x, p.y + 1) && !keys.has(`${p.x - 1},${p.y}`) && !keys.has(`${p.x + 1},${p.y}`);
+    });
+    if (!fits) continue;
+    for (const p of path) if (!isRoad(p.x, p.y)) tiles[p.y]![p.x] = { terrain: "water", glyph: cfg.glyph, sprite: null, rotation: 0, river: true };
+    return keys;
+  }
+  return new Set();
+}
+
+function applyRiverAutotile(data: GameData, zone: ZoneDef, tiles: LocalTile[][], river: ReadonlySet<string>): void {
+  const { sets } = data.ui.localMap.river;
+  for (const key of river) {
+    const [x, y] = key.split(",").map(Number) as [number, number];
+    const cell = tiles[y]![x]!;
+    if (!cell.river) continue;
+    let mask = 0;
+    for (const d of DIRECTIONS) {
+      const nx = x + d.dx;
+      const ny = y + d.dy;
+      if (tiles[ny]?.[nx] === undefined || river.has(`${nx},${ny}`)) mask |= d.bit;
+    }
+    const piece = autotile(sets[variantIndex(zone.id, x, y, sets.length)]!, mask);
+    tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation };
+  }
+}
+
 // ---------- Variants ----------
 
 /** Same zone and tile, same variant; independent from the painting RNG so variants never move lots or exits. */
@@ -430,8 +492,11 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
     if (cell && !WALKABLE.has(cell.terrain) && cell.terrain !== "water") tiles[spot.y]![spot.x] = { ...T.ground };
   }
 
-  const landmarks = placeLandmarks(data, zone, tiles, forbiddenTiles(lots, exits, memberSpots));
+  const forbidden = forbiddenTiles(lots, exits, memberSpots);
+  const river = placeRiver(data, zone, tiles, forbidden);
+  const landmarks = placeLandmarks(data, zone, tiles, forbidden);
   applyAutotile(data, tiles);
+  applyRiverAutotile(data, zone, tiles, river);
   applyVariants(data, zone, tiles);
   return { zoneId, width, height, tiles, lots, exits, memberSpots, landmarks };
 }

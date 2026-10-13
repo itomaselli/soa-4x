@@ -344,6 +344,46 @@
       "church": [
         3,
         20
+      ],
+      "river_a_straight": [
+        8,
+        1
+      ],
+      "river_a_curve": [
+        9,
+        1
+      ],
+      "river_a_tee": [
+        10,
+        1
+      ],
+      "river_a_cross": [
+        11,
+        1
+      ],
+      "river_a_end": [
+        12,
+        1
+      ],
+      "river_b_straight": [
+        8,
+        4
+      ],
+      "river_b_curve": [
+        9,
+        4
+      ],
+      "river_b_tee": [
+        10,
+        4
+      ],
+      "river_b_cross": [
+        11,
+        4
+      ],
+      "river_b_end": [
+        12,
+        4
       ]
     },
     "glyphs": {
@@ -393,7 +433,17 @@
       "shop_2": "s",
       "shop_3": "s",
       "tower": "I",
-      "church": "t"
+      "church": "t",
+      "river_a_straight": "~",
+      "river_a_curve": "~",
+      "river_a_tee": "~",
+      "river_a_cross": "~",
+      "river_a_end": "~",
+      "river_b_straight": "~",
+      "river_b_curve": "~",
+      "river_b_tee": "~",
+      "river_b_cross": "~",
+      "river_b_end": "~"
     },
     "variants": {
       "ground": {
@@ -561,6 +611,61 @@
       "motel": "extra.motel",
       "barSign": "extra.bar_sign",
       "member": "extra.bike_rider_side"
+    },
+    "river": {
+      "chance": {
+        "rural": 1,
+        "town": 0.5
+      },
+      "sets": [
+        [
+          {
+            "sprite": "river_a_straight",
+            "connects": "NS"
+          },
+          {
+            "sprite": "river_a_curve",
+            "connects": "ES"
+          },
+          {
+            "sprite": "river_a_tee",
+            "connects": "NES"
+          },
+          {
+            "sprite": "river_a_cross",
+            "connects": "NESW"
+          },
+          {
+            "sprite": "river_a_end",
+            "connects": "S"
+          }
+        ],
+        [
+          {
+            "sprite": "river_b_straight",
+            "connects": "NS"
+          },
+          {
+            "sprite": "river_b_curve",
+            "connects": "ES"
+          },
+          {
+            "sprite": "river_b_tee",
+            "connects": "NES"
+          },
+          {
+            "sprite": "river_b_cross",
+            "connects": "NESW"
+          },
+          {
+            "sprite": "river_b_end",
+            "connects": "S"
+          }
+        ]
+      ],
+      "glyph": "~",
+      "meander": 0.3,
+      "attempts": 30
     }
   },
   "markers": {

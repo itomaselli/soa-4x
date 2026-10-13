@@ -576,6 +576,18 @@ export const UiSchema = z.object({
       }),
     ),
     rails: z.object({ sprite: z.string(), connects: DirectionsSchema }),
+    /** Rivers crossing the local map from top to bottom, autotiled like roads. */
+    river: z.object({
+      /** Chance of a river per zone type (missing = never). */
+      chance: z.partialRecord(ZoneTypeSchema, Probability),
+      /** Piece sets (styles); each tile picks one, so the banks vary along the river. */
+      sets: z.array(z.array(z.object({ sprite: z.string(), connects: DirectionsSchema })).min(1)).min(1),
+      glyph: z.string().length(1),
+      /** Chance per row of drifting one column sideways. */
+      meander: Probability,
+      /** Paths tried before giving up (a river never crosses lots, exits or members). */
+      attempts: Int.positive(),
+    }),
     /** Fence sprite on the back row of building lots, per zone type. */
     lotFence: z.record(ZoneTypeSchema, z.string()),
     /** Landmarks drawn with tiles-extra.json textures ("extra.<id>"). */

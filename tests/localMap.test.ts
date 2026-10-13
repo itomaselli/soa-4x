@@ -293,3 +293,63 @@ describe("marcadores del mapa político", () => {
     expect(lots.map((l) => l.sign)).toEqual([true, false, false]);
   });
 });
+
+describe("ríos en el mapa local", () => {
+  const river = baseData.ui.localMap.river;
+  const riverTiles = (map: LocalMap) => map.tiles.flatMap((row, y) => row.flatMap((t, x) => (t.river ? [{ x, y, t }] : [])));
+
+  it("aparecen solo en los tipos de zona con chance de río, y siempre en el campo", () => {
+    for (const map of allMaps()) {
+      const type = baseData.zones.find((z) => z.id === map.zoneId)!.type;
+      const count = riverTiles(map).length;
+      if (!river.chance[type]) expect(count, map.zoneId).toBe(0);
+      if (river.chance[type] === 1) expect(count, map.zoneId).toBeGreaterThan(0);
+    }
+  });
+
+  it("cruzan el mapa de borde a borde, sin cortarse (los puentes son la ruta que pasa por encima)", () => {
+    for (const map of allMaps()) {
+      const tiles = riverTiles(map);
+      if (tiles.length === 0) continue;
+      for (let y = 0; y < map.height; y++) {
+        const inRow = map.tiles[y]!.some((t) => t.river) || map.tiles[y]!.some((t, x) => t.terrain === "road" && map.tiles[y - 1]?.[x]?.river && map.tiles[y + 1]?.[x]?.river);
+        expect(inRow, `${map.zoneId} fila ${y}`).toBe(true);
+      }
+    }
+  });
+
+  it("cada tramo usa una pieza de las filas 1 o 4 rotada según sus vecinos", () => {
+    const pieces = river.sets.flat();
+    for (const map of allMaps()) {
+      const isRiver = (x: number, y: number) => {
+        const t = map.tiles[y]?.[x];
+        if (t === undefined) return true;
+        if (t.river) return true;
+        // A bridge: a road tile with river right above and right below.
+        return t.terrain === "road" && map.tiles[y - 1]?.[x]?.river === true && map.tiles[y + 1]?.[x]?.river === true;
+      };
+      for (const { x, y, t } of riverTiles(map)) {
+        expect(t.terrain).toBe("water");
+        const piece = pieces.find((p) => p.sprite === t.sprite);
+        expect(piece, `${map.zoneId} ${x},${y}`).toBeDefined();
+        expect(baseData.ui.localMap.sprites[t.sprite!]![1]).toSatisfy((row: number) => row === 1 || row === 4);
+        const mask = (isRiver(x, y - 1) ? N : 0) | (isRiver(x + 1, y) ? E : 0) | (isRiver(x, y + 1) ? S : 0) | (isRiver(x - 1, y) ? W : 0);
+        expect(rotateMask(connectionMask(piece!.connects), t.rotation), `${map.zoneId} ${x},${y}`).toBe(mask);
+      }
+    }
+  });
+
+  it("no pasan por lotes, salidas ni lugares de los miembros, y solo cruzan rutas de frente", () => {
+    for (const map of allMaps()) {
+      const reserved = reservedTiles(map);
+      for (const { x, y } of riverTiles(map)) {
+        expect(reserved.has(`${x},${y}`), `${map.zoneId} ${x},${y}`).toBe(false);
+        expect(map.memberSpots.some((p) => p.x === x && p.y === y)).toBe(false);
+        if (map.tiles[y]![x - 1]?.terrain === "road" || map.tiles[y]![x + 1]?.terrain === "road") {
+          // Next to a road sideways only if that road runs across (it's the bridge's own row).
+          expect(map.tiles[y - 1]?.[x]?.terrain === "road" || map.tiles[y + 1]?.[x]?.terrain === "road").toBe(true);
+        }
+      }
+    }
+  });
+});
