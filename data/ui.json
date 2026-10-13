@@ -18,7 +18,12 @@
     "labelDim": "#5c5c66",
     "selected": "#ffd75e",
     "heat": "#ff6a3d",
-    "planned": "#ffd75e"
+    "planned": "#ffd75e",
+    "border": {
+      "open": "#8a8a96",
+      "closed": "#6b4a2a",
+      "edge": "#5c5c66"
+    }
   },
   "zoneTypeColors": {
     "town": "#f2e8cf",
@@ -78,6 +83,52 @@
       "business.business_cut_house": [
         33,
         13
+      ]
+    }
+  },
+  "regions": {
+    "maxDistance": 7
+  },
+  "localMap": {
+    "colors": {
+      "ground": "#3a3a40",
+      "grass": "#4d7a3a",
+      "road": "#8a8478",
+      "building": "#c9b79c",
+      "tree": "#5f9e4b",
+      "water": "#3d7ab8",
+      "dock": "#a0784a",
+      "crate": "#c08a4a",
+      "rail": "#7a7a86",
+      "boat": "#e6e6e6",
+      "lot": "#ffd75e",
+      "exit": "#ffd75e",
+      "member": "#5fb0ff"
+    },
+    "sprites": {
+      "building": [
+        1,
+        20
+      ],
+      "factory": [
+        4,
+        21
+      ],
+      "tree": [
+        0,
+        1
+      ],
+      "crate": [
+        23,
+        2
+      ],
+      "boat": [
+        12,
+        19
+      ],
+      "member": [
+        25,
+        0
       ]
     }
   }

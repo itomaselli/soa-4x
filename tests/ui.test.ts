@@ -14,6 +14,8 @@ import {
   votePreview,
   zoneDetails,
   zoneTooltip,
+  localViewModel,
+  lotDetails,
 } from "../src/ui/viewModel";
 import { addBusiness } from "../src/sim/systems/businesses";
 import { stanceKey } from "../src/sim/systems/diplomacy";
@@ -56,13 +58,13 @@ describe("interfaz: borrador de órdenes", () => {
 });
 
 describe("interfaz: datos para mostrar", () => {
-  it("el mapa pinta cada zona con el color de su dueño, o neutral si no tiene", () => {
+  it("el mapa político pinta cada distrito con el color de su dueño, o sin color si no tiene", () => {
     const vm = mapViewModel(newState(), baseData, PLAYER, null);
     const saints = baseData.factions.find((f) => f.id === PLAYER)!.color;
     const wolves = baseData.factions.find((f) => f.id === WOLVES)!.color;
-    expect(vm.zones["zone_redwater"]?.borderColor).toBe(saints);
-    expect(vm.zones["zone_millbrook"]?.borderColor).toBe(wolves);
-    expect(vm.zones["zone_crossing"]?.borderColor).toBe(baseData.ui.colors.neutral);
+    expect(vm.zones["zone_redwater"]?.ownerColor).toBe(saints);
+    expect(vm.zones["zone_millbrook"]?.ownerColor).toBe(wolves);
+    expect(vm.zones["zone_crossing"]?.ownerColor).toBeNull();
   });
 
   it("las zonas fuera de alcance se ven apagadas y las calientes llevan aviso", () => {
@@ -197,6 +199,25 @@ describe("interfaz: datos para mostrar", () => {
       businesses: 0,
       owner: { name: "Iron Saints MC" },
     });
+  });
+
+  it("la vista de un distrito muestra sus lotes: ocupados con el color del dueño, libres si podemos construir", () => {
+    const state = newState();
+    addBusiness(state, baseData, WOLVES, "business_club_bar", "zone_millbrook", 1);
+    const wolvesColor = baseData.factions.find((f) => f.id === WOLVES)!.color;
+    const millbrook = localViewModel(state, baseData, PLAYER, "zone_millbrook", 1, []);
+    expect(millbrook.lots[1]).toMatchObject({ business: { color: wolvesColor }, selected: true, buildable: false });
+    expect(millbrook.lots[0]).toMatchObject({ business: null, buildable: false });
+    const redwater = localViewModel(state, baseData, PLAYER, "zone_redwater", null, ["zone_redwater", "zone_redwater"]);
+    expect(redwater.lots.every((l) => l.buildable)).toBe(true);
+    expect(redwater.members).toHaveLength(2);
+  });
+
+  it("el detalle de un lote libre ofrece los negocios posibles y explica por qué no se puede alguno", () => {
+    const d = lotDetails(newState(), baseData, PLAYER, "zone_redwater", 0);
+    expect(d.business).toBeNull();
+    expect(d.options.find((o) => o.typeId === "business_club_bar")?.problem).toBeNull();
+    expect(d.options.find((o) => o.typeId === "business_plantation")?.problem).toBe("build_error.wrong_zone_type");
   });
 });
 

@@ -15,6 +15,7 @@ try {
   const data = loadGameData();
   document.title = t(data.strings, "app.title");
   await startApp(data, {
+    mapBar: byId("map-bar"),
     topBar: byId("topbar"),
     mapHost: byId("map-host"),
     sidebar: byId("sidebar"),

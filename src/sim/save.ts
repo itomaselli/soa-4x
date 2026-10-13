@@ -42,6 +42,8 @@ export function saveDataProblems(state: GameState, data: GameData): string[] {
   for (const b of state.businesses) {
     if (!businesses.has(b.typeId)) problems.push(`${b.id}: tipo de negocio desconocido ${b.typeId}`);
     if (!zones.has(b.zoneId)) problems.push(`${b.id}: zona desconocida ${b.zoneId}`);
+    const slots = data.zones.find((z) => z.id === b.zoneId)?.businessSlots ?? 0;
+    if (b.lot >= slots) problems.push(`${b.id}: el lote ${b.lot} no existe en ${b.zoneId}`);
   }
   for (const f of Object.values(state.factions)) {
     for (const good of Object.keys(f.stock)) if (!goods.has(good)) problems.push(`${f.id}: bien desconocido ${good}`);

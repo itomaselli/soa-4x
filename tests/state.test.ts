@@ -112,7 +112,7 @@ describe("guardar y cargar contra los datos del juego", () => {
 
   it("detecta negocios de un tipo que ya no existe", () => {
     const state = newGame();
-    state.businesses.push({ id: "biz_1", typeId: "business_casino", zoneId: "zone_redwater", ownerFactionId: PLAYER, raidWarned: false, builtWeek: 1, suspended: false, workCapacity: 0 });
+    state.businesses.push({ id: "biz_1", typeId: "business_casino", zoneId: "zone_redwater", ownerFactionId: PLAYER, lot: 0, raidWarned: false, builtWeek: 1, suspended: false, workCapacity: 0 });
     expect(saveDataProblems(state, data)).toContainEqual("biz_1: tipo de negocio desconocido business_casino");
   });
 });

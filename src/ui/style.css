@@ -95,3 +95,7 @@ label.button:hover { border-color: var(--muted); }
 .modal.victory h2 { color: var(--ok); }
 .modal.defeat h2 { color: var(--danger); }
 .modal p { margin: 8px 0; }
+.map-bar { display: flex; gap: 12px; align-items: center; padding: 8px 12px 0; min-height: 32px; }
+.lot { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+.lot h3 { margin-top: 0; color: var(--accent); }
+.lot-option { margin: 4px 0; }

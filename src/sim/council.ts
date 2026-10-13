@@ -20,6 +20,8 @@ export const ProposalSchema = z.object({
   /** open_illegal_business */
   businessTypeId: IdSchema.optional(),
   zoneId: IdSchema.optional(),
+  /** open_illegal_business: building lot on the zone's local map (first free if missing). */
+  lot: z.number().int().nonnegative().optional(),
   /** If the vote is lost, do it anyway and pay the loyalty cost of ignoring the council. */
   force: z.boolean().optional(),
 });
@@ -80,7 +82,7 @@ export function validateProposal(state: GameState, data: GameData, p: Proposal, 
       const def = data.businesses.find((b) => b.id === p.businessTypeId);
       if (!def || def.legal) return "proposal_error.bad_business";
       if (!p.zoneId) return "proposal_error.bad_zone";
-      return buildProblem(state, data, p.factionId, def.id, p.zoneId);
+      return buildProblem(state, data, p.factionId, def.id, p.zoneId, p.lot);
     }
   }
 }

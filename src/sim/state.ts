@@ -122,6 +122,8 @@ export const BusinessStateSchema = z.object({
   typeId: IdSchema,
   zoneId: IdSchema,
   ownerFactionId: IdSchema,
+  /** Which of the zone's building lots it occupies, 0 … businessSlots−1 (phase 10: lots on the local map). */
+  lot: NonNegativeInt,
   /** The sheriff already warned about a raid on this business (GDD §10). */
   raidWarned: z.boolean(),
   /** Week it was built: it starts working the following week. */

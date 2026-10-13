@@ -254,3 +254,25 @@ describe("cartel y armas (GDD §9 cadena B, §12)", () => {
     expect(member(state, PRESIDENT).status).toBe("active");
   });
 });
+
+describe("lotes de construcción (Fase 10)", () => {
+  it("cada negocio ocupa un lote de la zona; se puede elegir cuál", () => {
+    const state = newState();
+    const next = run(state, { management: [{ kind: "build", factionId: PLAYER, typeId: "business_club_bar", zoneId: "zone_redwater", lot: 2 }] }).state;
+    expect(next.businesses[0]?.lot).toBe(2);
+  });
+
+  it("sin elegir, toma el primer lote libre", () => {
+    const state = withBusiness(newState(), "business_club_bar");
+    const next = run(state, { management: [{ kind: "build", factionId: PLAYER, typeId: "business_garage", zoneId: "zone_redwater" }] }).state;
+    expect(next.businesses.map((b) => b.lot).sort()).toEqual([0, 1]);
+  });
+
+  it("no se puede construir en un lote ocupado ni en uno que no existe", () => {
+    const state = withBusiness(newState(), "business_club_bar");
+    const taken = run(state, { management: [{ kind: "build", factionId: PLAYER, typeId: "business_garage", zoneId: "zone_redwater", lot: 0 }] });
+    expect(taken.report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("build_error.lot_taken");
+    const missing = run(newState(), { management: [{ kind: "build", factionId: PLAYER, typeId: "business_garage", zoneId: "zone_redwater", lot: 7 }] });
+    expect(missing.report.find((e) => e.key === "report.management.rejected")?.params.reasonKey).toBe("build_error.lot_taken");
+  });
+});

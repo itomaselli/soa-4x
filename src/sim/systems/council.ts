@@ -160,8 +160,8 @@ export function resolveCouncil(state: GameState, proposals: readonly Proposal[],
       }
       case "open_illegal_business": {
         if (!p.businessTypeId || !p.zoneId) return;
-        if (buildProblem(s, c.data, p.factionId, p.businessTypeId, p.zoneId)) return;
-        addBusiness(s, c.data, p.factionId, p.businessTypeId, p.zoneId);
+        if (buildProblem(s, c.data, p.factionId, p.businessTypeId, p.zoneId, p.lot)) return;
+        addBusiness(s, c.data, p.factionId, p.businessTypeId, p.zoneId, p.lot);
         c.report("report.management.built", { businessKey: `business.${p.businessTypeId}`, zone: zoneName(c.data, p.zoneId), cost: c.data.businesses.find((b) => b.id === p.businessTypeId)?.buildCost ?? 0 }, p.factionId);
         return;
       }

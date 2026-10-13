@@ -79,7 +79,7 @@ describe("allanamientos (calor ≥ 60)", () => {
   function withBusiness(typeId: string): GameState {
     const state = newState();
     zone(state, "zone_redwater").heat = 70;
-    state.businesses.push({ id: "biz_1", typeId, zoneId: "zone_redwater", ownerFactionId: PLAYER, raidWarned: false, builtWeek: 0, suspended: false, workCapacity: 0 });
+    state.businesses.push({ id: "biz_1", typeId, zoneId: "zone_redwater", ownerFactionId: PLAYER, lot: 0, raidWarned: false, builtWeek: 0, suspended: false, workCapacity: 0 });
     return state;
   }
 

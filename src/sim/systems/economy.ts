@@ -56,7 +56,7 @@ export function resolveManagement(state: GameState, orders: readonly ManagementO
       continue;
     }
     if (order.kind === "build") {
-      addBusiness(state, data, order.factionId, order.typeId, order.zoneId);
+      addBusiness(state, data, order.factionId, order.typeId, order.zoneId, order.lot);
       ctx.report(
         "report.management.built",
         { businessKey: `business.${order.typeId}`, zone: zoneName(data, order.zoneId), cost: businessDef(data, order.typeId)?.buildCost ?? 0 },

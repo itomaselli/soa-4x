@@ -545,9 +545,18 @@ export const UiSchema = z.object({
     heat: HexColorSchema,
     /** Center glyph of zones where we planned tasks this week. */
     planned: HexColorSchema,
+    /** Political map borders: open (connected), closed (no direct way), county edge. */
+    border: z.object({ open: HexColorSchema, closed: HexColorSchema, edge: HexColorSchema }),
   }),
   /** Color of each zone's center glyph by type. */
   zoneTypeColors: z.record(ZoneTypeSchema, HexColorSchema),
+  /** Local (zoomed) map of a district: colors per terrain and tileset sprites for its features. */
+  localMap: z.object({
+    colors: z.record(z.string(), HexColorSchema),
+    sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
+  }),
+  /** Political map: tiles farther than maxDistance from every district center are outside the county. */
+  regions: z.object({ maxDistance: z.number().positive() }),
   /**
    * Tileset (assets/tiles/kenney-1bit-monochrome.png): white 1-bit tiles that the renderer tints.
    * Sprites map ids like "zone_type.town" or "business.business_garage" to [column, row] in the sheet.

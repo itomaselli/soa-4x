@@ -2,7 +2,7 @@
 // No DOM here, so it's testable in Node.
 
 import type { GameData } from "../data/schemas";
-import type { MapViewModel, RenderMode } from "../render/map";
+import type { LocalViewModel, MapViewModel, RenderMode } from "../render/map";
 import { reachableZones } from "../sim/orders";
 import { RANKS, type GameState, type MemberState } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
@@ -11,7 +11,7 @@ import { diplomaticState, getStance } from "../sim/systems/diplomacy";
 import { averageLoyalty } from "../sim/systems/loyalty";
 import { factionMembers } from "../sim/systems/members";
 import { cartelId } from "../sim/management";
-import { businessDef, freeSlots, launderCapacity, storageCapacity } from "../sim/systems/businesses";
+import { businessAtLot, buildProblem, businessDef, freeSlots, launderCapacity, storageCapacity } from "../sim/systems/businesses";
 import { marketPrice } from "../sim/systems/economy";
 import { canAfford } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
@@ -23,6 +23,7 @@ export function mapViewModel(
   selectedZoneId: string | null,
   plannedZoneIds: readonly string[] = [],
   mode: RenderMode = "tiles",
+  local: LocalViewModel | null = null,
 ): MapViewModel {
   const planned = new Set(plannedZoneIds);
   const reachable = new Set(reachableZones(state, data, viewer));
@@ -33,7 +34,7 @@ export function mapViewModel(
     if (!zone) continue;
     const owner = zoneOwner(zone, data.balance);
     zones[def.id] = {
-      borderColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? colors.neutral) : colors.neutral,
+      ownerColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? null) : null,
       glyph: def.glyph,
       spriteId: `zone_type.${def.type}`,
       glyphColor: planned.has(def.id) ? colors.planned : data.ui.zoneTypeColors[def.type] ?? colors.glyph,
@@ -49,7 +50,7 @@ export function mapViewModel(
       heatWarning: zone.heat >= data.balance.heat.patrolThreshold,
     };
   }
-  return { zones, selectedZoneId, mode };
+  return { zones, selectedZoneId, mode, local };
 }
 
 export interface TopBarModel {
@@ -343,5 +344,74 @@ export function zoneTooltip(state: GameState, data: GameData, zoneId: string, vi
     heat: d.heat,
     patrols: d.patrols,
     businesses: state.businesses.filter((b) => b.zoneId === zoneId).length,
+  };
+}
+
+/** What the zoomed-in map shows for a district: its lots and our members working there this week. */
+export function localViewModel(
+  state: GameState,
+  data: GameData,
+  viewer: string,
+  zoneId: string,
+  selectedLot: number | null,
+  plannedZoneIds: readonly string[],
+): LocalViewModel {
+  const def = data.zones.find((z) => z.id === zoneId);
+  const zone = state.zones[zoneId];
+  const ownsZone = zone ? zoneOwner(zone, data.balance) === viewer : false;
+  const memberColor = data.factions.find((f) => f.id === viewer)?.color ?? data.ui.colors.glyph;
+  return {
+    zoneId,
+    lots: Array.from({ length: def?.businessSlots ?? 0 }, (_, index) => {
+      const business = businessAtLot(state, zoneId, index);
+      return {
+        index,
+        business: business
+          ? {
+              glyph: businessDef(data, business.typeId)?.glyph ?? "?",
+              spriteId: `business.${business.typeId}`,
+              color: data.factions.find((f) => f.id === business.ownerFactionId)?.color ?? data.ui.colors.neutral,
+            }
+          : null,
+        buildable: !business && ownsZone,
+        selected: selectedLot === index,
+      };
+    }),
+    members: plannedZoneIds.filter((z) => z === zoneId).map(() => ({ color: memberColor })),
+  };
+}
+
+export interface LotDetails {
+  zoneId: string;
+  lot: number;
+  business: { typeKey: string; owner: string; color: string; ours: boolean; statusKey: string } | null;
+  /** Business types we could put here, with the problem (strings key) if we can't right now. */
+  options: { typeId: string; nameKey: string; legal: boolean; cost: number; problem: string | null }[];
+}
+
+export function lotDetails(state: GameState, data: GameData, viewer: string, zoneId: string, lot: number): LotDetails {
+  const business = businessAtLot(state, zoneId, lot);
+  const owner = business ? data.factions.find((f) => f.id === business.ownerFactionId) : undefined;
+  return {
+    zoneId,
+    lot,
+    business: business
+      ? {
+          typeKey: `business.${business.typeId}`,
+          owner: owner?.name ?? business.ownerFactionId,
+          color: owner?.color ?? data.ui.colors.neutral,
+          ours: business.ownerFactionId === viewer,
+          statusKey: business.suspended ? "ui.biz.suspended" : business.builtWeek >= state.week ? "ui.biz.new" : "ui.biz.working",
+        }
+      : null,
+    options: business
+      ? []
+      : data.businesses.map((b) => ({
+          typeId: b.id,
+          nameKey: `business.${b.id}`,
+          legal: b.legal,
+          cost: b.buildCost,
+          problem: buildProblem(state, data, viewer, b.id, zoneId, lot),
+        })),
   };
 }

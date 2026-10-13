@@ -2,7 +2,7 @@
 // builds the panels and calls resolveTurn. It never changes GameState directly (CLAUDE.md, rule 8).
 
 import type { GameData } from "../data/schemas";
-import { createMapView, type MapView } from "../render/map";
+import { createMapView, type HoverTarget, type MapView } from "../render/map";
 import { availableTasks, reachableZones } from "../sim/orders";
 import type { ReportEntry } from "../sim/report";
 import { createInitialState } from "../sim/setup";
@@ -30,6 +30,8 @@ import {
   zoneBusinesses,
   zoneDetails,
   zoneTooltip,
+  localViewModel,
+  lotDetails,
 } from "./viewModel";
 import { validateManagement, type ManagementOrder } from "../sim/management";
 
@@ -49,6 +51,7 @@ interface ProposalForm {
 }
 
 export interface AppElements {
+  mapBar: HTMLElement;
   topBar: HTMLElement;
   mapHost: HTMLElement;
   sidebar: HTMLElement;
@@ -86,6 +89,18 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   let showHelp = false;
   let renderMode = loadRenderMode();
   let outcomeDismissed = false;
+  /** District shown zoomed in on the map (phase 10), or null for the county view. */
+  let localZoneId: string | null = null;
+  let selectedLot: number | null = null;
+
+  const enterZone = (zoneId: string) => {
+    localZoneId = zoneId;
+    selectedZoneId = zoneId;
+    selectedLot = null;
+    tab = "zone";
+    els.tooltip.hidden = true;
+    render();
+  };
 
   const map: MapView = await createMapView(els.mapHost, data, {
     onZoneClick: (zoneId) => {
@@ -98,10 +113,35 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
       }
       render();
     },
-    onZoneHover: (zoneId, x, y) => showTooltip(zoneId, x, y),
+    onZoneEnter: enterZone,
+    onExitClick: enterZone,
+    onLotClick: (lot) => {
+      selectedLot = lot;
+      tab = "zone";
+      render();
+    },
+    onHover: (target, x, y) => showTooltip(target, x, y),
   });
 
-  function showTooltip(zoneId: string | null, x: number, y: number): void {
+  function showTooltip(target: HoverTarget | null, x: number, y: number): void {
+    if (target?.kind === "lot" && localZoneId) {
+      const lot = lotDetails(state, data, state.playerFactionId, localZoneId, target.index);
+      els.tooltip.replaceChildren(
+        h("strong", {}, [tr("ui.lot.title", { index: target.index + 1 })]),
+        lot.business
+          ? h("div", {}, [tr(lot.business.typeKey), " · ", h("span", { style: `color:${lot.business.color}` }, [lot.business.owner])])
+          : h("div", { class: "muted" }, [tr("ui.lot.empty")]),
+      );
+    } else if (target?.kind === "exit") {
+      els.tooltip.replaceChildren(h("div", {}, [tr("ui.lot.exit", { zone: data.zones.find((z) => z.id === target.zoneId)?.name ?? "" })]));
+    }
+    if (target && target.kind !== "zone") {
+      els.tooltip.style.left = `${x + 14}px`;
+      els.tooltip.style.top = `${y + 14}px`;
+      els.tooltip.hidden = false;
+      return;
+    }
+    const zoneId = target?.kind === "zone" ? target.zoneId : null;
     const tip = zoneId ? zoneTooltip(state, data, zoneId, state.playerFactionId) : null;
     if (!tip) {
       els.tooltip.hidden = true;
@@ -676,15 +716,49 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
 
   // ---------- Zone tab ----------
 
+  function renderLot(zoneId: string, lot: number): HTMLElement {
+    const d = lotDetails(state, data, state.playerFactionId, zoneId, lot);
+    const viewer = state.playerFactionId;
+    return h("div", { class: "lot" }, [
+      h("h3", {}, [tr("ui.lot.title", { index: lot + 1 })]),
+      d.business
+        ? h("p", {}, [tr(d.business.typeKey), " · ", h("span", { style: `color:${d.business.color}` }, [d.business.owner]), " · ", tr(d.business.statusKey)])
+        : h("p", { class: "muted" }, [tr("ui.lot.empty")]),
+      d.business && !d.business.ours ? h("p", { class: "hint" }, [tr("ui.lot.attack_hint")]) : null,
+      ...(d.business
+        ? []
+        : d.options.map((o) => {
+            const blocked = o.problem !== null && o.problem !== "build_error.no_money";
+            const order = (): void => {
+              if (o.legal) management = [...management, { kind: "build", factionId: viewer, typeId: o.typeId, zoneId, lot }];
+              else proposals = [...proposals, { factionId: viewer, type: "open_illegal_business", businessTypeId: o.typeId, zoneId, lot }];
+              render();
+            };
+            return h("div", { class: "row lot-option" }, [
+              h("button", { disabled: o.problem !== null, onclick: order }, [
+                o.legal ? tr("ui.lot.build", { name: tr(o.nameKey), cost: o.cost }) : tr("ui.lot.propose", { name: tr(o.nameKey), cost: o.cost }),
+              ]),
+              o.problem && !blocked ? h("span", { class: "error" }, [tr(o.problem)]) : null,
+              blocked ? h("span", { class: "muted" }, [tr(o.problem!)]) : null,
+            ]);
+          })),
+    ]);
+  }
+
   function renderZone(): HTMLElement {
     const d = selectedZoneId ? zoneDetails(state, data, selectedZoneId, state.playerFactionId) : null;
     if (!d) return h("p", { class: "hint" }, [tr("ui.zone_none")]);
+    const lotPanel = localZoneId === d.id && selectedLot !== null ? renderLot(d.id, selectedLot) : null;
     const planned = Object.entries(draft)
       .filter(([, e]) => e.zoneId === d.id)
       .map(([memberId, e]) => `${state.members[memberId]?.nickname ?? memberId}: ${tr(`task.${e.taskId}`)}`);
     return h("div", { class: "zone" }, [
       h("h2", {}, [d.name]),
       h("p", { class: "muted" }, [tr(d.typeKey), " · ", d.reachable ? tr("ui.zone_reachable") : tr("ui.zone_unreachable")]),
+      localZoneId === d.id
+        ? h("p", { class: "hint" }, [tr("ui.lot.hint")])
+        : h("button", { class: "primary", onclick: () => enterZone(d.id) }, [tr("ui.zone.enter")]),
+      lotPanel,
       h("dl", {}, [
         h("dt", {}, [tr("ui.zone.wealth")]), h("dd", {}, [String(d.wealth)]),
         h("dt", {}, [tr("ui.zone.police")]), h("dd", {}, [String(d.policePresence)]),
@@ -769,27 +843,35 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   function renderLegend(): HTMLElement {
     const { colors } = data.ui;
     const sw = (color: string, ch: string) => h("span", { class: "mono", style: `color:${color}` }, [ch]);
+    const toggle = h(
+      "button",
+      {
+        class: "chip",
+        onclick: () => {
+          renderMode = renderMode === "tiles" ? "ascii" : "tiles";
+          saveRenderMode(renderMode);
+          render();
+        },
+      },
+      [tr(renderMode === "tiles" ? "ui.legend.to_ascii" : "ui.legend.to_tiles")],
+    );
+    if (localZoneId) {
+      return h("div", { class: "legend" }, [
+        h("span", {}, [sw(data.ui.localMap.colors.lot ?? colors.selected, "[+]"), " ", tr("ui.legend.lot_free")]),
+        h("span", {}, [sw(colors.selected, "> v"), " ", tr("ui.legend.exits")]),
+        h("span", {}, [sw(data.ui.localMap.colors.member ?? colors.glyph, "@"), " ", tr("ui.legend.members_here")]),
+        toggle,
+      ]);
+    }
     return h("div", { class: "legend" }, [
       ...data.factions
         .filter((f) => f.kind === "club" || f.kind === "cartel")
-        .map((f) => h("span", {}, [sw(f.color, "+-+"), " ", f.name])),
-      h("span", {}, [sw(colors.neutral, "+-+"), " ", tr("ui.legend.no_owner")]),
-      h("span", {}, [sw(colors.selected, "+-+"), " ", tr("ui.legend.selected")]),
-      h("span", {}, [sw(colors.planned, "R"), " ", tr("ui.legend.planned")]),
+        .map((f) => h("span", {}, [sw(f.color, "##"), " ", f.name])),
+      h("span", {}, [sw(colors.border.open, "· ·"), " ", tr("ui.legend.border_open")]),
+      h("span", {}, [sw(colors.border.closed, "==="), " ", tr("ui.legend.border_closed")]),
+      h("span", {}, [sw(colors.planned, "*"), " ", tr("ui.legend.planned")]),
       h("span", {}, [sw(colors.heat, "!"), " ", tr("ui.legend.patrols")]),
-      h("span", {}, [...data.businesses.map((b) => sw(colors.label, b.glyph)), " ", tr("ui.legend.businesses")]),
-      h(
-        "button",
-        {
-          class: "chip",
-          onclick: () => {
-            renderMode = renderMode === "tiles" ? "ascii" : "tiles";
-            saveRenderMode(renderMode);
-            render();
-          },
-        },
-        [tr(renderMode === "tiles" ? "ui.legend.to_ascii" : "ui.legend.to_tiles")],
-      ),
+      toggle,
     ]);
   }
 
@@ -845,7 +927,17 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
               : renderReport();
     els.sidebar.replaceChildren(tabs, h("div", { class: "tab-body" }, [body]));
     const planned = Object.values(draft).map((e) => e.zoneId).filter((z): z is string => z !== null);
-    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned, renderMode));
+    const local = localZoneId ? localViewModel(state, data, state.playerFactionId, localZoneId, selectedLot, planned) : null;
+    map.update(mapViewModel(state, data, state.playerFactionId, selectedZoneId, planned, renderMode, local));
+    els.mapBar.replaceChildren(
+      localZoneId
+        ? h("div", { class: "map-bar" }, [
+            h("button", { onclick: () => { localZoneId = null; selectedLot = null; render(); } }, [tr("ui.map.back")]),
+            h("strong", {}, [data.zones.find((z) => z.id === localZoneId)?.name ?? ""]),
+            h("span", { class: "muted" }, [tr("ui.map.local_hint")]),
+          ])
+        : h("div", { class: "map-bar" }, [h("span", { class: "muted" }, [tr("ui.map.county_hint")])]),
+    );
   }
 
   render();

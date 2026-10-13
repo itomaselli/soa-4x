@@ -67,6 +67,8 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 
 - **La suma del control de todas las facciones en una zona nunca supera 100.** Custodiar solo ocupa el espacio libre; para sacarle control a otro hay que intimidar.
 - **Alcance:** una facción puede actuar en las zonas donde tiene control y en sus vecinas.
+- **Mapa político (Fase 10):** cada tile del mapa pertenece al distrito más cercano, como un diagrama de Voronoi. Los distritos se pintan con el color de su dueño. Las fronteras entre zonas conectadas se dibujan punteadas (se puede pasar); entre zonas que se tocan sin estar conectadas, gruesas (río o sierra, no hay paso directo). Para que las regiones coincidan con las conexiones, Dry Creek se movió junto a Redwater y se quitó el camino largo Dry Creek–Saltmarsh.
+- **Zoom jugable (Fase 10):** con doble clic (o «Entrar al distrito») se ve el mapa local de la zona, generado según su tipo. Cada lugar para negocios es un **lote** concreto: se elige en el mapa y desde ahí se construye (o se propone a la mesa si es ilegal). Se ven los negocios de cada lote con el color de su dueño, nuestros miembros trabajando esa semana y flechas hacia las zonas vecinas.
 - **Erosión de influencia (Fase 6):** al final de cada semana, una facción pierde 1 de control en cada zona que no es suya, que no es su sede y donde ningún miembro suyo actuó esa semana. Desparramarse deja de rendir y los empates se rompen. En la simulación, las partidas sin final bajaron del 60% al 10–27%.
 - La `riqueza` de una zona es fija durante la partida (por ahora).
 
@@ -401,6 +403,7 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿La IA es prudente? (Fase 8) | Con el club en malestar, le pesa el doble el riesgo de arresto. No pide treguas ni tratos que le van a rechazar. |
 | ¿Cómo se generalizaron los negocios? (Fase 9) | En `businesses.json`, un **procesador** convierte un bien en otro solo (desarmadero, cocina de corte) y un **taller** produce, con o sin insumo, y rinde más si alguien hace su tarea de trabajo (taller, plantación). Cada negocio puede limitar los tipos de zona y sumar calor por semana. |
 | ¿La IA usa las drogas? (Fase 9) | Sí: construye cocinas solo si el cartel le vendería, no intimida al cartel mientras quiere negociar con él, cultiva si tiene buenas Manos y sale a vender cuando tiene stock. La plantación la usa poco porque rara vez es dueña de una zona rural. |
+| ¿Los lotes cambian las reglas? (Fase 10) | Solo agregan dónde: cada negocio ocupa un lote (0 a lugares−1). Construir en un lote ocupado o inexistente se rechaza; sin lote, se usa el primero libre (así construye la IA). |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

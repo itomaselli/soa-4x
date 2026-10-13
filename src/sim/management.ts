@@ -8,7 +8,7 @@ import { getStance } from "./systems/diplomacy";
 import { IdSchema, type GameState } from "./state";
 
 export const ManagementOrderSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("build"), factionId: IdSchema, typeId: IdSchema, zoneId: IdSchema }),
+  z.object({ kind: z.literal("build"), factionId: IdSchema, typeId: IdSchema, zoneId: IdSchema, lot: z.number().int().nonnegative().optional() }),
   z.object({ kind: z.literal("sell"), factionId: IdSchema, goodId: IdSchema, quantity: z.number().int().positive() }),
   z.object({ kind: z.literal("launder"), factionId: IdSchema, amount: z.number().int().positive() }),
   z.object({ kind: z.literal("buy"), factionId: IdSchema, goodId: IdSchema, quantity: z.number().int().positive() }),
@@ -26,7 +26,7 @@ export function validateManagement(state: GameState, data: GameData, order: Mana
   switch (order.kind) {
     case "build": {
       if (businessDef(data, order.typeId)?.legal === false) return "management_error.illegal_needs_council";
-      return buildProblem(state, data, order.factionId, order.typeId, order.zoneId);
+      return buildProblem(state, data, order.factionId, order.typeId, order.zoneId, order.lot);
     }
     case "sell": {
       const good = data.goods.find((g) => g.id === order.goodId);

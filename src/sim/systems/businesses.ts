@@ -19,8 +19,18 @@ export function workingBusinesses(state: GameState, factionId: string): Business
 }
 
 export function freeSlots(state: GameState, data: GameData, zoneId: string): number {
+  return freeLots(state, data, zoneId).length;
+}
+
+/** Building lots of a zone not taken by any business, in order (phase 10). */
+export function freeLots(state: GameState, data: GameData, zoneId: string): number[] {
   const slots = data.zones.find((z) => z.id === zoneId)?.businessSlots ?? 0;
-  return slots - state.businesses.filter((b) => b.zoneId === zoneId).length;
+  const taken = new Set(state.businesses.filter((b) => b.zoneId === zoneId).map((b) => b.lot));
+  return Array.from({ length: slots }, (_, i) => i).filter((i) => !taken.has(i));
+}
+
+export function businessAtLot(state: GameState, zoneId: string, lot: number): BusinessState | undefined {
+  return state.businesses.find((b) => b.zoneId === zoneId && b.lot === lot);
 }
 
 /** How many units of a good the faction can hold (warehouses). Goods without storage rules are unlimited. */
@@ -41,15 +51,29 @@ export function launderCapacity(state: GameState, data: GameData, factionId: str
  * Whether a faction can build a business type in a zone (GDD §8): it must own the zone, have a free slot
  * and enough clean money. Returns a strings.es.json key or null.
  */
-export function buildProblem(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string): string | null {
-  const location = buildLocationProblem(state, data, factionId, typeId, zoneId);
+export function buildProblem(
+  state: GameState,
+  data: GameData,
+  factionId: string,
+  typeId: string,
+  zoneId: string,
+  lot?: number,
+): string | null {
+  const location = buildLocationProblem(state, data, factionId, typeId, zoneId, lot);
   if (location) return location;
   if ((state.factions[factionId]?.money.clean ?? 0) < (businessDef(data, typeId)?.buildCost ?? 0)) return "build_error.no_money";
   return null;
 }
 
-/** Same as buildProblem but ignoring money: can this business go in this zone at all? */
-export function buildLocationProblem(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string): string | null {
+/** Same as buildProblem but ignoring money: can this business go in this zone (and lot, if given) at all? */
+export function buildLocationProblem(
+  state: GameState,
+  data: GameData,
+  factionId: string,
+  typeId: string,
+  zoneId: string,
+  lot?: number,
+): string | null {
   const def = businessDef(data, typeId);
   const zone = state.zones[zoneId];
   if (!def) return "build_error.unknown_type";
@@ -58,11 +82,12 @@ export function buildLocationProblem(state: GameState, data: GameData, factionId
   const zoneType = data.zones.find((z) => z.id === zoneId)?.type;
   if (def.allowedZoneTypes && (!zoneType || !def.allowedZoneTypes.includes(zoneType))) return "build_error.wrong_zone_type";
   if (freeSlots(state, data, zoneId) <= 0) return "build_error.no_slot";
+  if (lot !== undefined && !freeLots(state, data, zoneId).includes(lot)) return "build_error.lot_taken";
   return null;
 }
 
-/** Builds without checks (call buildProblem first). Pays with clean money. Returns the new business. */
-export function addBusiness(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string): BusinessState {
+/** Builds without checks (call buildProblem first). Pays with clean money. Takes `lot` or the first free one. */
+export function addBusiness(state: GameState, data: GameData, factionId: string, typeId: string, zoneId: string, lot?: number): BusinessState {
   const def = businessDef(data, typeId);
   const faction = state.factions[factionId];
   if (faction && def) faction.money.clean -= def.buildCost;
@@ -72,6 +97,7 @@ export function addBusiness(state: GameState, data: GameData, factionId: string,
     typeId,
     zoneId,
     ownerFactionId: factionId,
+    lot: lot ?? freeLots(state, data, zoneId)[0] ?? 0,
     raidWarned: false,
     builtWeek: state.week,
     suspended: false,
