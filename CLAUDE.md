@@ -31,6 +31,7 @@ npm run desktop:dev                    # ventana de escritorio con Tauri (requie
 npm run desktop:build                  # instalador local (requiere Rust); el .exe se arma en GitHub Actions, ver docs/ESCRITORIO.md
 node scripts/capture-ui.mjs            # capturas de la interfaz a 1920/1366/1024/768 px con Chrome headless (requiere npm run dev)
 python3 scripts/extract-ui-illustrations.py   # recorta las ilustraciones de interfaz del atlas (assets/ui/source)
+python3 scripts/draw-ui-illustrations.py      # dibuja las ilustraciones que no trae el atlas (robar motos, venta)
 ```
 
 **Una tarea está terminada solo si** `typecheck`, `lint` y `test` pasan. Si tocaste reglas de simulación, corré también `npm run sim` y mencioná si cambió algo raro en las estadísticas.

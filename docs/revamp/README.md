@@ -40,8 +40,7 @@ Ver `assets/ui/README.md`: 16 recortes del atlas sin re-escalar en lienzos de 25
 
 ## Decisiones y límites
 
-- **Robar motos** no tiene ilustración propia en el atlas: se muestra con el glifo `@` para no repetir la de «Moto robada».
-- **Venta de nodos «$»**: no hay ilustración de venta; se dibuja un `$` (el atlas no trae una y no se inventó).
+- **Robar motos y Venta** no venían en el atlas: se dibujaron con código en el mismo estilo (`scripts/draw-ui-illustrations.py`, registradas en `assets/ui/illustrations-extra.json`). Robar motos: rueda encadenada con la cadena cortada, candado abierto y cizalla. Venta: bolsa de plata, fajos y monedas.
 - **Escala del mapa:** el renderer elige escala entera por ancho. A 1920×1080 el mapa queda a ×2 (1600×1024) y la columna del mapa se desplaza verticalmente; no se tocó la lógica de escala.
 - **Inspector y destino por mapa:** «Mapa» en Club abre el Condado con un aviso; si estabas dentro de un distrito, se mantiene (el brief pide no perderlo) y hay que volver al condado para elegir otro distrito.
 - **Federales ocultos:** la cabecera muestra `?` y el valor no llega al DOM; el aviso de lavado habla de «la investigación federal sube», sin cifras.

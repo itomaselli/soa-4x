@@ -49,7 +49,7 @@ function nodeCard(ctx: UiContext, node: ChainNode): HTMLElement {
       onclick: () => set({ chainNode: selected ? null : node.key }),
     },
     [
-      node.kind === "sale" ? h("span", { class: "sale-badge", "aria-hidden": "true" }, ["$"]) : illustration(node.illustrationId, "medium", name, node.glyph),
+      illustration(node.illustrationId, "medium", name, node.glyph),
       h("span", { class: "node-kind" }, [tr(`chain.kind.${node.kind}`)]),
       h("strong", { class: "node-name" }, [name]),
       h("span", { class: "node-status" }, [msg(data, node.status)]),
@@ -206,7 +206,7 @@ function nodeDetail(ctx: UiContext, view: ChainView): HTMLElement {
     node.kind === "good" ? goodDetail(ctx, node) : node.kind === "business" ? businessDetail(ctx, node) : node.kind === "task" ? taskDetail(ctx, node) : node.kind === "cartel" ? cartelDetail(ctx, node) : saleDetail(ctx, node);
   return h("aside", { class: "chain-detail", "aria-live": "polite" }, [
     h("div", { class: "detail-head" }, [
-      node.kind === "sale" ? null : illustration(node.illustrationId, "large", name, node.glyph),
+      illustration(node.illustrationId, "large", name, node.glyph),
       h("div", {}, [h("span", { class: "node-kind" }, [tr(`chain.kind.${node.kind}`)]), h("h2", {}, [name]), h("p", {}, [msg(data, node.status)])]),
     ]),
     node.blocked ? h("p", { class: "block-msg" }, [h("strong", {}, [tr("chain.blocked_short"), ": "]), msg(data, node.blocked)]) : null,

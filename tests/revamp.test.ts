@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import extra from "../assets/ui/illustrations-extra.json";
 import manifest from "../assets/ui/source/assets-manifest.json";
 import { addBusiness } from "../src/sim/systems/businesses";
 import { stanceKey } from "../src/sim/systems/diplomacy";
@@ -314,14 +315,24 @@ describe("sede, lavado, cabecera y mesa", () => {
 
 describe("ilustraciones de la interfaz", () => {
   it("hay un PNG por asset del manifest y todos los ids de juego existen", () => {
-    const ids = new Set([...baseData.goods.map((g) => g.id), ...baseData.businesses.map((b) => b.id)]);
+    const ids = new Set([...baseData.goods.map((g) => g.id), ...baseData.businesses.map((b) => b.id), ...baseData.tasks.map((t) => t.id)]);
     expect(manifest.assets).toHaveLength(16);
-    for (const a of manifest.assets) {
+    for (const a of [...manifest.assets, ...extra.assets]) {
       const png = readFileSync(new URL(`../assets/ui/illustrations/${a.filename}`, import.meta.url));
       expect(png.subarray(1, 4).toString(), a.filename).toBe("PNG");
       // 252×252 canvas (width and height in the IHDR chunk).
       expect([png.readUInt32BE(16), png.readUInt32BE(20)], a.filename).toEqual([252, 252]);
       if (a.gameId) expect(ids.has(a.gameId), a.gameId).toBe(true);
+    }
+  });
+
+  it("cada nodo de las cadenas tiene ilustración (robar motos y venta incluidas)", () => {
+    const known = new Set([...manifest.assets, ...extra.assets].map((a) => a.id));
+    const state = newState();
+    for (const id of CHAIN_IDS) {
+      for (const n of chainView(state, baseData, PLAYER, id, { draft: {}, management: [] }).nodes) {
+        expect(n.illustrationId && known.has(n.illustrationId), `${id}: ${n.key}`).toBe(true);
+      }
     }
   });
 

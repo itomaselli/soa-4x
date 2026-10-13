@@ -2,6 +2,7 @@
 // Only for interface panels: map tiles never use them. URLs come from Vite, so they work in dev, in the build and
 // in the Tauri app. A missing or broken picture falls back to the game's glyph, without breaking the panel.
 
+import extra from "../../assets/ui/illustrations-extra.json";
 import manifest from "../../assets/ui/source/assets-manifest.json";
 import { h } from "./dom";
 
@@ -12,7 +13,8 @@ export const ILLUSTRATION_SIZE = 252;
 export const ILLUSTRATION_SIZES = { small: ILLUSTRATION_SIZE / 4, medium: ILLUSTRATION_SIZE / 3, large: ILLUSTRATION_SIZE / 2 } as const;
 export type IllustrationSize = keyof typeof ILLUSTRATION_SIZES;
 
-const byId = new Map(manifest.assets.map((a) => [a.id, a.filename]));
+/** Atlas cuts plus the illustrations drawn with code (scripts/draw-ui-illustrations.py). */
+const byId = new Map([...manifest.assets, ...extra.assets].map((a) => [a.id, a.filename]));
 
 export function illustrationUrl(id: string | null): string | null {
   const file = id ? byId.get(id) : undefined;

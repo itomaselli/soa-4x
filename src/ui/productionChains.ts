@@ -183,12 +183,16 @@ function nodeKey(step: StepDef): string {
   }
 }
 
-/** Illustration for a game id, following assets-manifest.json (tasks reuse other pictures). */
+/** Illustration for a task: its own (illustrations-extra.json) or one reused per assets-manifest.json. */
 export const TASK_ILLUSTRATIONS: Record<string, string> = {
+  task_steal_bikes: "task_steal_bikes",
   task_cultivate: "business_plantation",
   task_retail: "distribution_task",
   task_gun_run: "distribution_task",
 };
+
+/** Every sale node shows the money illustration; the price and currency are written next to it. */
+export const SALE_ILLUSTRATION = "sale_money";
 
 function businessStatus(state: GameState, b: GameState["businesses"][number]): "working" | "new" | "suspended" {
   return b.suspended ? "suspended" : b.builtWeek >= state.week ? "new" : "working";
@@ -353,7 +357,7 @@ function saleNode(state: GameState, data: GameData, goodId: string, via: string 
     kind: "sale",
     refId: goodId,
     nameKey: via ? "chain.sale.task" : "chain.sale.management",
-    illustrationId: null,
+    illustrationId: SALE_ILLUSTRATION,
     glyph: "$",
     status: price === null ? { key: "ui.biz.not_sold" } : { key: "chain.sale.price", params: { price, currencyKey: currencyKey ?? "" } },
     blocked: null,
