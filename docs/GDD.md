@@ -94,8 +94,21 @@ Zonas iniciales sugeridas: Redwater (tu sede), Millbrook (sede de los Grim Wolve
 ## 6. El club
 
 ### Miembros
-- Empezás con 6 miembros y 2 prospectos. Tope inicial: 15 (ampliable con la sede).
+- Empezás con 6 miembros y 2 prospectos (más en condados medianos y grandes, Fase 12). Tope: 15 en el clásico y en el pequeño, 18 en el mediano, 22 en el grande.
 - Stats (1–10): **Fuerza** (combate, intimidar), **Astucia** (robos, evitar arrestos), **Manos** (taller, producción), **Labia** (cobrar, sobornar, reclutar).
+- **Qué hace cada stat (también en la ficha de cada miembro, «Para qué sirve cada stat»):**
+  - **Fuerza:** cuánto control mueven custodiar e intimidar, atacar negocios y la fuerza en los combates.
+  - **Astucia:** baja el riesgo de caer preso en tareas ilegales; robar motos; cajas por corrida de armas.
+  - **Manos:** producción extra al trabajar en el taller o cultivar.
+  - **Labia:** rendimiento de cobrar protección y del menudeo, chance de reclutar, sobornos.
+  - La stat de cada tarea también decide quién actúa primero en la semana (iniciativa).
+- **Experiencia y especialidades (Fase 13, propuesta B elegida por el dueño; datos en `data/perks.json`):**
+  - Cada tarea realizada da 1 de experiencia (aunque lo agarren: estuvo ahí). Los niveles llegan a los 3, 8, 15, 24, 35 y 48 de experiencia.
+  - Cada nivel es **una especialidad para elegir entre 2** sorteadas: pesa la stat de la especialidad y suma si encaja con el rasgo. Se elige en la ficha del miembro y se aplica al resolver la semana; si no elegís, la oferta espera. La IA elige la que mejor le queda.
+  - **Tope por rango:** prospecto 1, miembro 2, oficiales 3. Con el cupo lleno, el nivel queda guardado hasta que lo asciendan.
+  - Especialidades: **Mecánico** (+1 moto custom al trabajar el taller), **Cultivador** (+1 marihuana al cultivar y sin calor), **Contrabandista** (mientras esté libre, la policía no incauta las compras al cartel; +1 caja por corrida), **Fantasma** (mitad de riesgo de arresto), **Matón** (contra un club en guerra intimida el doble), **Veterano** (no muere en un combate perdido: queda herido), **Negociador** (mientras esté libre, el cartel cobra 10% menos), **Reclutador** (sus reclutas arrancan con +1 en cada stat).
+  - **Secuelas:** una herida de combate tiene 30% de dejar una secuela permanente (Rengo −1 Fuerza, Ojo de vidrio −1 Astucia, Mano mal soldada −1 Manos, Cara cortada −1 Labia).
+  - **Previsión:** al elegir tarea y zona, Club y la ficha muestran lo que haría el miembro con las fórmulas del motor (control que mueve, plata que cobraría, unidades, calor y riesgo de arresto). Son estimaciones: el arresto, los robos y el reclutamiento siguen siendo al azar.
 - **Lealtad** (0–100) al presidente.
 - **Rasgo** (1 por miembro): `Tradicionalista`, `Codicioso`, `Violento`, `Cauto`, `Leal`, `Ambicioso`. Cada rasgo modifica cómo vota y qué eventos dispara.
 - **Estado:** `activo`, `herido` (N semanas), `preso` (N semanas), `muerto`.

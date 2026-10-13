@@ -337,6 +337,23 @@ export function validateGameData(data: GameData): string[] {
   if (!gen.rivals.roster.includes("president")) errors.push("mapgen.json › rivals.roster: un club necesita presidente");
   if (gen.layout.minDistanceFloor > gen.layout.minDistance) errors.push("mapgen.json › layout: minDistanceFloor no puede ser mayor que minDistance");
 
+  // Specialties (perks.json): unique ids, real tasks and traits, rising levels, texts for every specialty and scar
+  const perkIds = new Set<string>();
+  for (const perk of data.perks.perks) {
+    if (perkIds.has(perk.id)) errors.push(`perks.json: especialidad repetida "${perk.id}"`);
+    perkIds.add(perk.id);
+    for (const fx of perk.effects) {
+      if ("taskId" in fx && !data.tasks.some((t) => t.id === fx.taskId)) errors.push(`perks.json › ${perk.id}: tarea desconocida "${fx.taskId}"`);
+    }
+    for (const key of [`perk.${perk.id}.name`, `perk.${perk.id}.text`]) if (!(key in data.strings)) errors.push(`strings.es.json: falta el texto "${key}"`);
+  }
+  for (const [trait, ids] of Object.entries(data.perks.traitAffinity)) {
+    for (const id of ids) if (!perkIds.has(id)) errors.push(`perks.json › traitAffinity.${trait}: especialidad desconocida "${id}"`);
+  }
+  const levels = data.perks.xp.levels;
+  if (levels.some((v, i) => i > 0 && v <= levels[i - 1]!)) errors.push("perks.json › xp.levels: tienen que ir de menor a mayor");
+  for (const scar of data.perks.scars.list) if (!(`scar.${scar.id}.name` in data.strings)) errors.push(`strings.es.json: falta el texto "scar.${scar.id}.name"`);
+
   // Trait task lists point to real tasks
   const taskIds = new Set(data.tasks.map((t) => t.id));
   for (const [trait, affinity] of Object.entries(data.traits.tasks)) {

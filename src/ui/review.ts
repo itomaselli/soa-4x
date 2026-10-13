@@ -4,7 +4,7 @@
 
 import type { GameData } from "../data/schemas";
 import { validateProposal, type Proposal } from "../sim/council";
-import { validateManagement, type ManagementOrder } from "../sim/management";
+import { cartelPrice, validateManagement, type ManagementOrder } from "../sim/management";
 import type { GameState, MemberStatus } from "../sim/state";
 import { businessDef } from "../sim/systems/businesses";
 import { livingMembers } from "../sim/systems/members";
@@ -64,12 +64,12 @@ export interface WeekReview {
   warnings: number;
 }
 
-function managementCost(data: GameData, order: ManagementOrder): { clean: number; dirty: number } {
+function managementCost(state: GameState, data: GameData, order: ManagementOrder): { clean: number; dirty: number } {
   switch (order.kind) {
     case "build":
       return { clean: businessDef(data, order.typeId)?.buildCost ?? 0, dirty: 0 };
     case "buy":
-      return { clean: 0, dirty: order.quantity * (data.balance.cartel.catalog[order.goodId] ?? 0) };
+      return { clean: 0, dirty: order.quantity * cartelPrice(state, data, order.factionId, order.goodId) };
     default:
       return { clean: 0, dirty: 0 };
   }
@@ -96,7 +96,7 @@ export function weekReview(
     .filter((m) => m.status === "wounded" || m.status === "jailed")
     .map((m) => ({ memberId: m.id, name: m.nickname || m.name, status: m.status, weeks: m.statusWeeks }));
 
-  const management = queued.management.map((order) => ({ order, problem: validateManagement(state, data, order), cost: managementCost(data, order) }));
+  const management = queued.management.map((order) => ({ order, problem: validateManagement(state, data, order), cost: managementCost(state, data, order) }));
   const committed = management.reduce((sum, m) => ({ clean: sum.clean + m.cost.clean, dirty: sum.dirty + m.cost.dirty }), { clean: 0, dirty: 0 });
   const proposals = queued.proposals.map((proposal, i) => ({
     proposal,

@@ -11,7 +11,8 @@ import { chanceWithPresident, voters } from "../sim/systems/council";
 import { diplomaticState, getStance } from "../sim/systems/diplomacy";
 import { averageLoyalty } from "../sim/systems/loyalty";
 import { factionMembers, livingMembers } from "../sim/systems/members";
-import { cartelId } from "../sim/management";
+import { levelFor, maxPerks, nextLevelXp } from "../sim/systems/perks";
+import { cartelId, cartelPrice } from "../sim/management";
 import { businessAtLot, buildProblem, businessDef, freeSlots, launderCapacity, storageCapacity, workingBusinesses } from "../sim/systems/businesses";
 import { marketPrice } from "../sim/systems/economy";
 import { canAfford, eventZone } from "../sim/systems/events";
@@ -220,6 +221,20 @@ export interface MemberSheet {
   dislikes: string[];
   /** Order planned this week, if any. */
   plan: { taskId: string; zoneId: string | null } | null;
+  /** Phase 13: experience and specialties. */
+  level: number;
+  xp: number;
+  /** Experience for the next level, or null at the top. */
+  nextXp: number | null;
+  perks: { id: string; stat: StatKey }[];
+  maxPerks: number;
+  scars: { id: string; stat: StatKey }[];
+  /** Specialties on offer after a level-up (empty = none). */
+  options: { id: string; stat: StatKey }[];
+  /** A level earned but no room at this rank. */
+  rankFull: boolean;
+  /** Tasks that use each stat (tasks.json) and specialties built on it. */
+  statUses: { key: StatKey; taskIds: string[]; perkIds: string[] }[];
 }
 
 export function memberSheet(
@@ -240,6 +255,19 @@ export function memberSheet(
     likes: affinity?.likes ?? [],
     dislikes: affinity?.dislikes ?? [],
     plan,
+    level: levelFor(data, member.xp),
+    xp: member.xp,
+    nextXp: nextLevelXp(data, member.xp),
+    perks: member.perks.map((id) => ({ id, stat: data.perks.perks.find((p) => p.id === id)?.stat ?? "strength" })),
+    maxPerks: maxPerks(data, member),
+    scars: member.scars.map((id) => ({ id, stat: data.perks.scars.list.find((x) => x.id === id)?.stat ?? "strength" })),
+    options: member.perkOptions.map((id) => ({ id, stat: data.perks.perks.find((p) => p.id === id)?.stat ?? "strength" })),
+    rankFull: levelFor(data, member.xp) > member.perks.length && member.perks.length >= maxPerks(data, member),
+    statUses: STAT_KEYS.map((key) => ({
+      key,
+      taskIds: data.tasks.filter((t) => t.enabled && t.stat === key).map((t) => t.id),
+      perkIds: data.perks.perks.filter((p) => p.stat === key).map((p) => p.id),
+    })),
   };
 }
 
@@ -442,10 +470,10 @@ export function cartelInfo(state: GameState, data: GameData, viewer: string): Ca
   return {
     cartelId: cartel,
     dealing,
-    catalog: Object.entries(data.balance.cartel.catalog).map(([goodId, price]) => ({
+    catalog: Object.keys(data.balance.cartel.catalog).map((goodId) => ({
       goodId,
       nameKey: `good.${goodId}`,
-      price,
+      price: cartelPrice(state, data, viewer, goodId),
       space: Math.max(0, (storageCapacity(state, data, viewer, goodId) ?? 0) - (state.factions[viewer]?.stock[goodId] ?? 0)),
     })),
     weeksLeft: dealing ? data.balance.cartel.graceWeeks - (state.week - (stance?.lastPurchaseWeek ?? stance?.sinceWeek ?? state.week)) : null,

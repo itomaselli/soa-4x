@@ -9,6 +9,8 @@ import { draftProblems, draftToOrders } from "../draft";
 import { patchCanvas } from "../patchCanvas";
 import { portraitCanvas } from "../portraitCanvas";
 import { taskBlocker } from "../productionChains";
+import { taskForecast } from "../forecast";
+import { levelFor } from "../../sim/systems/perks";
 import { availableTasks, reachableZones } from "../../sim/orders";
 import type { MemberState } from "../../sim/state";
 import { hqSheet, memberRows, topBarModel } from "../viewModel";
@@ -70,7 +72,12 @@ function memberRow(ctx: UiContext, member: MemberState, problems: Record<string,
       ]),
       h("div", {}, [
         h("button", { class: "link strong", onclick: () => set({ sheetMemberId: member.id }) }, [member.nickname || member.name]),
+        h("span", { class: "badge level" }, [tr("ui.club.level", { level: levelFor(data, member.xp) })]),
         h("div", { class: "muted" }, [member.name]),
+        member.perks.length > 0 ? h("div", { class: "perk-tags" }, member.perks.map((id) => h("span", { class: "tag", title: tr(`perk.${id}.text`) }, [tr(`perk.${id}.name`)]))) : null,
+        member.perkOptions.length > 0 && !ui.perkChoices[member.id]
+          ? h("button", { class: "chip warn-chip", title: tr("ui.club.perk_pending_hint"), onclick: () => set({ sheetMemberId: member.id }) }, [tr("ui.club.perk_pending")])
+          : null,
       ]),
     ]),
     h("td", {}, [tr(`rank.${member.rank}`), h("div", { class: "muted" }, [tr(`trait.${member.trait}`)])]),
@@ -90,6 +97,7 @@ function memberRow(ctx: UiContext, member: MemberState, problems: Record<string,
       ]),
       problem ? h("div", { class: "error" }, [tr(problem)]) : null,
       !problem && blocker ? h("div", { class: "warn-text" }, [msg(data, blocker)]) : null,
+      !problem && entry?.zoneId ? h("div", { class: "forecast muted" }, [taskForecast(state, data, member.id, entry.taskId, entry.zoneId).map((m) => msg(data, m)).join(" · ")]) : null,
     ]),
   ]);
 }

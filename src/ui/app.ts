@@ -124,6 +124,7 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
         proposals: [...ui.proposals, ...(ai.proposals ?? [])],
         management: [...ui.management, ...(ai.management ?? [])],
         eventChoices: Object.entries(ui.eventChoices).map(([instanceId, optionId]) => ({ instanceId, optionId })),
+        perkChoices: [...Object.entries(ui.perkChoices).map(([memberId, perkId]) => ({ memberId, perkId })), ...(ai.perkChoices ?? [])],
       },
       data,
     );
