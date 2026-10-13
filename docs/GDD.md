@@ -51,6 +51,7 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 ## 5. Mapa
 
 - **18 zonas** conectadas como **grafo de adyacencia**. Se dibuja con tiles, pero la lógica no usa grilla.
+  - Cada zona tiene una posición en el mapa (`position`) y un nombre corto (`shortName`) que solo sirven para dibujarla. El grafo es plano: los caminos no se cruzan.
 - Tipos de zona: `pueblo`, `ruta`, `puerto`, `rural`, `industrial`.
 - Atributos por zona:
 
@@ -214,6 +215,11 @@ Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opcio
 
 - **Pantallas:** Mapa (principal), Club (tabla de miembros), Mesa (votaciones), Negocios y stock, Informe semanal.
 - El mapa va en canvas (PixiJS). Paneles, tablas y menús en HTML/CSS superpuesto.
+- **Fase 3 (hecha):** mapa ASCII con cajas de 3×3 tiles por zona. El borde toma el color del dueño, `!` marca patrullas y los nombres apagados indican zonas fuera de alcance. A la derecha hay tres pestañas:
+  - **Club:** tarea y zona de cada miembro. La zona se elige de la lista o haciendo click en el mapa.
+  - **Zona:** datos, control por facción, vecinas y nuestras tareas ahí.
+  - **Informe:** lo que pasó en la semana, por etapa.
+- Las órdenes de la semana anterior se conservan si siguen siendo válidas. La partida se guarda sola en el navegador al terminar cada semana.
 - **Arte:** tiles de 16×16, escalado entero (×2, ×3), paleta limitada.
   - **Fase inicial:** glifos ASCII de una fuente bitmap, estilo Dwarf Fortress.
   - **Después:** tileset CC0 (por ejemplo el *1-Bit Pack* de Kenney) o arte propio. Decisión pendiente.
@@ -261,6 +267,8 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Y si te quedás sin control en ninguna zona? (Fase 2) | Perdés: sin territorio no tenés dónde actuar. |
 | ¿Cómo "responde a agresiones" la IA? (Fase 2) | Intimidar a alguien le baja 5 de relación con el agresor. Con relación de −15 o menos, la IA lo trata como enemigo y prioriza golpearlo. |
 | ¿En qué fase entra el combate (§11)? (Fase 2) | Pendiente. El roadmap no lo ubica y requiere negocios (Fase 5) para "atacar negocio rival". Propuesta: implementarlo junto con los negocios. |
+| ¿Cómo se dibuja un grafo en tiles? (Fase 3) | Cada zona tiene una posición fija en `zones.json`. Para que el mapa sea plano y legible se quitó la conexión Hollister Junction–Lone Pine; en las simulaciones ninguna IA llegaba a esas zonas, así que no cambió nada. |
+| ¿Dónde se guarda la partida en el navegador? (Fase 3) | Autoguardado en el navegador al final de cada semana. Guardar y cargar con archivos queda para la Fase 6. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

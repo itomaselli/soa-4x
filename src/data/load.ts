@@ -15,6 +15,7 @@ import businesses from "../../data/businesses.json";
 import events from "../../data/events.json";
 import names from "../../data/names.json";
 import ai from "../../data/ai.json";
+import ui from "../../data/ui.json";
 import strings from "../../data/strings.es.json";
 
 export class DataValidationError extends Error {
@@ -41,6 +42,7 @@ const FILE_NAMES: Record<keyof GameData, string> = {
   events: "events.json",
   names: "names.json",
   ai: "ai.json",
+  ui: "ui.json",
   strings: "strings.es.json",
 };
 
@@ -59,6 +61,7 @@ export const BUNDLED_RAW_DATA: RawGameData = {
   events,
   names,
   ai,
+  ui,
   strings,
 };
 

@@ -91,6 +91,22 @@ export function validateGameData(data: GameData): string[] {
     }
   }
 
+  // Map drawing: zone boxes (3×3) and labels (row below the box) must fit, and boxes can't overlap
+  const { width, height } = data.ui.map;
+  for (const zone of data.zones) {
+    const { x, y } = zone.position;
+    const halfLabel = Math.ceil(zone.shortName.length / 2);
+    if (x - Math.max(1, halfLabel) < 0 || x + Math.max(1, halfLabel) >= width || y - 1 < 0 || y + 2 >= height) {
+      errors.push(`zones.json › ${zone.id}: la posición (${x}, ${y}) queda fuera del mapa de ${width}×${height}`);
+    }
+    for (const other of data.zones) {
+      if (other.id <= zone.id) continue;
+      if (Math.abs(other.position.x - x) < 3 && Math.abs(other.position.y - y) < 4) {
+        errors.push(`zones.json › ${zone.id}: se superpone en el mapa con "${other.id}"`);
+      }
+    }
+  }
+
   // Map connectivity: every zone reachable from the first one
   const firstZone = data.zones[0];
   if (firstZone) {

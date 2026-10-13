@@ -120,9 +120,15 @@ export type Balance = z.infer<typeof BalanceSchema>;
 
 // ---------- zones.json ----------
 
+const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "color como #rrggbb");
+
 export const ZoneDefSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
+  /** Label drawn on the map (one character per tile, so keep it short). */
+  shortName: z.string().min(1).max(9),
+  /** Center of the zone on the map, in tiles. Only used for drawing: the rules use `adjacent`. */
+  position: z.object({ x: Int, y: Int }),
   type: ZoneTypeSchema,
   glyph: GlyphSchema,
   adjacent: z.array(IdSchema),
@@ -147,6 +153,8 @@ export const FactionDefSchema = z.object({
   startingMoney: MoneySchema,
   /** Starting relation towards other factions. Missing faction = 0 (neutral). */
   initialRelations: z.record(IdSchema, z.number().finite()),
+  /** Color for the map and the interface. */
+  color: HexColorSchema,
   /** AI profile from ai.json used when the computer plays this faction, or null if it never gives orders. */
   aiProfile: z.string().nullable(),
 });
@@ -257,6 +265,27 @@ export const AiSchema = z.object({
 });
 export type AiData = z.infer<typeof AiSchema>;
 
+// ---------- ui.json ----------
+// Presentation settings: tile size, map size in tiles, colors. No game rules here.
+
+export const UiSchema = z.object({
+  tileSize: Int.positive(),
+  maxScale: Int.positive(),
+  map: z.object({ width: Int.positive(), height: Int.positive() }),
+  font: z.object({ family: z.string().min(1), size: Int.positive() }),
+  colors: z.object({
+    background: HexColorSchema,
+    road: HexColorSchema,
+    neutral: HexColorSchema,
+    glyph: HexColorSchema,
+    label: HexColorSchema,
+    labelDim: HexColorSchema,
+    selected: HexColorSchema,
+    heat: HexColorSchema,
+  }),
+});
+export type UiConfig = z.infer<typeof UiSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -285,6 +314,7 @@ export const GameDataSchema = z.object({
   events: z.array(EventDefSchema),
   names: NamesSchema,
   ai: AiSchema,
+  ui: UiSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

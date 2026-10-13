@@ -1,33 +1,23 @@
-// Browser entry point. Phase 0: load + validate data and show a status line.
-// The PixiJS map and the panels arrive in phase 3.
+// Browser entry point: load and validate data, then start the game.
 
 import { DataValidationError, loadGameData } from "./data/load";
-import { createInitialState } from "./sim/setup";
+import { startApp } from "./ui/app";
 import { t } from "./ui/strings";
+import "./ui/style.css";
 
-const PLAYER_FACTION = "faction_iron_saints";
-const DEFAULT_SEED = 1;
-
-const statusEl = document.getElementById("status");
+const byId = (id: string): HTMLElement => {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing #${id} in index.html`);
+  return el;
+};
 
 try {
   const data = loadGameData();
-  const state = createInitialState(data, { seed: DEFAULT_SEED, playerFactionId: PLAYER_FACTION });
   document.title = t(data.strings, "app.title");
-  if (statusEl) {
-    statusEl.textContent = [
-      t(data.strings, "app.week", { week: state.week }),
-      t(data.strings, "app.phase0_ok", {
-        zones: data.zones.length,
-        members: data.members.length,
-        factions: data.factions.length,
-      }),
-    ].join("\n");
-  }
+  await startApp(data, { topBar: byId("topbar"), mapHost: byId("map-host"), sidebar: byId("sidebar") });
 } catch (error) {
-  if (statusEl) {
-    statusEl.classList.add("error");
-    statusEl.textContent = error instanceof DataValidationError ? error.message : String(error);
-  }
+  const status = byId("status");
+  status.classList.add("error");
+  status.textContent = error instanceof DataValidationError ? error.message : String(error);
   throw error;
 }

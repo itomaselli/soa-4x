@@ -3,33 +3,12 @@
 
 import type { GameData } from "../data/schemas";
 import { reachableZones } from "../sim/orders";
-import { TURN_STAGES, type ReportEntry } from "../sim/report";
 import { RANKS, type GameState, type MemberState } from "../sim/state";
 import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
 import { factionMembers } from "../sim/systems/members";
 import { t } from "../ui/strings";
 
-/** Params whose name ends in "Key" are strings.es.json keys and get translated too. */
-export function formatEntry(entry: ReportEntry, data: GameData): string {
-  const params: Record<string, string | number> = {};
-  for (const [name, value] of Object.entries(entry.params)) {
-    params[name] = name.endsWith("Key") && typeof value === "string" ? t(data.strings, value) : value;
-  }
-  return t(data.strings, entry.key, params);
-}
-
-/** Report grouped by stage, showing only public entries and the viewer's own. */
-export function formatReport(report: readonly ReportEntry[], data: GameData, viewerFactionId: string): string[] {
-  const visible = report.filter((e) => e.factionId === null || e.factionId === viewerFactionId);
-  const lines: string[] = [];
-  for (const stage of TURN_STAGES) {
-    const entries = visible.filter((e) => e.stage === stage);
-    if (entries.length === 0) continue;
-    lines.push(`[${t(data.strings, `report.stage.${stage}`)}]`);
-    for (const entry of entries) lines.push(`  ${formatEntry(entry, data)}`);
-  }
-  return lines;
-}
+export { formatEntry, formatReport } from "../ui/report";
 
 export function sortedMembers(state: GameState, factionId: string): MemberState[] {
   return factionMembers(state, factionId).sort(

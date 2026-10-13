@@ -1,0 +1,16 @@
+{
+  "tileSize": 16,
+  "maxScale": 3,
+  "map": { "width": 50, "height": 32 },
+  "font": { "family": "Menlo, Consolas, 'DejaVu Sans Mono', monospace", "size": 15 },
+  "colors": {
+    "background": "#101014",
+    "road": "#4a4a54",
+    "neutral": "#7c7c86",
+    "glyph": "#e6e6e6",
+    "label": "#c8c8c8",
+    "labelDim": "#5c5c66",
+    "selected": "#ffd75e",
+    "heat": "#ff6a3d"
+  }
+}

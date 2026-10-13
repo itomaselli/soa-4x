@@ -10,7 +10,8 @@
       "dirty": 500
     },
     "initialRelations": {},
-    "aiProfile": "balanced"
+    "aiProfile": "balanced",
+    "color": "#5fb0ff"
   },
   {
     "id": "faction_grim_wolves",
@@ -23,7 +24,8 @@
       "dirty": 500
     },
     "initialRelations": {},
-    "aiProfile": "expansive"
+    "aiProfile": "expansive",
+    "color": "#e0503c"
   },
   {
     "id": "faction_cartel_valdes",
@@ -36,7 +38,8 @@
       "dirty": 0
     },
     "initialRelations": {},
-    "aiProfile": null
+    "aiProfile": null,
+    "color": "#d4a82a"
   },
   {
     "id": "faction_sheriff",
@@ -49,7 +52,8 @@
       "dirty": 0
     },
     "initialRelations": {},
-    "aiProfile": null
+    "aiProfile": null,
+    "color": "#a8a8ff"
   },
   {
     "id": "faction_federals",
@@ -62,6 +66,7 @@
       "dirty": 0
     },
     "initialRelations": {},
-    "aiProfile": null
+    "aiProfile": null,
+    "color": "#f0f0f0"
   }
 ]
