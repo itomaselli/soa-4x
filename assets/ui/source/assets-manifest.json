@@ -1,0 +1,509 @@
+{
+  "version": 1,
+  "atlas": "ui-assets-atlas.png",
+  "grid": {
+    "rows": 4,
+    "columns": 4,
+    "indexOrigin": 0,
+    "dimensions": "Inspect actual PNG; use proportional equal cells only if visually verified."
+  },
+  "purpose": "UI thumbnails only; never substitute map tiles",
+  "generatedSource": true,
+  "assets": [
+    {
+      "id": "business_garage",
+      "filename": "business_garage.png",
+      "kind": "business",
+      "gameId": "business_garage",
+      "label": "Taller mecánico",
+      "row": 0,
+      "column": 0,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 0,
+        "y": 0,
+        "width": 314,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        0,
+        39,
+        300,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        56,
+        108,
+        269,
+        289
+      ]
+    },
+    {
+      "id": "business_club_bar",
+      "filename": "business_club_bar.png",
+      "kind": "business",
+      "gameId": "business_club_bar",
+      "label": "Bar del club",
+      "row": 0,
+      "column": 1,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 314,
+        "y": 0,
+        "width": 313,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        6,
+        73,
+        307,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        53,
+        113,
+        269,
+        289
+      ]
+    },
+    {
+      "id": "business_chop_shop",
+      "filename": "business_chop_shop.png",
+      "kind": "business",
+      "gameId": "business_chop_shop",
+      "label": "Desarmadero",
+      "row": 0,
+      "column": 2,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 627,
+        "y": 0,
+        "width": 313,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        15,
+        23,
+        306,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        43,
+        120,
+        253,
+        293
+      ]
+    },
+    {
+      "id": "business_warehouse",
+      "filename": "business_warehouse.png",
+      "kind": "business",
+      "gameId": "business_warehouse",
+      "label": "Depósito",
+      "row": 0,
+      "column": 3,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 940,
+        "y": 0,
+        "width": 314,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        22,
+        9,
+        276,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        40,
+        138,
+        256,
+        292
+      ]
+    },
+    {
+      "id": "business_plantation",
+      "filename": "business_plantation.png",
+      "kind": "business",
+      "gameId": "business_plantation",
+      "label": "Plantación",
+      "row": 1,
+      "column": 0,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 0,
+        "y": 314,
+        "width": 314,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        25,
+        47,
+        306,
+        313
+      ],
+      "visibleAlphaBoundsInCell": [
+        55,
+        133,
+        280,
+        287
+      ]
+    },
+    {
+      "id": "business_cut_house",
+      "filename": "business_cut_house.png",
+      "kind": "business",
+      "gameId": "business_cut_house",
+      "label": "Cocina de corte",
+      "row": 1,
+      "column": 1,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 314,
+        "y": 314,
+        "width": 313,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        0,
+        14,
+        313,
+        313
+      ],
+      "visibleAlphaBoundsInCell": [
+        54,
+        120,
+        274,
+        285
+      ]
+    },
+    {
+      "id": "club_hq",
+      "filename": "club_hq.png",
+      "kind": "identity",
+      "gameId": null,
+      "label": "Sede del club",
+      "row": 1,
+      "column": 2,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 627,
+        "y": 314,
+        "width": 313,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        1,
+        0,
+        306,
+        311
+      ],
+      "visibleAlphaBoundsInCell": [
+        34,
+        96,
+        270,
+        301
+      ]
+    },
+    {
+      "id": "cartel_supplier",
+      "filename": "cartel_supplier.png",
+      "kind": "source",
+      "gameId": null,
+      "label": "Proveedor cartel",
+      "row": 1,
+      "column": 3,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 940,
+        "y": 314,
+        "width": 314,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        9,
+        23,
+        300,
+        313
+      ],
+      "visibleAlphaBoundsInCell": [
+        48,
+        149,
+        251,
+        296
+      ]
+    },
+    {
+      "id": "good_stolen_bike",
+      "filename": "good_stolen_bike.png",
+      "kind": "good",
+      "gameId": "good_stolen_bike",
+      "label": "Moto robada",
+      "row": 2,
+      "column": 0,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 0,
+        "y": 627,
+        "width": 314,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        29,
+        23,
+        289,
+        275
+      ],
+      "visibleAlphaBoundsInCell": [
+        54,
+        138,
+        262,
+        270
+      ]
+    },
+    {
+      "id": "good_parts",
+      "filename": "good_parts.png",
+      "kind": "good",
+      "gameId": "good_parts",
+      "label": "Piezas",
+      "row": 2,
+      "column": 1,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 314,
+        "y": 627,
+        "width": 313,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        41,
+        0,
+        313,
+        305
+      ],
+      "visibleAlphaBoundsInCell": [
+        52,
+        118,
+        275,
+        280
+      ]
+    },
+    {
+      "id": "good_custom_bike",
+      "filename": "good_custom_bike.png",
+      "kind": "good",
+      "gameId": "good_custom_bike",
+      "label": "Moto custom",
+      "row": 2,
+      "column": 2,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 627,
+        "y": 627,
+        "width": 313,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        1,
+        7,
+        313,
+        313
+      ],
+      "visibleAlphaBoundsInCell": [
+        46,
+        116,
+        268,
+        286
+      ]
+    },
+    {
+      "id": "good_weed",
+      "filename": "good_weed.png",
+      "kind": "good",
+      "gameId": "good_weed",
+      "label": "Marihuana",
+      "row": 2,
+      "column": 3,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 940,
+        "y": 627,
+        "width": 314,
+        "height": 313
+      },
+      "alphaBoundsInCell": [
+        0,
+        3,
+        292,
+        306
+      ],
+      "visibleAlphaBoundsInCell": [
+        45,
+        114,
+        254,
+        279
+      ]
+    },
+    {
+      "id": "good_coke_brick",
+      "filename": "good_coke_brick.png",
+      "kind": "good",
+      "gameId": "good_coke_brick",
+      "label": "Kilo de cocaína",
+      "row": 3,
+      "column": 0,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 0,
+        "y": 940,
+        "width": 314,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        55,
+        32,
+        308,
+        282
+      ],
+      "visibleAlphaBoundsInCell": [
+        65,
+        104,
+        257,
+        247
+      ]
+    },
+    {
+      "id": "good_coke_bag",
+      "filename": "good_coke_bag.png",
+      "kind": "good",
+      "gameId": "good_coke_bag",
+      "label": "Dosis de cocaína",
+      "row": 3,
+      "column": 1,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 314,
+        "y": 940,
+        "width": 313,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        0,
+        1,
+        313,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        67,
+        91,
+        262,
+        235
+      ]
+    },
+    {
+      "id": "good_gun_crate",
+      "filename": "good_gun_crate.png",
+      "kind": "good",
+      "gameId": "good_gun_crate",
+      "label": "Caja de armas",
+      "row": 3,
+      "column": 2,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 627,
+        "y": 940,
+        "width": 313,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        0,
+        0,
+        308,
+        314
+      ],
+      "visibleAlphaBoundsInCell": [
+        47,
+        80,
+        243,
+        252
+      ]
+    },
+    {
+      "id": "distribution_task",
+      "filename": "distribution_task.png",
+      "kind": "task",
+      "gameId": null,
+      "label": "Distribución",
+      "row": 3,
+      "column": 3,
+      "verifiedCrop": true,
+      "cellRect": {
+        "x": 940,
+        "y": 940,
+        "width": 314,
+        "height": 314
+      },
+      "alphaBoundsInCell": [
+        7,
+        11,
+        282,
+        258
+      ],
+      "visibleAlphaBoundsInCell": [
+        47,
+        92,
+        262,
+        253
+      ]
+    }
+  ],
+  "taskReuse": {
+    "task_cultivate": "business_plantation",
+    "task_retail": "distribution_task",
+    "task_gun_run": "distribution_task"
+  },
+  "hqBinding": "Use current faction hqZoneId; do not add business definition",
+  "chains": {
+    "motorcycles": [
+      "task_steal_bikes",
+      "good_stolen_bike",
+      "business_chop_shop",
+      "good_parts",
+      "business_garage",
+      "good_custom_bike"
+    ],
+    "marijuana": [
+      "business_plantation",
+      "task_cultivate",
+      "good_weed",
+      "task_retail"
+    ],
+    "cocaine": [
+      "cartel_supplier",
+      "good_coke_brick",
+      "business_cut_house",
+      "good_coke_bag",
+      "task_retail"
+    ],
+    "weapons": [
+      "cartel_supplier",
+      "good_gun_crate",
+      "business_warehouse",
+      "task_gun_run"
+    ]
+  },
+  "atlasWidth": 1254,
+  "atlasHeight": 1254,
+  "validation": {
+    "format": "RGBA PNG",
+    "size": [
+      1254,
+      1254
+    ],
+    "visibleContentAlphaThreshold": 8,
+    "all16IdentitiesVisuallyChecked": true,
+    "note": "Near-transparent alpha noise may occur in gutters; inspect/clean during export, preserving visible edges."
+  }
+}
