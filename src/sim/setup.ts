@@ -8,6 +8,9 @@ import { SAVE_SCHEMA_VERSION, type FactionState, type GameState, type MemberStat
 export interface NewGameOptions {
   seed: number;
   playerFactionId: string;
+  /** Phase 11: the player's club name and patch (defaults from factions.json). */
+  clubName?: string;
+  patchId?: string;
 }
 
 export function createInitialState(data: GameData, options: NewGameOptions): GameState {
@@ -70,6 +73,14 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
     pendingEvents: [],
     eventHistory: {},
     businessSerial: 0,
+    identities: Object.fromEntries(
+      data.factions.map((f) => [
+        f.id,
+        f.id === options.playerFactionId
+          ? { name: options.clubName?.trim() || f.name, patchId: options.patchId ?? f.patchId }
+          : { name: f.name, patchId: f.patchId },
+      ]),
+    ),
     controlStreaks: {},
     outcome: null,
   };

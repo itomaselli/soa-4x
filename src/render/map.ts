@@ -11,6 +11,7 @@ import tilesetUrl from "../../assets/tiles/kenney-1bit-monochrome.png?url";
 import type { GameData, UiConfig } from "../data/schemas";
 import { buildMapLayout, zoneTiles, type MapLayout } from "./layout";
 import { generateLocalMap, LOCAL_LOT_SIZE, type LocalMap } from "./localMap";
+import { patchPixels } from "./patch";
 import { computeRegions, zoneAtTile, type RegionMap } from "./regions";
 
 export type RenderMode = "tiles" | "ascii";
@@ -18,6 +19,8 @@ export type RenderMode = "tiles" | "ascii";
 export interface ZoneLook {
   /** Owner's color, or null if nobody owns the district. */
   ownerColor: string | null;
+  /** Owner's patch (phase 11), drawn instead of the district icon in tile mode. */
+  ownerPatchId: string | null;
   glyph: string;
   /** Sprite id for the tile view, e.g. "zone_type.town". */
   spriteId: string;
@@ -121,6 +124,22 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   const textures = new Map<string, Texture>();
   for (const [id, coords] of Object.entries(ui.tileset.sprites)) textures.set(id, cut(coords));
   for (const [id, coords] of Object.entries(ui.localMap.sprites)) textures.set(`local.${id}`, cut(coords));
+  /** Patch textures are made on demand from their pixels. */
+  const patchTexture = (patchId: string): Texture | undefined => {
+    const key = `patch.${patchId}`;
+    if (!textures.has(key)) {
+      const pixels = patchPixels(data, patchId);
+      if (!pixels) return undefined;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = data.patches.size;
+      const ctx2d = canvas.getContext("2d");
+      pixels.forEach((row, y) => row.forEach((c, x) => { if (c && ctx2d) { ctx2d.fillStyle = c; ctx2d.fillRect(x, y, 1, 1); } }));
+      const texture = Texture.from(canvas);
+      texture.source.scaleMode = "nearest";
+      textures.set(key, texture);
+    }
+    return textures.get(key);
+  };
 
   // ---------- Helpers ----------
   const place = (obj: BitmapText | Sprite, x: number, y: number) => {
@@ -352,7 +371,13 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       const sp = sprites.get(z.id);
       if (!look || !sp) continue;
       const selected = model.selectedZoneId === z.id;
-      const centerAsTile = showTile(sp.centerTile, look.spriteId, look.glyphColor, model.mode);
+      const patch = look.ownerPatchId && model.mode === "tiles" ? patchTexture(look.ownerPatchId) : undefined;
+      if (patch) {
+        sp.centerTile.texture = patch;
+        sp.centerTile.tint = 0xffffff;
+        sp.centerTile.visible = true;
+      }
+      const centerAsTile = patch ? true : showTile(sp.centerTile, look.spriteId, look.glyphColor, model.mode);
       setChar(sp.center, centerAsTile ? " " : look.glyph, z.center.x, z.center.y);
       sp.center.tint = look.glyphColor;
       for (let i = 0; i < 3; i++) {

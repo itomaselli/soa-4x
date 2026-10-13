@@ -279,6 +279,8 @@ export const FactionDefSchema = z.object({
   initialRelations: z.record(IdSchema, z.number().finite()),
   /** Color for the map and the interface. */
   color: HexColorSchema,
+  /** Default patch (patches.json), or null for factions that don't wear one. */
+  patchId: IdSchema.nullable(),
   /** AI profile from ai.json used when the computer plays this faction, or null if it never gives orders. */
   aiProfile: z.string().nullable(),
 });
@@ -587,6 +589,22 @@ export const CouncilSchema = z.object({
 });
 export type CouncilData = z.infer<typeof CouncilSchema>;
 
+// ---------- patches.json ----------
+// Club patches (phase 11): each patch combines a shape, a 10×10 pixel emblem and a palette.
+
+export const PATCH_SHAPES = ["circle", "diamond", "shield", "square", "octagon"] as const;
+
+export const PatchesSchema = z.object({
+  size: Int.positive(),
+  emblemSize: Int.positive(),
+  shapes: z.array(z.enum(PATCH_SHAPES)),
+  /** Rows of "#" (emblem color) and "." (background), emblemSize × emblemSize. */
+  emblems: z.record(z.string(), z.array(z.string())),
+  palettes: z.record(z.string(), z.object({ background: HexColorSchema, rim: HexColorSchema, emblem: HexColorSchema })),
+  patches: z.array(z.object({ id: IdSchema, emblem: z.string(), shape: z.enum(PATCH_SHAPES), palette: z.string() })),
+});
+export type PatchesData = z.infer<typeof PatchesSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -618,6 +636,7 @@ export const GameDataSchema = z.object({
   ui: UiSchema,
   traits: TraitsSchema,
   council: CouncilSchema,
+  patches: PatchesSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

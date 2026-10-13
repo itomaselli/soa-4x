@@ -11,6 +11,9 @@ import { PROPOSAL_TYPES, type GameState, type MemberState, type ProposalType, ty
 import { allAiOrders } from "../sim/systems/ai";
 import { resolveTurn } from "../sim/turn";
 import { h } from "./dom";
+import { patchCanvas } from "./patchCanvas";
+import { patchNameParts } from "../render/patch";
+import { CLUB_NAME_MAX_LENGTH, withIdentities } from "../sim/identity";
 import { carryOverDraft, draftProblems, draftToOrders, type Draft } from "./draft";
 import { reportSections } from "./report";
 import { clearAutosave, exportSave, importSave, loadAutosave, loadRenderMode, saveAutosave, saveRenderMode } from "./storage";
@@ -67,11 +70,20 @@ function newSeed(): number {
   return buffer[0] ?? 1;
 }
 
-export async function startApp(data: GameData, els: AppElements): Promise<void> {
+export async function startApp(content: GameData, els: AppElements): Promise<void> {
+  // `data` is the content with this game's club names and patches applied (phase 11); refreshed in render().
+  let data = content;
   const s = data.strings;
   const tr = (key: string, params: Record<string, string | number> = {}) => t(s, key, params);
 
-  let state: GameState = loadAutosave(data) ?? createInitialState(data, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
+  const saved = loadAutosave(content);
+  let state: GameState = saved ?? createInitialState(content, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
+  data = withIdentities(content, state);
+  const defaultPatch = content.factions.find((f) => f.id === PLAYER_FACTION)?.patchId ?? content.patches.patches[0]?.id ?? "";
+  /** New game screen (phase 11): open on first launch and from "Nueva partida". */
+  let newGameForm: { name: string; patchId: string; firstTime: boolean } | null = saved
+    ? null
+    : { name: content.factions.find((f) => f.id === PLAYER_FACTION)?.name ?? "", patchId: defaultPatch, firstTime: true };
   let report: ReportEntry[] = [];
   let draft: Draft = {};
   let tab: Tab = "club";
@@ -219,9 +231,17 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   }
 
   function newGame(): void {
-    if (!window.confirm(tr("ui.confirm_new_game"))) return;
+    const current = state.identities[state.playerFactionId];
+    newGameForm = { name: current?.name ?? "", patchId: current?.patchId ?? defaultPatch, firstTime: false };
+    render();
+  }
+
+  function startNewGame(name: string, patchId: string): void {
     clearAutosave();
-    state = createInitialState(data, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
+    state = createInitialState(content, { seed: newSeed(), playerFactionId: PLAYER_FACTION, clubName: name, patchId });
+    newGameForm = null;
+    localZoneId = null;
+    selectedLot = null;
     report = [];
     draft = {};
     proposals = [];
@@ -241,6 +261,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     const outcome = state.outcome;
     return h("div", { class: "topbar" }, [
       h("div", { class: "brand" }, [tr("app.title")]),
+      h("div", { class: "club-id" }, [patchCanvas(data, m.patchId, 2), h("strong", {}, [m.factionName])]),
       h("div", { class: "stat" }, [tr("ui.week", { week: m.week })]),
       h("div", { class: "stat" }, [tr("ui.money", { clean: m.clean, dirty: m.dirty })]),
       h("div", { class: "stat" }, [tr("ui.territory", { owned: m.owned, total: m.totalZones, target: m.target, weeks: m.weeksHeld, streak: m.streak })]),
@@ -384,7 +405,9 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     const members = memberRows(state, state.playerFactionId);
     const active = members.filter((m) => m.status === "active").length;
     const ready = draftToOrders(draft).assignments.length;
+    const me = topBarModel(state, data, state.playerFactionId);
     return h("div", {}, [
+      h("div", { class: "club-id club-header" }, [patchCanvas(data, me.patchId, 4), h("h2", {}, [me.factionName])]),
       h("p", { class: "hint" }, [tr("ui.club_hint")]),
       h("p", {}, [tr("ui.orders_ready", { ready, active })]),
       h("table", { class: "members" }, [
@@ -875,7 +898,59 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
     ]);
   }
 
+  function renderNewGame(form: { name: string; patchId: string; firstTime: boolean }): HTMLElement {
+    const startButton = h(
+      "button",
+      { class: "primary", disabled: form.name.trim().length === 0, onclick: () => startNewGame(form.name.trim(), form.patchId) },
+      [tr("ui.new.start")],
+    );
+    const nameInput = h("input", {
+      type: "text",
+      value: form.name,
+      maxlength: String(CLUB_NAME_MAX_LENGTH),
+      class: "club-name",
+      "aria-label": tr("ui.new.name"),
+      oninput: (e: Event) => {
+        form.name = (e.target as HTMLInputElement).value;
+        startButton.disabled = form.name.trim().length === 0;
+      },
+    });
+    const parts = (id: string) => {
+      const p = patchNameParts(content, id);
+      return p ? tr("patch.name", { emblem: tr(p.emblemKey), palette: tr(p.paletteKey) }) : id;
+    };
+    return h("div", { class: "modal new-game" }, [
+      h("h2", {}, [tr(form.firstTime ? "ui.new.title_first" : "ui.new.title")]),
+      h("label", { class: "field" }, [h("span", {}, [tr("ui.new.name")]), nameInput]),
+      h("p", { class: "muted" }, [tr("ui.new.patch_hint"), " ", h("strong", {}, [parts(form.patchId)])]),
+      h(
+        "div",
+        { class: "patch-grid" },
+        content.patches.patches.map((p) =>
+          h(
+            "button",
+            {
+              class: p.id === form.patchId ? "patch-choice selected" : "patch-choice",
+              title: parts(p.id),
+              onclick: () => {
+                form.patchId = p.id;
+                render();
+              },
+            },
+            [patchCanvas(content, p.id, 3)],
+          ),
+        ),
+      ),
+      h("div", { class: "row" }, [
+        startButton,
+        form.firstTime ? null : h("button", { onclick: () => { newGameForm = null; render(); } }, [tr("ui.new.cancel")]),
+        form.firstTime ? null : h("span", { class: "muted" }, [tr("ui.new.warning")]),
+      ]),
+    ]);
+  }
+
   function renderOverlay(): HTMLElement | null {
+    if (newGameForm) return renderNewGame(newGameForm);
     if (showHelp) {
       return h("div", { class: "modal" }, [
         h("h2", {}, [tr("ui.help.title")]),
@@ -900,6 +975,7 @@ export async function startApp(data: GameData, els: AppElements): Promise<void> 
   }
 
   function render(): void {
+    data = withIdentities(content, state);
     els.topBar.replaceChildren(
       renderTopBar(),
       notice ? h("div", { class: notice.error ? "notice error" : "notice" }, [notice.text]) : "",

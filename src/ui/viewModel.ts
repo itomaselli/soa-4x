@@ -35,6 +35,7 @@ export function mapViewModel(
     const owner = zoneOwner(zone, data.balance);
     zones[def.id] = {
       ownerColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? null) : null,
+      ownerPatchId: owner ? (data.factions.find((f) => f.id === owner)?.patchId ?? null) : null,
       glyph: def.glyph,
       spriteId: `zone_type.${def.type}`,
       glyphColor: planned.has(def.id) ? colors.planned : data.ui.zoneTypeColors[def.type] ?? colors.glyph,
@@ -56,6 +57,7 @@ export function mapViewModel(
 export interface TopBarModel {
   week: number;
   factionName: string;
+  patchId: string | null;
   clean: number;
   dirty: number;
   owned: number;
@@ -82,6 +84,7 @@ export function topBarModel(state: GameState, data: GameData, viewer: string): T
   return {
     week: state.week,
     factionName: data.factions.find((f) => f.id === viewer)?.name ?? viewer,
+    patchId: data.factions.find((f) => f.id === viewer)?.patchId ?? null,
     clean: faction?.money.clean ?? 0,
     dirty: faction?.money.dirty ?? 0,
     owned: ownedZones(state, viewer, data.balance).length,

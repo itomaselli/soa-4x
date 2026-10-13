@@ -49,6 +49,10 @@ export function saveDataProblems(state: GameState, data: GameData): string[] {
     for (const good of Object.keys(f.stock)) if (!goods.has(good)) problems.push(`${f.id}: bien desconocido ${good}`);
   }
   for (const e of state.pendingEvents) if (!events.has(e.eventId)) problems.push(`evento desconocido: ${e.eventId}`);
+  const patches = new Set(data.patches.patches.map((p) => p.id));
+  for (const [id, identity] of Object.entries(state.identities)) {
+    if (identity.patchId !== null && !patches.has(identity.patchId)) problems.push(`${id}: parche desconocido ${identity.patchId}`);
+  }
   return problems;
 }
 

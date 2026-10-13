@@ -214,6 +214,27 @@ export function validateGameData(data: GameData): string[] {
     for (const z of profile.allowedZones ?? []) if (!zoneIds.has(z)) errors.push(`ai.json › ${name}: zona desconocida "${z}"`);
   }
 
+  // Patches: well-formed emblems, known parts, unique designs; factions use existing patches
+  const { patches } = data;
+  for (const [id, rows] of Object.entries(patches.emblems)) {
+    if (rows.length !== patches.emblemSize || rows.some((r) => r.length !== patches.emblemSize || /[^#.]/.test(r))) {
+      errors.push(`patches.json › emblema "${id}": tiene que ser de ${patches.emblemSize}×${patches.emblemSize} con "#" y "."`);
+    }
+  }
+  const designs = new Set<string>();
+  for (const p of patches.patches) {
+    if (!(p.emblem in patches.emblems)) errors.push(`patches.json › ${p.id}: emblema desconocido "${p.emblem}"`);
+    if (!(p.palette in patches.palettes)) errors.push(`patches.json › ${p.id}: paleta desconocida "${p.palette}"`);
+    const design = `${p.emblem}|${p.shape}|${p.palette}`;
+    if (designs.has(design)) errors.push(`patches.json › ${p.id}: diseño repetido`);
+    designs.add(design);
+  }
+  for (const f of data.factions) {
+    if (f.patchId !== null && !patches.patches.some((p) => p.id === f.patchId)) errors.push(`factions.json › ${f.id}: parche desconocido "${f.patchId}"`);
+  }
+  for (const k of Object.keys(patches.emblems)) if (!(`patch_emblem.${k}` in data.strings)) errors.push(`strings.es.json: falta el texto "patch_emblem.${k}"`);
+  for (const k of Object.keys(patches.palettes)) if (!(`patch_palette.${k}` in data.strings)) errors.push(`strings.es.json: falta el texto "patch_palette.${k}"`);
+
   // Trait task lists point to real tasks
   const taskIds = new Set(data.tasks.map((t) => t.id));
   for (const [trait, affinity] of Object.entries(data.traits.tasks)) {

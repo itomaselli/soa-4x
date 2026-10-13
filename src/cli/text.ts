@@ -8,6 +8,7 @@ import { controlOf, ownedZones, zoneOwner } from "../sim/systems/control";
 import { factionMembers } from "../sim/systems/members";
 import { t } from "../ui/strings";
 import { topBarModel } from "../ui/viewModel";
+import { withIdentities } from "../sim/identity";
 
 export { formatEntry, formatReport } from "../ui/report";
 
@@ -71,7 +72,8 @@ function statusLine(state: GameState, data: GameData, viewer: string): string {
 }
 
 /** Header, money, territory, stock, reachable zones and members. */
-export function formatStatus(state: GameState, data: GameData, viewer: string): string[] {
+export function formatStatus(state: GameState, content: GameData, viewer: string): string[] {
+  const data = withIdentities(content, state);
   const s = data.strings;
   const faction = state.factions[viewer];
   const factionDef = data.factions.find((f) => f.id === viewer);

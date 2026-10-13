@@ -25,6 +25,7 @@ Estética: sprites low-res tipo *Moonring* / *Caves of Qud*. Sin sonido.
 
 - **Condado de Ash Valley**, zona rural y costera, ficticia, estilo oeste de EE.UU.
 - **Tu club:** *Iron Saints MC*, sede en el pueblo de Redwater (nombre editable al empezar).
+  - **Fase 11:** al fundar el club se elige el nombre y uno de **50 parches**. Cada parche es pixel art de 16×16: una forma (círculo, rombo, escudo, cuadrado u octógono), un emblema de 10×10 (calavera, alas, lobo, llama, pica, cruz de hierro, rueda, estrella, daga, corona, rayo, ancla, pistones, "1%", ojo o serpiente) y una paleta. Están en `data/patches.json`. Los rivales también tienen parche (los Grim Wolves llevan el lobo de sangre). El parche se ve en la barra superior, en la pestaña del club y, en el mapa, sobre cada distrito que el club controla.
 - **Rivales:**
   - *Grim Wolves MC*: club rival, agresivo y territorial.
   - *Cartel Valdés*: proveedor de armas. Puede ser socio o enemigo.
@@ -408,6 +409,6 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 
 ## 19. Preguntas abiertas
 
-- ¿Nombre final del juego y del club?
+- ¿Nombre final del juego? (El del club ya lo elige el jugador.)
 - ¿El presidente puede morir? (La sucesión ya existe para los clubes de la IA.)
 - ¿Agregar una tercera cadena (contrabando de alcohol o tabaco) en la fase 5?

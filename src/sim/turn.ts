@@ -6,6 +6,7 @@ import { newScratch, type TurnContext } from "./context";
 import type { Proposal } from "./council";
 import { validateAssignment, type Assignment, type TurnOrders } from "./orders";
 import { TURN_STAGES, type ReportEntry, type Reporter, type TurnStage } from "./report";
+import { withIdentities } from "./identity";
 import { createRng } from "./rng";
 import type { GameState } from "./state";
 import type { ManagementOrder } from "./management";
@@ -57,7 +58,9 @@ const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
 };
 
 /** Pure: never mutates `state`. Same state + same orders + same data → same result. */
-export function resolveTurn(state: GameState, orders: TurnOrders, data: GameData): TurnResult {
+export function resolveTurn(state: GameState, orders: TurnOrders, content: GameData): TurnResult {
+  // Reports use the names the clubs go by in this game (phase 11).
+  const data = withIdentities(content, state);
   const report: ReportEntry[] = [];
   if (state.outcome) {
     report.push({ stage: "orders", key: "report.game_over", params: {}, factionId: null });

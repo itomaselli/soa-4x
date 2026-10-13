@@ -11,7 +11,8 @@
     },
     "initialRelations": {},
     "aiProfile": "expansive",
-    "color": "#5fb0ff"
+    "color": "#5fb0ff",
+    "patchId": "patch_01"
   },
   {
     "id": "faction_grim_wolves",
@@ -25,7 +26,8 @@
     },
     "initialRelations": {},
     "aiProfile": "expansive",
-    "color": "#e0503c"
+    "color": "#e0503c",
+    "patchId": "patch_02"
   },
   {
     "id": "faction_cartel_valdes",
@@ -39,7 +41,8 @@
     },
     "initialRelations": {},
     "aiProfile": "cartel",
-    "color": "#d4a82a"
+    "color": "#d4a82a",
+    "patchId": null
   },
   {
     "id": "faction_sheriff",
@@ -53,7 +56,8 @@
     },
     "initialRelations": {},
     "aiProfile": null,
-    "color": "#a8a8ff"
+    "color": "#a8a8ff",
+    "patchId": null
   },
   {
     "id": "faction_federals",
@@ -67,6 +71,7 @@
     },
     "initialRelations": {},
     "aiProfile": null,
-    "color": "#f0f0f0"
+    "color": "#f0f0f0",
+    "patchId": null
   }
 ]

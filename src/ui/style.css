@@ -99,3 +99,13 @@ label.button:hover { border-color: var(--muted); }
 .lot { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
 .lot h3 { margin-top: 0; color: var(--accent); }
 .lot-option { margin: 4px 0; }
+.club-id { display: flex; align-items: center; gap: 6px; }
+canvas.patch { display: block; }
+.new-game { max-width: 720px; }
+input.club-name { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; width: 100%; }
+.patch-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin: 10px 0 16px; }
+.patch-choice { padding: 4px; background: var(--panel-2); border: 2px solid transparent; border-radius: 6px; display: grid; place-items: center; }
+.patch-choice.selected { border-color: var(--accent); background: #2a2614; }
+@media (max-width: 700px) { .patch-grid { grid-template-columns: repeat(5, 1fr); } }
+.club-header { margin-bottom: 8px; }
+.club-header h2 { margin: 0; }

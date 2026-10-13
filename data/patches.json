@@ -1,0 +1,559 @@
+{
+ "size": 16,
+ "emblemSize": 10,
+ "shapes": [
+  "circle",
+  "diamond",
+  "shield",
+  "square",
+  "octagon"
+ ],
+ "emblems": {
+  "skull": [
+   "..######..",
+   ".########.",
+   "##########",
+   "#..####..#",
+   "#..####..#",
+   "##########",
+   ".###..###.",
+   "..######..",
+   "..#.##.#..",
+   "...####..."
+  ],
+  "wings": [
+   "..........",
+   "#........#",
+   "##......##",
+   "###.##.###",
+   "##########",
+   ".########.",
+   "..######..",
+   "...####...",
+   "....##....",
+   ".........."
+  ],
+  "wolf": [
+   "#........#",
+   "##......##",
+   "###....###",
+   "##########",
+   "#.##..##.#",
+   "##########",
+   ".########.",
+   "..######..",
+   "...#..#...",
+   "....##...."
+  ],
+  "flame": [
+   "....#.....",
+   "....##....",
+   "...###.#..",
+   "..####.##.",
+   "..#######.",
+   ".########.",
+   ".###..###.",
+   ".##....##.",
+   "..##..##..",
+   "...####..."
+  ],
+  "spade": [
+   "....##....",
+   "...####...",
+   "..######..",
+   ".########.",
+   "##########",
+   "##########",
+   ".###..###.",
+   "....##....",
+   "...####...",
+   ".........."
+  ],
+  "iron_cross": [
+   "...####...",
+   "#..####..#",
+   "##.####.##",
+   "##########",
+   "##########",
+   "##########",
+   "##########",
+   "##.####.##",
+   "#..####..#",
+   "...####..."
+  ],
+  "wheel": [
+   "...####...",
+   ".##.##.##.",
+   ".#..##..#.",
+   "#...##...#",
+   "##########",
+   "##########",
+   "#...##...#",
+   ".#..##..#.",
+   ".##.##.##.",
+   "...####..."
+  ],
+  "star": [
+   "....##....",
+   "....##....",
+   "...####...",
+   "##########",
+   ".########.",
+   "..######..",
+   "..######..",
+   ".###..###.",
+   ".##....##.",
+   "#........#"
+  ],
+  "dagger": [
+   "....##....",
+   "....##....",
+   "....##....",
+   "....##....",
+   "....##....",
+   "..######..",
+   "..######..",
+   "....##....",
+   "...####...",
+   "....##...."
+  ],
+  "crown": [
+   "..........",
+   "#...##...#",
+   "##..##..##",
+   "###.##.###",
+   "##########",
+   "##########",
+   "##########",
+   "#.#.##.#.#",
+   "##########",
+   ".........."
+  ],
+  "lightning": [
+   "......###.",
+   ".....###..",
+   "....###...",
+   "...###....",
+   "..#######.",
+   "......##..",
+   ".....##...",
+   "....##....",
+   "...##.....",
+   "..##......"
+  ],
+  "anchor": [
+   "....##....",
+   "...#..#...",
+   "....##....",
+   "..######..",
+   "....##....",
+   "....##....",
+   "#...##...#",
+   "##..##..##",
+   ".########.",
+   "...####..."
+  ],
+  "pistons": [
+   "##......##",
+   "###....###",
+   ".###..###.",
+   "..######..",
+   "...####...",
+   "...####...",
+   "..######..",
+   ".###..###.",
+   "###....###",
+   "##......##"
+  ],
+  "one_percent": [
+   "..........",
+   ".#...#..#.",
+   "##..#.#.#.",
+   ".#...#.#..",
+   ".#....#...",
+   ".#...#.#..",
+   ".#..#.#.#.",
+   ".#..#..#..",
+   "###.......",
+   ".........."
+  ],
+  "eye": [
+   "..........",
+   "...####...",
+   ".##....##.",
+   "#...##...#",
+   "#..####..#",
+   "#..####..#",
+   "#...##...#",
+   ".##....##.",
+   "...####...",
+   ".........."
+  ],
+  "serpent": [
+   "...####...",
+   "..##..##..",
+   "..##......",
+   "...##.....",
+   "....###...",
+   "......##..",
+   "......##..",
+   "..##..##..",
+   "...####...",
+   ".......#.."
+  ]
+ },
+ "palettes": {
+  "classic": {
+   "background": "#111111",
+   "rim": "#e8e8e8",
+   "emblem": "#e8e8e8"
+  },
+  "blood": {
+   "background": "#2a0a0a",
+   "rim": "#c0392b",
+   "emblem": "#f2e8cf"
+  },
+  "gold": {
+   "background": "#1a1408",
+   "rim": "#d4a82a",
+   "emblem": "#ffd75e"
+  },
+  "steel": {
+   "background": "#1c1f24",
+   "rim": "#9aa3ad",
+   "emblem": "#dfe6ee"
+  },
+  "fire": {
+   "background": "#1a0d05",
+   "rim": "#ff6a3d",
+   "emblem": "#ffd75e"
+  },
+  "venom": {
+   "background": "#0d1a0a",
+   "rim": "#6fbf4b",
+   "emblem": "#c8f0a0"
+  },
+  "ice": {
+   "background": "#0a1420",
+   "rim": "#5fb0ff",
+   "emblem": "#dff1ff"
+  },
+  "violet": {
+   "background": "#160a1f",
+   "rim": "#9b59b6",
+   "emblem": "#e0c8f0"
+  },
+  "bone": {
+   "background": "#e8dcc0",
+   "rim": "#3a2a1a",
+   "emblem": "#3a2a1a"
+  },
+  "chrome": {
+   "background": "#2a2a2a",
+   "rim": "#ffd75e",
+   "emblem": "#e6e6e6"
+  }
+ },
+ "patches": [
+  {
+   "id": "patch_01",
+   "emblem": "iron_cross",
+   "shape": "shield",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_02",
+   "emblem": "wolf",
+   "shape": "circle",
+   "palette": "blood"
+  },
+  {
+   "id": "patch_03",
+   "emblem": "skull",
+   "shape": "circle",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_04",
+   "emblem": "wings",
+   "shape": "shield",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_05",
+   "emblem": "one_percent",
+   "shape": "diamond",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_06",
+   "emblem": "skull",
+   "shape": "diamond",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_07",
+   "emblem": "wings",
+   "shape": "octagon",
+   "palette": "chrome"
+  },
+  {
+   "id": "patch_08",
+   "emblem": "wolf",
+   "shape": "shield",
+   "palette": "ice"
+  },
+  {
+   "id": "patch_09",
+   "emblem": "flame",
+   "shape": "circle",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_10",
+   "emblem": "spade",
+   "shape": "square",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_11",
+   "emblem": "iron_cross",
+   "shape": "diamond",
+   "palette": "violet"
+  },
+  {
+   "id": "patch_12",
+   "emblem": "wheel",
+   "shape": "octagon",
+   "palette": "fire"
+  },
+  {
+   "id": "patch_13",
+   "emblem": "star",
+   "shape": "shield",
+   "palette": "blood"
+  },
+  {
+   "id": "patch_14",
+   "emblem": "dagger",
+   "shape": "circle",
+   "palette": "bone"
+  },
+  {
+   "id": "patch_15",
+   "emblem": "crown",
+   "shape": "square",
+   "palette": "venom"
+  },
+  {
+   "id": "patch_16",
+   "emblem": "lightning",
+   "shape": "diamond",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_17",
+   "emblem": "anchor",
+   "shape": "octagon",
+   "palette": "chrome"
+  },
+  {
+   "id": "patch_18",
+   "emblem": "pistons",
+   "shape": "shield",
+   "palette": "ice"
+  },
+  {
+   "id": "patch_19",
+   "emblem": "one_percent",
+   "shape": "circle",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_20",
+   "emblem": "eye",
+   "shape": "square",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_21",
+   "emblem": "serpent",
+   "shape": "diamond",
+   "palette": "violet"
+  },
+  {
+   "id": "patch_22",
+   "emblem": "skull",
+   "shape": "octagon",
+   "palette": "fire"
+  },
+  {
+   "id": "patch_23",
+   "emblem": "wings",
+   "shape": "shield",
+   "palette": "blood"
+  },
+  {
+   "id": "patch_24",
+   "emblem": "wolf",
+   "shape": "circle",
+   "palette": "bone"
+  },
+  {
+   "id": "patch_25",
+   "emblem": "flame",
+   "shape": "square",
+   "palette": "venom"
+  },
+  {
+   "id": "patch_26",
+   "emblem": "spade",
+   "shape": "diamond",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_27",
+   "emblem": "iron_cross",
+   "shape": "octagon",
+   "palette": "chrome"
+  },
+  {
+   "id": "patch_28",
+   "emblem": "wheel",
+   "shape": "shield",
+   "palette": "ice"
+  },
+  {
+   "id": "patch_29",
+   "emblem": "star",
+   "shape": "circle",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_30",
+   "emblem": "dagger",
+   "shape": "square",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_31",
+   "emblem": "crown",
+   "shape": "diamond",
+   "palette": "violet"
+  },
+  {
+   "id": "patch_32",
+   "emblem": "lightning",
+   "shape": "octagon",
+   "palette": "fire"
+  },
+  {
+   "id": "patch_33",
+   "emblem": "anchor",
+   "shape": "shield",
+   "palette": "blood"
+  },
+  {
+   "id": "patch_34",
+   "emblem": "pistons",
+   "shape": "circle",
+   "palette": "bone"
+  },
+  {
+   "id": "patch_35",
+   "emblem": "one_percent",
+   "shape": "square",
+   "palette": "venom"
+  },
+  {
+   "id": "patch_36",
+   "emblem": "eye",
+   "shape": "diamond",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_37",
+   "emblem": "serpent",
+   "shape": "octagon",
+   "palette": "chrome"
+  },
+  {
+   "id": "patch_38",
+   "emblem": "skull",
+   "shape": "shield",
+   "palette": "ice"
+  },
+  {
+   "id": "patch_39",
+   "emblem": "wings",
+   "shape": "circle",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_40",
+   "emblem": "wolf",
+   "shape": "square",
+   "palette": "classic"
+  },
+  {
+   "id": "patch_41",
+   "emblem": "flame",
+   "shape": "diamond",
+   "palette": "violet"
+  },
+  {
+   "id": "patch_42",
+   "emblem": "spade",
+   "shape": "octagon",
+   "palette": "fire"
+  },
+  {
+   "id": "patch_43",
+   "emblem": "iron_cross",
+   "shape": "shield",
+   "palette": "blood"
+  },
+  {
+   "id": "patch_44",
+   "emblem": "wheel",
+   "shape": "circle",
+   "palette": "bone"
+  },
+  {
+   "id": "patch_45",
+   "emblem": "star",
+   "shape": "square",
+   "palette": "venom"
+  },
+  {
+   "id": "patch_46",
+   "emblem": "dagger",
+   "shape": "diamond",
+   "palette": "gold"
+  },
+  {
+   "id": "patch_47",
+   "emblem": "crown",
+   "shape": "octagon",
+   "palette": "chrome"
+  },
+  {
+   "id": "patch_48",
+   "emblem": "lightning",
+   "shape": "shield",
+   "palette": "ice"
+  },
+  {
+   "id": "patch_49",
+   "emblem": "anchor",
+   "shape": "circle",
+   "palette": "steel"
+  },
+  {
+   "id": "patch_50",
+   "emblem": "pistons",
+   "shape": "square",
+   "palette": "classic"
+  }
+ ]
+}

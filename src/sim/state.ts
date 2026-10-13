@@ -195,6 +195,8 @@ export const GameStateSchema = z.object({
   eventHistory: z.record(IdSchema, z.number().int()),
   /** Counter for unique business ids. */
   businessSerial: NonNegativeInt,
+  /** Name and patch of each club (phase 11): the player names their club; rivals use their defaults. */
+  identities: z.record(IdSchema, z.object({ name: z.string().min(1).max(40), patchId: IdSchema.nullable() })),
   /** null while the game is running. */
   outcome: OutcomeSchema.nullable(),
 });
