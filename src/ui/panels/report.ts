@@ -17,7 +17,7 @@ function renderEvents(ctx: UiContext): HTMLElement | null {
     ...events.map((ev) =>
       h("fieldset", { class: "event" }, [
         h("legend", {}, [tr(ev.titleKey)]),
-        h("p", {}, [tr(ev.textKey, { subject: ev.subject })]),
+        h("p", {}, [tr(ev.textKey, { subject: ev.subject, rival: ev.rival, zone: ev.zone })]),
         ...ev.options.map((o) =>
           h("label", { class: o.affordable ? "check" : "check muted" }, [
             h("input", {

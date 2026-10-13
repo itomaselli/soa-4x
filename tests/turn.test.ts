@@ -256,13 +256,17 @@ describe("victoria y derrota (GDD §14)", () => {
     expect(keys(report)).toEqual(["report.game_over"]);
   });
 
-  it("la condición de expulsión usa la facción configurada en balance.json", () => {
-    const data = dataWith((d) => {
-      d.balance.victory.rivalToExpel = "faction_cartel_valdes";
-    });
-    const state = newState(42, data);
-    zone(state, "zone_port_calloway").control = {};
-    const next = resolveTurn(state, empty, data).state;
+  it("se gana por expulsión cuando no queda ningún club rival con influencia en el condado", () => {
+    const state = newState();
+    for (const z of Object.values(state.zones)) delete z.control[WOLVES];
+    const next = resolveTurn(state, empty, baseData).state;
     expect(next.outcome?.reasonKey).toBe("outcome.victory.rival_expelled");
+  });
+
+  it("no se gana por expulsión mientras algún rival conserve influencia", () => {
+    const state = newState();
+    for (const z of Object.values(state.zones)) delete z.control[WOLVES];
+    zone(state, "zone_millbrook").control[WOLVES] = 5;
+    expect(resolveTurn(state, empty, baseData).state.outcome).toBeNull();
   });
 });

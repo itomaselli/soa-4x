@@ -183,9 +183,11 @@ describe("reclutar (GDD §7)", () => {
   it("no recluta si el club llegó al tope de miembros", () => {
     const capped = dataWith((d) => {
       d.balance.tasks.recruit.baseChance = 1;
-      d.balance.club.memberCap = 8;
     });
-    const { report } = runTasks(newState(), [{ memberId: PRESIDENT, taskId: "task_recruit", zoneId: "zone_redwater" }], capped);
+    // The member cap belongs to each game's map (phase 12).
+    const state = newState();
+    state.scenario.memberCap = 8;
+    const { report } = runTasks(state, [{ memberId: PRESIDENT, taskId: "task_recruit", zoneId: "zone_redwater" }], capped);
     expect(keys(report)).toContain("report.task.recruit_full");
   });
 });

@@ -98,7 +98,10 @@
   "victory": {
     "zonesToControl": 12,
     "weeksHeld": 4,
-    "rivalToExpel": "faction_grim_wolves"
+    "territoryShare": {
+      "numerator": 2,
+      "denominator": 3
+    }
   },
   "defeat": {
     "minActiveMembers": 3

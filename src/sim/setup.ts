@@ -1,9 +1,11 @@
 // Builds the week-1 GameState from validated content. No game rules here:
 // it only copies starting values from /data into the state shape.
 
-import type { GameData } from "../data/schemas";
+import type { GameData, MemberDef } from "../data/schemas";
+import { generateScenario } from "./mapgen";
 import { seedToState } from "./rng";
-import { SAVE_SCHEMA_VERSION, type FactionState, type GameState, type MemberState, type ZoneState } from "./state";
+import { classicScenario, gameData } from "./scenario";
+import { SAVE_SCHEMA_VERSION, type FactionState, type GameState, type MapSize, type MemberState, type ZoneState } from "./state";
 
 export interface NewGameOptions {
   seed: number;
@@ -11,12 +13,21 @@ export interface NewGameOptions {
   /** Phase 11: the player's club name and patch (defaults from factions.json). */
   clubName?: string;
   patchId?: string;
+  /** A random county of this size (phase 12). Without it, the classic county from /data. */
+  size?: MapSize;
 }
 
-export function createInitialState(data: GameData, options: NewGameOptions): GameState {
-  if (!data.factions.some((f) => f.id === options.playerFactionId)) {
+export function createInitialState(content: GameData, options: NewGameOptions): GameState {
+  if (!content.factions.some((f) => f.id === options.playerFactionId)) {
     throw new Error(`Unknown player faction: ${options.playerFactionId}`);
   }
+
+  const generated = options.size
+    ? generateScenario(content, { size: options.size, seed: options.seed, playerFactionId: options.playerFactionId, playerPatchId: options.patchId ?? null })
+    : null;
+  const scenario = generated?.scenario ?? classicScenario(content);
+  const memberDefs: MemberDef[] = generated?.members ?? content.members;
+  const data = gameData(content, { scenario, identities: {} });
 
   const factions: Record<string, FactionState> = {};
   for (const def of data.factions) {
@@ -42,7 +53,7 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
   }
 
   const members: Record<string, MemberState> = {};
-  for (const def of data.members) {
+  for (const def of memberDefs) {
     members[def.id] = {
       id: def.id,
       factionId: def.factionId,
@@ -82,6 +93,7 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
       ]),
     ),
     controlStreaks: {},
+    scenario,
     outcome: null,
   };
 }

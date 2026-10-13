@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { loadGameData } from "../src/data/load";
 import { checkInvariants } from "../src/sim/invariants";
 import { loadSave, migrateSave, migrateV1toV2, serializeState, type RawSave, type SaveMigration } from "../src/sim/save";
+import { classicScenario } from "../src/sim/scenario";
 import { createInitialState } from "../src/sim/setup";
 import { SAVE_SCHEMA_VERSION } from "../src/sim/state";
 import { allAiOrders } from "../src/sim/systems/ai";
@@ -38,8 +39,9 @@ describe("migraciones de partidas guardadas", () => {
 
   it("una partida de la v0.2.0 (formato 1, con todos los campos) carga sin perder datos", () => {
     const raw = fixture("save-v0.2.0.json");
-    const state = loadSave(JSON.stringify(raw), data);
+    const { scenario, ...state } = loadSave(JSON.stringify(raw), data);
     expect({ ...state, schemaVersion: 1 }).toEqual(raw);
+    expect(scenario).toEqual(classicScenario(data));
   });
 
   it("los negocios viejos reciben el primer lote libre de su zona", () => {

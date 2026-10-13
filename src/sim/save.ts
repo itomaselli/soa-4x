@@ -5,6 +5,7 @@
 // removed, for example), the save is rejected with a readable list of problems instead of breaking later.
 
 import type { GameData } from "../data/schemas";
+import { classicScenario, gameData } from "./scenario";
 import { GameStateSchema, SAVE_SCHEMA_VERSION, type GameState } from "./state";
 
 /** A save as parsed JSON, before validation. Migrations only touch plain objects. */
@@ -58,9 +59,18 @@ export function migrateV1toV2(save: RawSave, data: GameData): RawSave {
   return next;
 }
 
+/**
+ * v2 → v3 (phase 12): the map became part of the game. Saves from before were all played on the classic county,
+ * so they get it as their scenario and keep looking and playing exactly the same.
+ */
+export function migrateV2toV3(save: RawSave, data: GameData): RawSave {
+  return isRecord(save.scenario) ? save : { ...save, scenario: classicScenario(data) };
+}
+
 /** Keyed by the version they upgrade from. */
 export const SAVE_MIGRATIONS: Readonly<Record<number, SaveMigration>> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /**
@@ -115,8 +125,10 @@ export function deserializeState(json: string, data?: GameData): GameState {
 }
 
 /** Ids in the save that don't exist in the current /data. Empty list = compatible. */
-export function saveDataProblems(state: GameState, data: GameData): string[] {
+export function saveDataProblems(state: GameState, content: GameData): string[] {
   const problems: string[] = [];
+  // Zones and factions come from the save's own scenario; everything else from the current content.
+  const data = gameData(content, state);
   const zones = new Set(data.zones.map((z) => z.id));
   const factions = new Set(data.factions.map((f) => f.id));
   const businesses = new Set(data.businesses.map((b) => b.id));

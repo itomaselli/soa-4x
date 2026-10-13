@@ -6,16 +6,17 @@ import { z } from "zod";
 import { extraTilePixelProblems } from "./validate";
 import {
   CurrencySchema,
-  FactionKindSchema,
   IdSchema,
   MemberStatusSchema,
-  MoneySchema,
   RankSchema,
   StatKeySchema,
   StatsSchema,
   TraitSchema,
   VOTE_TYPES,
   ZoneTypeSchema,
+  MapSizeSchema,
+  FactionDefSchema,
+  ZoneDefSchema,
 } from "../sim/state";
 
 const Int = z.number().int();
@@ -156,7 +157,8 @@ export const BalanceSchema = z.object({
     zonesToControl: Int,
     weeksHeld: Int,
     /** Faction whose total expulsion from the county is also a victory (GDD §14). */
-    rivalToExpel: IdSchema,
+    /** Generated counties: zones to own = ceil(zones × numerator / denominator). The classic county uses zonesToControl. */
+    territoryShare: z.object({ numerator: Int.positive(), denominator: Int.positive() }),
   }),
   defeat: z.object({
     minActiveMembers: Int,
@@ -248,45 +250,8 @@ export type Balance = z.infer<typeof BalanceSchema>;
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "color como #rrggbb");
 
-export const ZoneDefSchema = z.object({
-  id: IdSchema,
-  name: z.string().min(1),
-  /** Label drawn on the map (one character per tile, so keep it short). */
-  shortName: z.string().min(1).max(9),
-  /** Center of the zone on the map, in tiles. Only used for drawing: the rules use `adjacent`. */
-  position: z.object({ x: Int, y: Int }),
-  type: ZoneTypeSchema,
-  glyph: GlyphSchema,
-  adjacent: z.array(IdSchema),
-  wealth: Int,
-  policePresence: Int,
-  businessSlots: Int,
-  initialHeat: z.number().finite(),
-  /** Starting influence per faction id. Missing faction = 0. */
-  initialControl: z.record(IdSchema, z.number().finite()),
-});
-export type ZoneDef = z.infer<typeof ZoneDefSchema>;
-
-// ---------- factions.json ----------
-
-export const FactionDefSchema = z.object({
-  id: IdSchema,
-  name: z.string().min(1),
-  kind: FactionKindSchema,
-  glyph: GlyphSchema,
-  /** Headquarters zone, or null if it is outside the current map. */
-  hqZoneId: IdSchema.nullable(),
-  startingMoney: MoneySchema,
-  /** Starting relation towards other factions. Missing faction = 0 (neutral). */
-  initialRelations: z.record(IdSchema, z.number().finite()),
-  /** Color for the map and the interface. */
-  color: HexColorSchema,
-  /** Default patch (patches.json), or null for factions that don't wear one. */
-  patchId: IdSchema.nullable(),
-  /** AI profile from ai.json used when the computer plays this faction, or null if it never gives orders. */
-  aiProfile: z.string().nullable(),
-});
-export type FactionDef = z.infer<typeof FactionDefSchema>;
+// Zone and faction definitions live in src/sim/state.ts: a game's map (its "scenario") is part of the saved state.
+export { FactionDefSchema, ZoneDefSchema, type FactionDef, type ZoneDef } from "../sim/state";
 
 // ---------- members.json ----------
 
@@ -378,6 +343,8 @@ export const BusinessDefSchema = z.object({
 export type BusinessDef = z.infer<typeof BusinessDefSchema>;
 
 // ---------- events.json ----------
+
+export const EVENT_ZONES = ["nearest_road"] as const;
 // Narrative events (GDD §13): conditions, a subject, options and effects, all as data.
 
 export type EventEffect =
@@ -385,7 +352,7 @@ export type EventEffect =
   | { type: "loyalty"; target: "all" | "subject" | "others"; amount: number }
   | { type: "sheriff"; amount: number }
   | { type: "rival_relation"; amount: number }
-  | { type: "heat"; zoneId: string; amount: number }
+  | { type: "heat"; zoneId?: string; zone?: (typeof EVENT_ZONES)[number]; amount: number }
   | { type: "promote_subject"; rank: "member" }
   | { type: "defect_subject" }
   | { type: "jail_random"; weeks: number }
@@ -398,7 +365,8 @@ export const EventEffectSchema: z.ZodType<EventEffect> = z.lazy(() =>
     z.object({ type: z.literal("loyalty"), target: z.enum(["all", "subject", "others"]), amount: z.number() }),
     z.object({ type: z.literal("sheriff"), amount: z.number() }),
     z.object({ type: z.literal("rival_relation"), amount: z.number() }),
-    z.object({ type: z.literal("heat"), zoneId: IdSchema, amount: z.number() }),
+    /** Heat in a fixed zone, or in a zone picked from the club's map ("nearest_road": the road closest to its HQ). */
+    z.object({ type: z.literal("heat"), zoneId: IdSchema.optional(), zone: z.enum(EVENT_ZONES).optional(), amount: z.number() }),
     z.object({ type: z.literal("promote_subject"), rank: z.literal("member") }),
     z.object({ type: z.literal("defect_subject") }),
     z.object({ type: z.literal("jail_random"), weeks: Int.positive() }),
@@ -420,7 +388,7 @@ export const EventDefSchema = z.object({
     minWeek: Int.optional(),
     hasProspect: z.boolean().optional(),
     hasInformant: z.boolean().optional(),
-    /** The rival club (victory.rivalToExpel) has at least this many living members. */
+    /** The event's rival club (the one that regards us worst) has at least this many living members. */
     rivalMinMembers: Int.optional(),
   }),
   /** Who the event is about: one of our prospects, a member of the rival club, or nobody. */
@@ -454,7 +422,8 @@ export const AiProfileSchema = z.object({
   bribeHeatThreshold: z.number(),
   bribeWeightPerHeat: z.number().nonnegative(),
   /** The AI recruits while it has fewer living members than this. */
-  recruitTargetMembers: z.number().int().nonnegative(),
+  /** Recruit until the club has this share of its member cap (the cap grows with the map). */
+  recruitTargetShare: z.number().nonnegative(),
   recruitWeight: z.number().nonnegative(),
   /** Money below `weeks × weekly wages` counts as "low money": income gets multiplied. */
   moneyReserveWeeks: z.number().nonnegative(),
@@ -484,7 +453,8 @@ export const AiProfileSchema = z.object({
   /** Money the AI keeps aside before building, laundering or buying. */
   cashReserve: z.number().nonnegative(),
   /** If set, the AI only acts in these zones (the cartel stays at the port). */
-  allowedZones: z.array(IdSchema).nullable(),
+  /** Only acts in its own HQ zone (the cartel stays in its port). */
+  homeOnly: z.boolean(),
   /** Random variation applied to each score (0.15 = ±15%). */
   noise: z.number().min(0).max(1),
   /** How the AI uses the council and handles its club (phase 8). */
@@ -729,6 +699,70 @@ export const TilesExtraSchema = z.object({
 });
 export type TilesExtraData = z.infer<typeof TilesExtraSchema>;
 
+// ---------- mapgen.json ----------
+// Random counties (phase 12): sizes, layout limits, zone values per type, place names and rival clubs.
+
+const ZoneTypeCountsSchema = z.record(ZoneTypeSchema, Int.nonnegative());
+
+export const MapgenSchema = z.object({
+  sizes: z.record(
+    MapSizeSchema,
+    z.object({
+      zones: Int.positive(),
+      /** Clubs including the player's. */
+      clubs: Int.min(2),
+      /** Part of the map canvas (ui.json map) the county uses, centered. */
+      area: z.object({ width: Int.positive(), height: Int.positive() }),
+      types: ZoneTypeCountsSchema,
+      /** Bigger counties need bigger clubs to hold 2/3 of the map: recruiting cap and members added to every club. */
+      memberCap: Int.positive(),
+      extraMembers: z.array(RankSchema),
+    }),
+  ),
+  layout: z.object({
+    /** Distance between district centers, in tiles; relaxed down to the floor if a county doesn't fit. */
+    minDistance: z.number().positive(),
+    minDistanceFloor: z.number().positive(),
+    /** Centers within sameRowRows rows of each other need this many columns apart, so names don't overlap. */
+    sameRowGap: Int.positive(),
+    sameRowRows: Int.nonnegative(),
+    margin: Int.nonnegative(),
+    attemptsPerZone: Int.positive(),
+    layoutsPerDistance: Int.positive(),
+    /** Two districts are connected if their regions share at least this many border segments. */
+    minSharedBorder: Int.positive(),
+    /** Share of connections turned into closed borders (river or ridge), keeping the map connected. */
+    closedBorderShare: Probability,
+    minDegree: Int.positive(),
+  }),
+  zoneTypes: z.record(
+    ZoneTypeSchema,
+    z.object({ wealth: z.tuple([Int, Int]), policePresence: Int.nonnegative(), businessSlots: Int.positive(), glyphs: z.array(z.string().length(1)) }),
+  ),
+  /** Road zones with this many connections are crossroads: richer, with their own glyph. */
+  crossroads: z.object({ minDegree: Int.positive(), wealth: Int, glyph: z.string().length(1) }),
+  sheriffTown: z.object({ wealth: Int, policePresence: Int.nonnegative() }),
+  control: z.object({
+    hq: z.number().nonnegative(),
+    /** Starting influence of a club in the districts next to its HQ, by type. */
+    neighbors: z.record(ZoneTypeSchema, z.number().nonnegative()),
+    /** A district next to two HQs: each club gets this much. */
+    contested: z.number().nonnegative(),
+    cartelPort: z.number().nonnegative(),
+  }),
+  places: z.record(ZoneTypeSchema, z.array(z.object({ name: z.string().min(1), short: z.string().min(1).max(9) }))),
+  /** "{town}" = the sheriff's town. */
+  sheriffName: z.string().min(1),
+  rivals: z.object({
+    names: z.array(z.string().min(1)).min(1),
+    colors: z.array(HexColorSchema).min(1),
+    aiProfiles: z.array(z.string()).min(1),
+    /** Ranks of a rival club's starting members, in order. */
+    roster: z.array(RankSchema).min(1),
+  }),
+});
+export type MapgenData = z.infer<typeof MapgenSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -763,6 +797,7 @@ export const GameDataSchema = z.object({
   patches: PatchesSchema,
   portraits: PortraitsSchema,
   tilesExtra: TilesExtraSchema,
+  mapgen: MapgenSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

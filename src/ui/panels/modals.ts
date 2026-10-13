@@ -8,6 +8,7 @@ import { patchCanvas } from "../patchCanvas";
 import { portraitCanvas } from "../portraitCanvas";
 import { patchNameParts } from "../../render/patch";
 import { CLUB_NAME_MAX_LENGTH } from "../../sim/identity";
+import { MAP_SIZES } from "../../sim/state";
 import { weekReview } from "../review";
 import { hqSheet, memberSheet, topBarModel } from "../viewModel";
 import { proposalLabel } from "./council";
@@ -16,7 +17,7 @@ import type { NewGameForm } from "../uiState";
 
 function renderNewGame(ctx: UiContext, form: NewGameForm): HTMLElement {
   const { content, tr, set, actions } = ctx;
-  const startButton = h("button", { class: "primary", disabled: form.name.trim().length === 0, onclick: () => actions.startNewGame(form.name.trim(), form.patchId) }, [tr("ui.new.start")]);
+  const startButton = h("button", { class: "primary", disabled: form.name.trim().length === 0, onclick: () => actions.startNewGame(form.name.trim(), form.patchId, form.size) }, [tr("ui.new.start")]);
   const nameInput = h("input", {
     type: "text",
     value: form.name,
@@ -35,6 +36,22 @@ function renderNewGame(ctx: UiContext, form: NewGameForm): HTMLElement {
   return h("div", { class: "modal new-game", role: "dialog", "aria-modal": "true", "aria-label": tr(form.firstTime ? "ui.new.title_first" : "ui.new.title") }, [
     h("h2", {}, [tr(form.firstTime ? "ui.new.title_first" : "ui.new.title")]),
     h("label", { class: "field" }, [h("span", {}, [tr("ui.new.name")]), nameInput]),
+    h("fieldset", { class: "map-size" }, [
+      h("legend", {}, [tr("ui.new.size")]),
+      h(
+        "div",
+        { class: "segmented size-choice", role: "radiogroup", "aria-label": tr("ui.new.size") },
+        MAP_SIZES.map((size) => {
+          const cfg = content.mapgen.sizes[size];
+          return h(
+            "button",
+            { role: "radio", "aria-checked": form.size === size ? "true" : "false", class: form.size === size ? "active" : "", onclick: () => set({ newGameForm: { ...form, size } }) },
+            [h("strong", {}, [tr(`map_size.${size}`)]), h("span", {}, [tr("ui.new.size_detail", { zones: cfg.zones, clubs: cfg.clubs })])],
+          );
+        }),
+      ),
+      h("p", { class: "muted" }, [tr("ui.new.size_hint")]),
+    ]),
     h("p", { class: "muted" }, [tr("ui.new.patch_hint"), " ", h("strong", {}, [parts(form.patchId)])]),
     h(
       "div",
@@ -59,7 +76,8 @@ function renderHelp(ctx: UiContext): HTMLElement {
   const { data, tr, set } = ctx;
   return h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": tr("ui.help.title") }, [
     h("h2", {}, [tr("ui.help.title")]),
-    ...["ui.help.goal", "ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose", "ui.help.keys"].map((k) => h("p", {}, [tr(k)])),
+    h("p", {}, [tr("ui.help.goal", { target: data.balance.victory.zonesToControl, total: data.zones.length, weeks: data.balance.victory.weeksHeld })]),
+    ...["ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose", "ui.help.keys"].map((k) => h("p", {}, [tr(k)])),
     h("p", { class: "muted" }, [tr("ui.help.credits", { credit: data.ui.tileset.credit })]),
     h("p", { class: "muted" }, [tr("ui.help.credits_ui")]),
     h("button", { class: "primary", onclick: () => set({ showHelp: false }) }, [tr("ui.close")]),

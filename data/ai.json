@@ -12,7 +12,7 @@
       "lieLowWeight": 8,
       "bribeHeatThreshold": 50,
       "bribeWeightPerHeat": 12,
-      "recruitTargetMembers": 15,
+      "recruitTargetShare": 1.0,
       "recruitWeight": 300,
       "moneyReserveWeeks": 4,
       "lowMoneyIncomeMultiplier": 3,
@@ -27,7 +27,7 @@
       "goodsWeight": 0.7,
       "attackWeight": 0.8,
       "cashReserve": 300,
-      "allowedZones": null,
+      "homeOnly": false,
       "defendWeight": 0.25,
       "council": {
         "warRelationTrigger": -30,
@@ -54,7 +54,7 @@
       "lieLowWeight": 10,
       "bribeHeatThreshold": 45,
       "bribeWeightPerHeat": 14,
-      "recruitTargetMembers": 15,
+      "recruitTargetShare": 1.0,
       "recruitWeight": 250,
       "moneyReserveWeeks": 5,
       "lowMoneyIncomeMultiplier": 3,
@@ -69,7 +69,7 @@
       "goodsWeight": 0.7,
       "attackWeight": 0.1,
       "cashReserve": 300,
-      "allowedZones": null,
+      "homeOnly": false,
       "defendWeight": 0.25,
       "council": {
         "warRelationTrigger": -50,
@@ -96,7 +96,7 @@
       "lieLowWeight": 10,
       "bribeHeatThreshold": 45,
       "bribeWeightPerHeat": 14,
-      "recruitTargetMembers": 0,
+      "recruitTargetShare": 0.0,
       "recruitWeight": 250,
       "moneyReserveWeeks": 5,
       "lowMoneyIncomeMultiplier": 3,
@@ -111,9 +111,7 @@
       "goodsWeight": 0.7,
       "attackWeight": 0,
       "cashReserve": 300,
-      "allowedZones": [
-        "zone_port_calloway"
-      ],
+      "homeOnly": true,
       "defendWeight": 0.25,
       "council": {
         "warRelationTrigger": -1000,

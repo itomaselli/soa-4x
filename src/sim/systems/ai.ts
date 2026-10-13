@@ -82,8 +82,8 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
   };
 
   const tasks = availableTasks(data);
-  const allowed = profile.allowedZones;
-  const zones = reachableZones(state, data, factionId).filter((z) => allowed === null || allowed.includes(z));
+  const home = data.factions.find((f) => f.id === factionId)?.hqZoneId ?? null;
+  const zones = reachableZones(state, data, factionId).filter((z) => !profile.homeOnly || z === home);
   const free = activeMembers(state, factionId).sort((a, b) => a.id.localeCompare(b.id));
   const assignments: Assignment[] = [];
 
@@ -396,7 +396,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
     }
     case "task_recruit": {
         const living = livingMembers(plan.state, member.factionId).length + plan.plannedRecruits;
-        if (plan.lowMoney || living >= p.recruitTargetMembers || living >= balance.club.memberCap) return null;
+        if (plan.lowMoney || living >= Math.round(p.recruitTargetShare * balance.club.memberCap) || living >= balance.club.memberCap) return null;
         const chance = balance.tasks.recruit.baseChance + effectiveStat(member, "charm", balance) * balance.tasks.recruit.perCharm;
         return chance * p.recruitWeight * investment;
       }

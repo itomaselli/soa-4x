@@ -4,7 +4,7 @@
 
 import type { Proposal } from "../sim/council";
 import type { ManagementOrder } from "../sim/management";
-import type { ProposalType } from "../sim/state";
+import type { MapSize, ProposalType } from "../sim/state";
 import type { ReportEntry } from "../sim/report";
 import type { RenderMode } from "../render/map";
 import type { Draft } from "./draft";
@@ -26,6 +26,8 @@ export interface ProposalForm {
 export interface NewGameForm {
   name: string;
   patchId: string;
+  /** County size for the new game (phase 12). */
+  size: MapSize;
   firstTime: boolean;
 }
 

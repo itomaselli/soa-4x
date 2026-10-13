@@ -11,8 +11,9 @@ import { randomOrders } from "../sim/policies/random";
 import type { TurnOrders } from "../sim/orders";
 import type { ReportEntry } from "../sim/report";
 import { createRng, type Rng } from "../sim/rng";
+import { gameData } from "../sim/scenario";
 import { createInitialState } from "../sim/setup";
-import type { GameState } from "../sim/state";
+import { MAP_SIZES, type GameState, type MapSize } from "../sim/state";
 import { aiOrders, allAiOrders } from "../sim/systems/ai";
 import { ownedZones } from "../sim/systems/control";
 import { averageLoyalty } from "../sim/systems/loyalty";
@@ -46,6 +47,8 @@ const EMPTY_STATS: FactionStats = { arrests: 0, recruits: 0, protection: 0, unpa
 interface RunResult {
   seed: number;
   state: GameState;
+  /** Content with this game's map and clubs. */
+  data: GameData;
   stats: Record<string, FactionStats>;
   publicCounts: Record<string, number>;
 }
@@ -110,8 +113,10 @@ function playerOrders(state: GameState, data: GameData, mode: PlayerMode, policy
   return { assignments: [] };
 }
 
-function runOnce(data: GameData, seed: number, weeks: number, mode: PlayerMode, printTimeline: boolean): RunResult | string[] {
-  let state = createInitialState(data, { seed, playerFactionId: DEFAULT_PLAYER_FACTION });
+function runOnce(content: GameData, seed: number, weeks: number, mode: PlayerMode, printTimeline: boolean, size: MapSize | null): RunResult | string[] {
+  let state = createInitialState(content, { seed, playerFactionId: DEFAULT_PLAYER_FACTION, ...(size ? { size } : {}) });
+  // Each game has its own map and clubs (phase 12).
+  const data = gameData(content, state);
   const policyRng = createRng(seed ^ POLICY_SEED_SALT);
   const entries: ReportEntry[] = [];
   if (printTimeline) console.log(timelineRows(state, data, 0).join("\n"));
@@ -126,7 +131,7 @@ function runOnce(data: GameData, seed: number, weeks: number, mode: PlayerMode, 
         management: [...(mine.management ?? []), ...(ai.management ?? [])],
         proposals: [...(mine.proposals ?? []), ...(ai.proposals ?? [])],
       },
-      data,
+      content,
     );
     state = result.state;
     entries.push(...result.report);
@@ -138,7 +143,7 @@ function runOnce(data: GameData, seed: number, weeks: number, mode: PlayerMode, 
     if (printTimeline && (i + 1) % PRINT_EVERY_WEEKS === 0) console.log(timelineRows(state, data, i + 1).join("\n"));
   }
   const publicCounts = Object.fromEntries(PUBLIC_KEYS.map((k) => [k, entries.filter((e) => e.key === k).length]));
-  return { seed, state, stats: collectStats(state, data, entries), publicCounts };
+  return { seed, state, data, stats: collectStats(state, data, entries), publicCounts };
 }
 
 function outcomeText(data: GameData, state: GameState): string {
@@ -152,14 +157,19 @@ function main(): number {
       seed: { type: "string", default: "1" },
       runs: { type: "string", default: "1" },
       player: { type: "string", default: "ai" },
+      size: { type: "string", default: "classic" },
     },
   });
   const seed = Number(values.seed);
   const weeks = Number(values.weeks);
   const runs = Number(values.runs);
   const mode = values.player as PlayerMode;
-  if (!Number.isInteger(seed) || !Number.isInteger(weeks) || weeks < 0 || !Number.isInteger(runs) || runs < 1 || !PLAYER_MODES.includes(mode)) {
-    console.error("Uso: npm run sim -- --weeks <n> --seed <n> [--runs <n>] [--player ai|random|idle]");
+  const size = values.size === "classic" ? null : (values.size as MapSize);
+  if (
+    !Number.isInteger(seed) || !Number.isInteger(weeks) || weeks < 0 || !Number.isInteger(runs) || runs < 1 || !PLAYER_MODES.includes(mode) ||
+    (size !== null && !(MAP_SIZES as readonly string[]).includes(size))
+  ) {
+    console.error("Uso: npm run sim -- --weeks <n> --seed <n> [--runs <n>] [--player ai|random|idle] [--size classic|small|medium|large]");
     return 1;
   }
 
@@ -175,24 +185,25 @@ function main(): number {
   }
   const s = data.strings;
   console.log(t(s, "sim.header", { weeks, runs, seed, player: t(s, `sim.player.${mode}`) }));
+  console.log(t(s, "sim.size", { size: t(s, `map_size.${values.size}`) }));
 
   const results: RunResult[] = [];
   for (let r = 0; r < runs; r++) {
-    const result = runOnce(data, seed + r, weeks, mode, runs === 1);
+    const result = runOnce(data, seed + r, weeks, mode, runs === 1, size);
     if (Array.isArray(result)) {
       console.error(`${t(s, "sim.failed_seed", { seed: seed + r })}\n${result.join("\n")}`);
       return 1;
     }
     results.push(result);
     if (runs > 1) {
-      const [player, rival] = clubIds(data);
+      const rivals = clubIds(result.data).filter((id) => id !== result.state.playerFactionId);
       console.log(
         t(s, "sim.run_line", {
           seed: result.seed,
           result: outcomeText(data, result.state),
           week: result.state.outcome?.week ?? weeks,
-          playerZones: player ? (result.stats[player]?.zones ?? 0) : 0,
-          rivalZones: rival ? (result.stats[rival]?.zones ?? 0) : 0,
+          playerZones: result.stats[result.state.playerFactionId]?.zones ?? 0,
+          rivalZones: rivals.map((id) => result.stats[id]?.zones ?? 0).join("/"),
         }),
       );
     }
@@ -216,12 +227,17 @@ function main(): number {
   );
   const avgEnd = results.reduce((sum, r) => sum + (r.state.outcome?.week ?? weeks), 0) / runs;
   console.log(t(s, "sim.avg_end_week", { week: avgEnd.toFixed(1) }));
-  for (const id of clubIds(data)) {
-    const avg = (pick: (st: FactionStats) => number) =>
-      (results.reduce((sum, r) => sum + pick(r.stats[id] ?? EMPTY_STATS), 0) / runs).toFixed(1);
+  // Clubs change from game to game: the player's club, then the rivals averaged per club.
+  const groups: { label: string; pick: (r: RunResult) => FactionStats[] }[] = [
+    { label: t(s, "sim.group.player"), pick: (r) => [r.stats[r.state.playerFactionId] ?? EMPTY_STATS] },
+    { label: t(s, "sim.group.rivals"), pick: (r) => clubIds(r.data).filter((id) => id !== r.state.playerFactionId).map((id) => r.stats[id] ?? EMPTY_STATS) },
+  ];
+  for (const group of groups) {
+    const all = results.flatMap(group.pick);
+    const avg = (pick: (st: FactionStats) => number) => (all.reduce((sum, st) => sum + pick(st), 0) / Math.max(1, all.length)).toFixed(1);
     console.log(
       t(s, "sim.aggregate_faction", {
-        faction: factionName(data, id),
+        faction: group.label,
         zones: avg((x) => x.zones),
         arrests: avg((x) => x.arrests),
         recruits: avg((x) => x.recruits),

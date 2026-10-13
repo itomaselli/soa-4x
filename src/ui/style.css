@@ -310,3 +310,10 @@ ul.rules { font-size: 13px; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 16px; }
 .gallery figure { margin: 0; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; display: grid; justify-items: center; gap: 4px; font-size: 11px; text-align: center; }
 .link.small { margin-left: 6px; }
+
+/* New game: county size */
+fieldset.map-size { border: 1px solid var(--border); border-radius: 6px; padding: var(--s2) var(--s3); margin: var(--s3) 0; }
+fieldset.map-size legend { color: var(--text-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 var(--s1); }
+.size-choice { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+.size-choice button { display: grid; gap: 2px; padding: var(--s2); text-align: center; }
+.size-choice button span { font-size: 12px; }

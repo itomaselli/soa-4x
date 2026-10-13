@@ -54,6 +54,20 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 ## 5. Mapa
 
 - **18 zonas** conectadas como **grafo de adyacencia**. Se dibuja con tiles, pero la lógica no usa grilla.
+- **Condados aleatorios (Fase 12):** cada partida nueva genera su condado (`src/sim/mapgen.ts`, valores en `data/mapgen.json`) y lo guarda en la partida. Al empezar se elige el tamaño:
+
+| Tamaño | Zonas | Clubes (con el tuyo) | Zonas para ganar | Tope de miembros | Miembros iniciales por club |
+|---|---|---|---|---|---|
+| Pequeño | 12 | 2 | 8 | 15 | 8 |
+| Mediano | 18 | 3 | 12 | 18 | 10 |
+| Grande | 26 | 4 | 18 | 22 | 12 |
+
+  - Cómo se arma: los centros se reparten al azar (sin pisar nombres ni salirse del mapa; si un condado grande no entra, se usa una grilla escalonada), las conexiones salen de qué regiones del mapa político se tocan y un 15% se cierra (río o sierra) sin aislar a nadie. Siempre hay **un puerto en el borde**, con el cartel; las sedes de los clubes son pueblos lo más lejos posible entre sí y nunca vecinos; el sheriff va al pueblo más central. Las rutas caen en los cruces y lo rural en los bordes.
+  - Cada club arranca con 70 en su sede e influencia en las zonas de alrededor (rural 30, industrial 25, ruta 20; 10 cada uno si la zona toca dos sedes).
+  - **Rivales al azar:** nombre de un banco de nombres de MC, color, uno de los 50 parches (nunca el tuyo) y perfil de IA (expansivo o equilibrado). Sus miembros tienen los mismos rangos y las mismas líneas de stats que tu club inicial, mezcladas, así que todos arrancan con la misma fuerza.
+  - Los mapas locales de cada distrito también se sortean por partida.
+  - Las partidas guardadas antes de la Fase 12 se juegan en el **condado clásico** de abajo (`data/zones.json`), sin cambios.
+- **Condado clásico:** 18 zonas, 2 clubes (Iron Saints y Grim Wolves).
   - Cada zona tiene una posición en el mapa (`position`) y un nombre corto (`shortName`) que solo sirven para dibujarla. El grafo es plano: los caminos no se cruzan.
 - Tipos de zona: `pueblo`, `ruta`, `puerto`, `rural`, `industrial`.
 - Atributos por zona:
@@ -307,7 +321,7 @@ Ejemplos:
 
 ## 14. Victoria y derrota
 
-- **Victoria:** controlar 12 de las 18 zonas durante 4 semanas seguidas, **o** expulsar a los Grim Wolves del condado (que no les quede control en ninguna zona).
+- **Victoria:** controlar **2/3 de las zonas** (redondeado para arriba: 8, 12 o 18; 12 de 18 en el clásico) durante 4 semanas seguidas, **o** expulsar a **todos los clubes rivales** del condado (que a ninguno le quede control en ninguna zona).
 - **Derrota:** destitución en la mesa, investigación federal al 100%, quedarte con menos de 3 miembros activos (Fase 6: "activos" significa que siguen en el club, aunque estén presos o heridos; no cuentan los muertos, los desertores ni los expulsados), **perder el control de todas las zonas**, o que **un club rival cumpla la victoria por territorio** (12 zonas durante 4 semanas).
 
 ## 15. Interfaz y arte
@@ -359,6 +373,8 @@ Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja,
 | 9 | Dos cadenas nuevas: marihuana (plantación propia en zonas rurales) y cocaína (trato con el cartel, laboratorio de corte, distribución) | Más variedad económica |
 | 10 | Mapa político (límites de distrito como bordes, estilo overworld de *Caves of Qud*) y zoom jugable a cada zona: mapa local donde se elige el tile de cada negocio | Mapa nuevo |
 | 11 | Identidad del club: nombre editable y parche elegido entre 50 diseños pixel art; los rivales también tienen parche; el parche se ve en la barra, el club y el mapa | Pantalla de nueva partida |
+| 12 | Condados aleatorios en tres tamaños (pequeño, mediano, grande), con 2 a 4 clubes rivales generados y siempre un puerto para el cartel | Nueva partida con tamaño |
+| 13 | Stats con experiencia, niveles y especialidades (propuesta B elegida por el dueño) | Ficha del miembro |
 
 **Feedback del dueño después de jugar v0.1.0 (origen de las fases 8 a 11):** la IA tiene que decidir como el jugador; hacen falta más cadenas para que no sea repetitivo; nombre y parche propios; y un mapa político con zoom a cada zona.
 
@@ -416,6 +432,8 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿La IA usa las drogas? (Fase 9) | Sí: construye cocinas solo si el cartel le vendería, no intimida al cartel mientras quiere negociar con él, cultiva si tiene buenas Manos y sale a vender cuando tiene stock. La plantación la usa poco porque rara vez es dueña de una zona rural. |
 | ¿Los lotes cambian las reglas? (Fase 10) | Solo agregan dónde: cada negocio ocupa un lote (0 a lugares−1). Construir en un lote ocupado o inexistente se rechaza; sin lote, se usa el primero libre (así construye la IA). |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
+| ¿Mapa aleatorio? (Fase 12, decidido por el dueño) | Sí, en cada partida nueva. Tamaños 12/18/26 zonas con 2/3/4 clubes; victoria por 2/3 del mapa o por expulsar a todos los rivales; rivales con nombre, parche, color y perfil al azar. |
+| ¿Cómo se escala con más clubes? (Fase 12) | Mismas zonas por club (unas 6). Los clubes son más grandes en mapas más grandes (tope y miembros iniciales en `mapgen.json`) y la IA recluta hasta una fracción del tope (`recruitTargetShare`). El cartel solo actúa en su puerto (`homeOnly`). El evento del camión ocurre en la ruta más cercana a la sede. |
 
 ## 19. Preguntas abiertas
 

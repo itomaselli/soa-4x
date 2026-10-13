@@ -117,8 +117,9 @@ export function checkOutcome(state: GameState, ctx: TurnContext): Outcome | null
   if ((state.controlStreaks[player] ?? 0) >= balance.victory.weeksHeld) {
     return { result: "victory", reasonKey: "outcome.victory.territory", week };
   }
-  const rival = balance.victory.rivalToExpel;
-  if (rival !== player && Object.values(state.zones).every((z) => controlOf(z, rival) <= balance.ranges.control.min)) {
+  // Expulsion: no rival club keeps any influence in the county (GDD §14, phase 12: every rival, not just one).
+  const rivals = ctx.data.factions.filter((f) => f.kind === "club" && f.id !== player).map((f) => f.id);
+  if (rivals.length > 0 && rivals.every((rival) => Object.values(state.zones).every((z) => controlOf(z, rival) <= balance.ranges.control.min))) {
     return { result: "victory", reasonKey: "outcome.victory.rival_expelled", week };
   }
   return null;

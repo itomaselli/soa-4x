@@ -304,7 +304,7 @@ function placeRiver(data: GameData, zone: ZoneDef, tiles: LocalTile[][], forbidd
   const cfg = data.ui.localMap.river;
   const width = tiles[0]!.length;
   const height = tiles.length;
-  const rng = createRng(hashId(`${zone.id}:river`));
+  const rng = createRng(hashId(`${zone.localSeed ?? ""}${zone.id}:river`));
   if (!rng.chance(cfg.chance[zone.type] ?? 0)) return new Set();
   const isRoad = (x: number, y: number) => tiles[y]?.[x]?.terrain === "road";
   for (let attempt = 0; attempt < cfg.attempts; attempt++) {
@@ -347,7 +347,7 @@ function applyRiverAutotile(data: GameData, zone: ZoneDef, tiles: LocalTile[][],
       const ny = y + d.dy;
       if (tiles[ny]?.[nx] === undefined || river.has(`${nx},${ny}`)) mask |= d.bit;
     }
-    const piece = autotile(sets[variantIndex(zone.id, x, y, sets.length)]!, mask);
+    const piece = autotile(sets[variantIndex(`${zone.localSeed ?? ""}${zone.id}`, x, y, sets.length)]!, mask);
     tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation };
   }
 }
@@ -367,7 +367,7 @@ function applyVariants(data: GameData, zone: ZoneDef, tiles: LocalTile[][]): voi
       const byType = variants[cell.terrain];
       const options = byType?.[zone.type] ?? byType?.["*"] ?? [];
       if (options.length === 0) continue;
-      const sprite = options[variantIndex(zone.id, x, y, options.length)]!;
+      const sprite = options[variantIndex(`${zone.localSeed ?? ""}${zone.id}`, x, y, options.length)]!;
       tiles[y]![x] = { ...cell, sprite, glyph: glyphs[sprite] ?? cell.glyph };
     }
   }
@@ -425,7 +425,7 @@ function placeLandmarks(data: GameData, zone: ZoneDef, tiles: LocalTile[][], for
 
   // Highways: a gas station above the road and a motel below it, somewhere along the way.
   if (zone.type === "road") {
-    const rng = createRng(hashId(`${zone.id}:roadside`));
+    const rng = createRng(hashId(`${zone.localSeed ?? ""}${zone.id}:roadside`));
     const pick = (y: number, avoidX: number | null): number | null => {
       const ok = (x: number) => free(x, y) && (avoidX === null || Math.abs(x - avoidX) >= ROADSIDE_GAP);
       for (let i = 0; i < ROADSIDE_TRIES; i++) {
@@ -448,7 +448,7 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
   if (!zone) throw new Error(`Unknown zone ${zoneId}`);
   const { width, height } = data.ui.map;
   const local = data.ui.localMap;
-  const rng = createRng(hashId(zoneId));
+  const rng = createRng(zone.localSeed ?? hashId(zoneId));
   const tiles = blank(width, height, T.ground);
   ({ town: paintTown, rural: paintRural, road: paintRoad, port: paintPort, industrial: paintIndustrial })[zone.type](tiles, rng, width, height);
   const mid = Math.floor(height / 2);
@@ -486,7 +486,8 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
   }
 
   // Members stand along the main street, left to right.
-  const memberSpots = Array.from({ length: data.balance.club.memberCap }, (_, i) => ({ x: 3 + i * 3, y: zone.type === "road" ? mid + 2 : mid + 1 }));
+  // One row of spots along the street (as many as fit: big clubs rarely send everyone to one district).
+  const memberSpots = Array.from({ length: Math.min(data.balance.club.memberCap, Math.floor((width - 3) / 3)) }, (_, i) => ({ x: 3 + i * 3, y: zone.type === "road" ? mid + 2 : mid + 1 }));
   for (const spot of memberSpots) {
     const cell = tiles[spot.y]?.[spot.x];
     if (cell && !WALKABLE.has(cell.terrain) && cell.terrain !== "water") tiles[spot.y]![spot.x] = { ...T.ground };
