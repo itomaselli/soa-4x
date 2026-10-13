@@ -1,38 +1,20 @@
 [
-  {
-    "id": "zone_redwater",
-    "name": "Redwater",
-    "type": "town",
-    "glyph": "R",
-    "adjacent": ["zone_route9_north"],
-    "wealth": 3,
-    "policePresence": 1,
-    "businessSlots": 3,
-    "initialHeat": 0,
-    "initialControl": { "faction_iron_saints": 70 }
-  },
-  {
-    "id": "zone_route9_north",
-    "name": "Ruta 9 Norte",
-    "type": "road",
-    "glyph": "=",
-    "adjacent": ["zone_redwater", "zone_millbrook"],
-    "wealth": 1,
-    "policePresence": 1,
-    "businessSlots": 1,
-    "initialHeat": 0,
-    "initialControl": { "faction_iron_saints": 20, "faction_grim_wolves": 20 }
-  },
-  {
-    "id": "zone_millbrook",
-    "name": "Millbrook",
-    "type": "town",
-    "glyph": "M",
-    "adjacent": ["zone_route9_north"],
-    "wealth": 3,
-    "policePresence": 1,
-    "businessSlots": 3,
-    "initialHeat": 0,
-    "initialControl": { "faction_grim_wolves": 70 }
-  }
+  { "id": "zone_redwater", "name": "Redwater", "type": "town", "glyph": "R", "adjacent": ["zone_route9_south", "zone_cedar_flats", "zone_dry_creek"], "wealth": 3, "policePresence": 2, "businessSlots": 3, "initialHeat": 0, "initialControl": { "faction_iron_saints": 70 } },
+  { "id": "zone_route9_south", "name": "Ruta 9 Sur", "type": "road", "glyph": "=", "adjacent": ["zone_redwater", "zone_crossing", "zone_gravel_pit"], "wealth": 1, "policePresence": 1, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_iron_saints": 20 } },
+  { "id": "zone_crossing", "name": "El Cruce", "type": "road", "glyph": "+", "adjacent": ["zone_route9_south", "zone_route9_north", "zone_ash_valley_center", "zone_hollister_junction"], "wealth": 2, "policePresence": 1, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_iron_saints": 10, "faction_grim_wolves": 10 } },
+  { "id": "zone_route9_north", "name": "Ruta 9 Norte", "type": "road", "glyph": "=", "adjacent": ["zone_crossing", "zone_millbrook", "zone_pine_hollow"], "wealth": 1, "policePresence": 1, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_grim_wolves": 20 } },
+  { "id": "zone_millbrook", "name": "Millbrook", "type": "town", "glyph": "M", "adjacent": ["zone_route9_north", "zone_copper_ridge", "zone_rail_yard"], "wealth": 3, "policePresence": 2, "businessSlots": 3, "initialHeat": 0, "initialControl": { "faction_grim_wolves": 70 } },
+  { "id": "zone_ash_valley_center", "name": "Ash Valley Centro", "type": "town", "glyph": "A", "adjacent": ["zone_crossing", "zone_old_mill", "zone_bayside", "zone_lone_pine"], "wealth": 4, "policePresence": 4, "businessSlots": 3, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_hollister_junction", "name": "Hollister Junction", "type": "road", "glyph": "=", "adjacent": ["zone_crossing", "zone_rail_yard", "zone_lone_pine"], "wealth": 1, "policePresence": 1, "businessSlots": 1, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_port_calloway", "name": "Port Calloway", "type": "port", "glyph": "P", "adjacent": ["zone_bayside", "zone_saltmarsh", "zone_old_mill"], "wealth": 4, "policePresence": 3, "businessSlots": 2, "initialHeat": 0, "initialControl": { "faction_cartel_valdes": 40 } },
+  { "id": "zone_bayside", "name": "Bayside", "type": "town", "glyph": "B", "adjacent": ["zone_ash_valley_center", "zone_port_calloway", "zone_saltmarsh"], "wealth": 3, "policePresence": 2, "businessSlots": 3, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_saltmarsh", "name": "Saltmarsh", "type": "rural", "glyph": "~", "adjacent": ["zone_bayside", "zone_port_calloway", "zone_dry_creek"], "wealth": 1, "policePresence": 0, "businessSlots": 1, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_dry_creek", "name": "Dry Creek", "type": "rural", "glyph": "\"", "adjacent": ["zone_redwater", "zone_saltmarsh", "zone_cedar_flats"], "wealth": 1, "policePresence": 0, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_iron_saints": 30 } },
+  { "id": "zone_cedar_flats", "name": "Cedar Flats", "type": "rural", "glyph": "\"", "adjacent": ["zone_redwater", "zone_dry_creek", "zone_gravel_pit"], "wealth": 1, "policePresence": 0, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_iron_saints": 25 } },
+  { "id": "zone_gravel_pit", "name": "La Cantera", "type": "industrial", "glyph": "#", "adjacent": ["zone_route9_south", "zone_cedar_flats", "zone_old_mill"], "wealth": 2, "policePresence": 1, "businessSlots": 2, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_old_mill", "name": "El Viejo Molino", "type": "industrial", "glyph": "#", "adjacent": ["zone_gravel_pit", "zone_ash_valley_center", "zone_port_calloway"], "wealth": 2, "policePresence": 1, "businessSlots": 2, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_pine_hollow", "name": "Pine Hollow", "type": "rural", "glyph": "\"", "adjacent": ["zone_route9_north", "zone_copper_ridge", "zone_lone_pine"], "wealth": 1, "policePresence": 0, "businessSlots": 1, "initialHeat": 0, "initialControl": {} },
+  { "id": "zone_copper_ridge", "name": "Copper Ridge", "type": "rural", "glyph": "^", "adjacent": ["zone_millbrook", "zone_pine_hollow"], "wealth": 1, "policePresence": 0, "businessSlots": 1, "initialHeat": 0, "initialControl": { "faction_grim_wolves": 30 } },
+  { "id": "zone_rail_yard", "name": "Playa Ferroviaria", "type": "industrial", "glyph": "#", "adjacent": ["zone_millbrook", "zone_hollister_junction"], "wealth": 2, "policePresence": 1, "businessSlots": 2, "initialHeat": 0, "initialControl": { "faction_grim_wolves": 25 } },
+  { "id": "zone_lone_pine", "name": "Lone Pine", "type": "town", "glyph": "L", "adjacent": ["zone_ash_valley_center", "zone_hollister_junction", "zone_pine_hollow"], "wealth": 2, "policePresence": 2, "businessSlots": 3, "initialHeat": 0, "initialControl": {} }
 ]

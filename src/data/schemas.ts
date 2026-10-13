@@ -15,6 +15,7 @@ import {
 } from "../sim/state";
 
 const Int = z.number().int();
+const Probability = z.number().min(0).max(1);
 const Range = z
   .object({ min: z.number().finite(), max: z.number().finite() })
   .refine((r) => r.min <= r.max, "min must be <= max");
@@ -69,9 +70,46 @@ export const BalanceSchema = z.object({
   victory: z.object({
     zonesToControl: Int,
     weeksHeld: Int,
+    /** Faction whose total expulsion from the county is also a victory (GDD §14). */
+    rivalToExpel: IdSchema,
   }),
   defeat: z.object({
     minActiveMembers: Int,
+  }),
+  initiative: z.object({
+    /** Initiative = task stat + rng.int(0, randomMax). */
+    randomMax: Int.nonnegative(),
+  }),
+  arrest: z.object({
+    base: Probability,
+    perHeat: z.number(),
+    perPolicePresence: z.number(),
+    perCunning: z.number(),
+    patrolBonus: z.number(),
+    minChance: Probability,
+    maxChance: Probability,
+    jailWeeksMin: Int.positive(),
+    jailWeeksMax: Int.positive(),
+  }),
+  tasks: z.object({
+    guard: z.object({ baseGain: Int, strengthDivisor: Int.positive() }),
+    intimidate: z.object({ baseGain: Int, strengthDivisor: Int.positive() }),
+    protection: z.object({ rate: z.number(), charmBase: z.number(), perCharm: z.number() }),
+    stealBikes: z.object({ goodId: IdSchema, min: Int.nonnegative(), max: Int.nonnegative() }),
+    bribe: z.object({ cost: z.number().nonnegative(), heatReduction: z.number(), sheriffRelationGain: z.number() }),
+    recruit: z.object({
+      baseChance: Probability,
+      perCharm: z.number(),
+      statMin: Int,
+      statMax: Int,
+      startingLoyalty: z.number(),
+    }),
+  }),
+  /** Weekly wage per rank (GDD §8). */
+  wages: z.record(RankSchema, z.number().nonnegative()),
+  loyalty: z.object({
+    /** Loyalty lost by a member who wasn't paid this week (GDD §8). */
+    unpaidPenalty: z.number().nonnegative(),
   }),
 });
 export type Balance = z.infer<typeof BalanceSchema>;
@@ -131,6 +169,10 @@ export const TaskDefSchema = z.object({
   stat: StatKeySchema.nullable(),
   /** Heat added to the zone when performed (GDD §7). Negative lowers heat. */
   heat: z.number().finite(),
+  /** Illegal tasks carry an arrest chance (GDD §7). */
+  illegal: z.boolean(),
+  /** Disabled tasks exist in the GDD but aren't implemented yet; orders for them are rejected. */
+  enabled: z.boolean(),
 });
 export type TaskDef = z.infer<typeof TaskDefSchema>;
 
@@ -160,6 +202,16 @@ export const EventDefSchema = z.object({
 });
 export type EventDef = z.infer<typeof EventDefSchema>;
 
+// ---------- names.json ----------
+// Name pools for generated recruits.
+
+export const NamesSchema = z.object({
+  first: z.array(z.string().min(1)).min(1),
+  last: z.array(z.string().min(1)).min(1),
+  nicknames: z.array(z.string().min(1)).min(1),
+});
+export type Names = z.infer<typeof NamesSchema>;
+
 // ---------- strings.es.json ----------
 
 export const StringsSchema = z.record(z.string().min(1), z.string());
@@ -176,6 +228,7 @@ export const GameDataSchema = z.object({
   goods: z.array(GoodDefSchema),
   businesses: z.array(BusinessDefSchema),
   events: z.array(EventDefSchema),
+  names: NamesSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

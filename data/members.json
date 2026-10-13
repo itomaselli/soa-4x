@@ -6,7 +6,12 @@
     "factionId": "faction_iron_saints",
     "rank": "president",
     "trait": "traditionalist",
-    "stats": { "strength": 6, "cunning": 6, "hands": 4, "charm": 7 },
+    "stats": {
+      "strength": 6,
+      "cunning": 6,
+      "hands": 4,
+      "charm": 7
+    },
     "loyalty": 100,
     "glyph": "@"
   },
@@ -17,7 +22,12 @@
     "factionId": "faction_iron_saints",
     "rank": "vice_president",
     "trait": "ambitious",
-    "stats": { "strength": 7, "cunning": 5, "hands": 3, "charm": 6 },
+    "stats": {
+      "strength": 7,
+      "cunning": 5,
+      "hands": 3,
+      "charm": 6
+    },
     "loyalty": 60,
     "glyph": "V"
   },
@@ -28,7 +38,12 @@
     "factionId": "faction_iron_saints",
     "rank": "member",
     "trait": "loyal",
-    "stats": { "strength": 4, "cunning": 5, "hands": 8, "charm": 3 },
+    "stats": {
+      "strength": 4,
+      "cunning": 5,
+      "hands": 8,
+      "charm": 3
+    },
     "loyalty": 75,
     "glyph": "m"
   },
@@ -39,8 +54,77 @@
     "factionId": "faction_iron_saints",
     "rank": "prospect",
     "trait": "greedy",
-    "stats": { "strength": 3, "cunning": 4, "hands": 3, "charm": 2 },
+    "stats": {
+      "strength": 3,
+      "cunning": 4,
+      "hands": 3,
+      "charm": 2
+    },
     "loyalty": 50,
+    "glyph": "p"
+  },
+  {
+    "id": "member_ray_dawson",
+    "name": "Ray Dawson",
+    "nickname": "Hammer",
+    "factionId": "faction_iron_saints",
+    "rank": "sergeant_at_arms",
+    "trait": "violent",
+    "stats": {
+      "strength": 8,
+      "cunning": 4,
+      "hands": 4,
+      "charm": 3
+    },
+    "loyalty": 70,
+    "glyph": "S"
+  },
+  {
+    "id": "member_walt_mercer",
+    "name": "Walt Mercer",
+    "nickname": "Ledger",
+    "factionId": "faction_iron_saints",
+    "rank": "treasurer",
+    "trait": "cautious",
+    "stats": {
+      "strength": 3,
+      "cunning": 7,
+      "hands": 4,
+      "charm": 6
+    },
+    "loyalty": 65,
+    "glyph": "T"
+  },
+  {
+    "id": "member_bo_tanner",
+    "name": "Bo Tanner",
+    "nickname": "Smoke",
+    "factionId": "faction_iron_saints",
+    "rank": "member",
+    "trait": "greedy",
+    "stats": {
+      "strength": 5,
+      "cunning": 6,
+      "hands": 5,
+      "charm": 5
+    },
+    "loyalty": 55,
+    "glyph": "m"
+  },
+  {
+    "id": "member_eli_vance",
+    "name": "Eli Vance",
+    "nickname": "Rookie",
+    "factionId": "faction_iron_saints",
+    "rank": "prospect",
+    "trait": "loyal",
+    "stats": {
+      "strength": 4,
+      "cunning": 3,
+      "hands": 5,
+      "charm": 3
+    },
+    "loyalty": 60,
     "glyph": "p"
   }
 ]

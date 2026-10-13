@@ -134,6 +134,23 @@ export function validateGameData(data: GameData): string[] {
     if (!inRange(member.loyalty, ranges.loyalty)) errors.push(`${where}: loyalty ${member.loyalty} fuera de rango`);
   }
 
+  // Balance references
+  if (!factionIds.has(data.balance.victory.rivalToExpel)) {
+    errors.push(`balance.json: victory.rivalToExpel apunta a una facción desconocida "${data.balance.victory.rivalToExpel}"`);
+  }
+  if (!data.factions.some((f) => f.kind === "sheriff")) errors.push("factions.json: falta una facción de tipo sheriff");
+  const { arrest, tasks } = data.balance;
+  if (arrest.minChance > arrest.maxChance) errors.push("balance.json: arrest.minChance > arrest.maxChance");
+  if (arrest.jailWeeksMin > arrest.jailWeeksMax) errors.push("balance.json: arrest.jailWeeksMin > arrest.jailWeeksMax");
+  if (!data.goods.some((g) => g.id === tasks.stealBikes.goodId)) {
+    errors.push(`balance.json: tasks.stealBikes.goodId apunta a un bien desconocido "${tasks.stealBikes.goodId}"`);
+  }
+  if (tasks.stealBikes.min > tasks.stealBikes.max) errors.push("balance.json: tasks.stealBikes.min > max");
+  if (!inRange(tasks.recruit.statMin, ranges.stat) || !inRange(tasks.recruit.statMax, ranges.stat) || tasks.recruit.statMin > tasks.recruit.statMax) {
+    errors.push("balance.json: tasks.recruit.statMin/statMax fuera del rango de stats");
+  }
+  if (!inRange(tasks.recruit.startingLoyalty, ranges.loyalty)) errors.push("balance.json: tasks.recruit.startingLoyalty fuera de rango");
+
   // Strings
   for (const key of requiredStringKeys(data)) {
     if (!(key in data.strings)) errors.push(`strings.es.json: falta el texto "${key}"`);

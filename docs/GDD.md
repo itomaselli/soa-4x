@@ -42,6 +42,12 @@ Estética: sprites low-res tipo *Moonring* / *Caves of Qud*. Sin sonido.
 
 El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este documento.
 
+**Detalles del turno:**
+- **Iniciativa:** las tareas de todas las facciones se resuelven juntas, ordenadas por iniciativa = stat de la tarea + azar de 0 a 5. Gana el número más alto; los empates se rompen por id del miembro. El orden en que se cargan las órdenes no influye.
+- **Órdenes inválidas** (miembro no activo, dos tareas al mismo miembro, tarea no disponible o zona fuera de alcance) se descartan y el informe explica por qué.
+- **Heridas y cárcel** se descuentan en el fin de turno. "N semanas" incluye la semana en que empezó: preso 3 semanas en la semana 1 → vuelve a trabajar en la semana 4.
+- **Transporte:** mover stock entre negocios. Llega con las cadenas de producción (Fase 5).
+
 ## 5. Mapa
 
 - **18 zonas** conectadas como **grafo de adyacencia**. Se dibuja con tiles, pero la lógica no usa grilla.
@@ -55,6 +61,10 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 | `presenciaPolicial` | 0–5 | Base de riesgo de arresto. |
 | `calor` | 0–100 | Atención policial acumulada por actividad ilegal. |
 | `slotsNegocio` | 0–3 | Cuántos negocios se pueden construir. |
+
+- **La suma del control de todas las facciones en una zona nunca supera 100.** Custodiar solo ocupa el espacio libre; para sacarle control a otro hay que intimidar.
+- **Alcance:** una facción puede actuar en las zonas donde tiene control y en sus vecinas.
+- La `riqueza` de una zona es fija durante la partida (por ahora).
 
 Zonas iniciales sugeridas: Redwater (tu sede), Millbrook (sede de los Grim Wolves), Port Calloway (puerto, con presencia del cartel), Ruta 9 norte y sur, el Cruce, Ash Valley Centro (sede del sheriff), entre otras.
 
@@ -93,9 +103,24 @@ Por debajo de 20, un miembro puede **desertar** o **volverse informante** (ver �
 | Atacar negocio rival | Fuerza | combate (ver §11) | +15 |
 | Sobornar | Labia | −calor en zona, +relación con sheriff | 0 (cuesta plata) |
 | Reclutar | Labia | chance de sumar un prospecto | 0 |
-| Bajo perfil | — | −calor de la zona, +recupera estrés | −5 |
+| Bajo perfil | — | −calor de la zona | −5 |
 
 Toda tarea ilegal tiene una **chance de arresto** = f(calor de la zona, presencia policial, Astucia del miembro).
+Son ilegales: cobrar protección, intimidar, robar motos, corrida de armas y atacar negocio rival.
+
+### Reglas detalladas (Fase 1)
+
+Todos los números viven en `data/balance.json`.
+
+- **Chance de arresto** = 2% + calor × 0,3% + presencia policial × 2% − Astucia × 1%, +5% si hay patrullas (calor ≥ 30). Mínimo 1%, máximo 60%. El arrestado queda preso 2 a 4 semanas; su tarea no rinde, pero el calor se suma igual.
+- **Prospectos:** −2 a todos los stats (nunca menos de 1).
+- **Custodiar:** +(1 + Fuerza/3) de control, solo en espacio libre.
+- **Cobrar protección:** riqueza × control × (0,5 + Labia × 0,1), en plata sucia. Se cobra una sola vez por zona y por semana.
+- **Intimidar:** el rival con más control en la zona pierde (2 + Fuerza/2) y nosotros ganamos lo mismo, limitado al espacio libre.
+- **Robar motos:** +1 a 3 motos robadas al stock.
+- **Sobornar:** cuesta $150 sucios, −15 de calor en la zona y +5 de relación con el sheriff.
+- **Reclutar:** chance = 10% + Labia × 3%. El recluta entra como prospecto, con stats al azar entre 2 y 6, rasgo al azar y lealtad 50. No se recluta si el club llegó al tope.
+- **Disponibles en la Fase 1:** custodiar, cobrar, intimidar, robar motos, sobornar, reclutar y bajo perfil. Trabajar en taller y corrida de armas llegan con la Fase 5; atacar negocio rival, con el combate.
 
 ## 8. Economía
 
@@ -103,7 +128,9 @@ Toda tarea ilegal tiene una **chance de arresto** = f(calor de la zona, presenci
 - La plata limpia paga construcciones, sueldos visibles y la sede. La sucia paga sobornos, armas y el mercado negro.
 - **Lavado:** cada negocio legal tiene una capacidad semanal de lavado. Lavar por encima del 70% de esa capacidad suma calor federal.
 - **Gastos semanales:** parte para los miembros (por rango), mantenimiento de negocios, sobornos activos.
-- Si no pagás a los miembros, la lealtad cae fuerte.
+- Si no pagás a los miembros, la lealtad cae fuerte (−10 por semana sin cobrar).
+- **Sueldos semanales por rango:** prospecto $10, miembro $30, sargento de armas $50, tesorero $50, vicepresidente $60, presidente $0. Se pagan en mano: **primero con plata sucia y, si no alcanza, con limpia.** Cada miembro cobra completo o no cobra. También cobran los presos y los heridos.
+- **Plata inicial de los clubes:** $2000 limpios y $500 sucios.
 
 ### Negocios (MVP)
 
@@ -173,7 +200,7 @@ Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opcio
 
 ## 14. Victoria y derrota
 
-- **Victoria:** controlar 12 de las 18 zonas durante 4 semanas seguidas, **o** expulsar a los Grim Wolves del condado.
+- **Victoria:** controlar 12 de las 18 zonas durante 4 semanas seguidas, **o** expulsar a los Grim Wolves del condado (que no les quede control en ninguna zona).
 - **Derrota:** destitución en la mesa, investigación federal al 100%, o quedarte con menos de 3 miembros activos.
 
 ## 15. Interfaz y arte
@@ -202,7 +229,30 @@ Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja,
 | 6 | Arte, pulido de interfaz, guardar y cargar, balance | Prototipo "terminado" |
 | 7 (opcional) | Empaquetado con Tauri a .exe | Juego de PC |
 
-## 18. Preguntas abiertas
+## 18. Decisiones de la Fase 1
+
+Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del dueño. Los números son iniciales y se ajustan con el simulador.
+
+| Pregunta | Decisión |
+|---|---|
+| ¿Plata inicial? | $2000 limpios y $500 sucios por club. |
+| ¿Relaciones iniciales? | Todas neutrales (0). |
+| ¿Sueldos por rango? | Prospecto 10, miembro 30, sargento y tesorero 50, VP 60, presidente 0. |
+| ¿Con qué plata se pagan los sueldos? | Primero con sucia y después con limpia. Sin lavado (Fase 5), la limpia no tendría de dónde salir. |
+| ¿Cuánto control dan custodiar e intimidar? | 1 + Fuerza/3 y 2 + Fuerza/2, respectivamente. Ver §7. |
+| ¿Puede el control total de una zona pasar de 100? | No. La suma de todas las facciones es como máximo 100. |
+| ¿Dónde puede actuar un miembro? | En zonas con control propio y en sus vecinas. |
+| ¿Fórmula de arresto? | Ver §7. Cárcel de 2 a 4 semanas. |
+| ¿Qué tareas son ilegales? | Cobrar, intimidar, robar motos, corrida de armas y atacar negocio. Sobornar no lo es: cuesta plata, pero no tiene riesgo. |
+| ¿Qué es "por iniciativa"? | Stat de la tarea + azar de 0 a 5, sin importar la facción. |
+| ¿Qué pasa en "transporte"? | Mover stock entre negocios (Fase 5). Hasta entonces no hace nada. |
+| ¿Qué es el "estrés" de Bajo perfil? | Se saca del MVP: no existe esa stat. |
+| ¿La riqueza de una zona cambia? | No, es fija por ahora. |
+| ¿Cuándo se descuentan las semanas de cárcel o heridas? | En el fin de turno, contando la semana en que empezó. |
+| ¿Qué significa "expulsar a los Grim Wolves"? | Que no les quede control en ninguna zona. |
+| ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
+
+## 19. Preguntas abiertas
 
 - Arte: ¿ASCII definitivo, tileset CC0 o arte propio?
 - ¿Nombre final del juego y del club?

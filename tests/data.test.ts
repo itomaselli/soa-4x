@@ -26,10 +26,15 @@ describe("carga de datos", () => {
     expect(() => loadGameData()).not.toThrow();
   });
 
-  it("los datos de ejemplo tienen 3 zonas y 4 miembros", () => {
+  it("el mapa tiene las 18 zonas del GDD §5", () => {
+    expect(loadGameData().zones).toHaveLength(18);
+  });
+
+  it("el club arranca con 6 miembros y 2 prospectos (GDD §6)", () => {
     const data = loadGameData();
-    expect(data.zones).toHaveLength(3);
-    expect(data.members).toHaveLength(4);
+    const saints = data.members.filter((m) => m.factionId === "faction_iron_saints");
+    expect(saints.filter((m) => m.rank !== "prospect")).toHaveLength(data.balance.club.startingMembers);
+    expect(saints.filter((m) => m.rank === "prospect")).toHaveLength(data.balance.club.startingProspects);
   });
 
   it("las 10 tareas del GDD §7 están definidas", () => {
@@ -69,8 +74,8 @@ describe("validación de datos: errores que se detectan", () => {
 
   it("exige que la adyacencia sea simétrica", () => {
     const raw = rawCopy();
-    const millbrook = arr(raw, "zones").find((z) => z.id === "zone_millbrook") as Obj;
-    millbrook.adjacent = [];
+    const copper = arr(raw, "zones").find((z) => z.id === "zone_copper_ridge") as Obj;
+    copper.adjacent = ["zone_pine_hollow"];
     expect(problemsOf(raw)).toContainEqual(expect.stringContaining("no es simétrica"));
   });
 

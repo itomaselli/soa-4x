@@ -110,6 +110,16 @@ export const BusinessStateSchema = z.object({
 });
 export type BusinessState = z.infer<typeof BusinessStateSchema>;
 
+export const OUTCOME_RESULTS = ["victory", "defeat"] as const;
+
+export const OutcomeSchema = z.object({
+  result: z.enum(OUTCOME_RESULTS),
+  /** strings.es.json key explaining why, e.g. "outcome.defeat.too_few_members". */
+  reasonKey: z.string(),
+  week: z.number().int(),
+});
+export type Outcome = z.infer<typeof OutcomeSchema>;
+
 export const SAVE_SCHEMA_VERSION = 1;
 
 export const GameStateSchema = z.object({
@@ -125,5 +135,9 @@ export const GameStateSchema = z.object({
   businesses: z.array(BusinessStateSchema),
   /** Global federal investigation, 0–100 (GDD §10). */
   federalInvestigation: FiniteNumber,
+  /** Consecutive weeks each faction has owned at least `victory.zonesToControl` zones (GDD §14). */
+  controlStreaks: z.record(IdSchema, NonNegativeInt),
+  /** null while the game is running. */
+  outcome: OutcomeSchema.nullable(),
 });
 export type GameState = z.infer<typeof GameStateSchema>;

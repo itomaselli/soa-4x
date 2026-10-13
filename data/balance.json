@@ -1,17 +1,52 @@
 {
   "ranges": {
-    "stat": { "min": 1, "max": 10 },
-    "loyalty": { "min": 0, "max": 100 },
-    "control": { "min": 0, "max": 100 },
-    "heat": { "min": 0, "max": 100 },
-    "wealth": { "min": 1, "max": 5 },
-    "policePresence": { "min": 0, "max": 5 },
-    "businessSlots": { "min": 0, "max": 3 },
-    "relation": { "min": -100, "max": 100 },
-    "federalInvestigation": { "min": 0, "max": 100 }
+    "stat": {
+      "min": 1,
+      "max": 10
+    },
+    "loyalty": {
+      "min": 0,
+      "max": 100
+    },
+    "control": {
+      "min": 0,
+      "max": 100
+    },
+    "heat": {
+      "min": 0,
+      "max": 100
+    },
+    "wealth": {
+      "min": 1,
+      "max": 5
+    },
+    "policePresence": {
+      "min": 0,
+      "max": 5
+    },
+    "businessSlots": {
+      "min": 0,
+      "max": 3
+    },
+    "relation": {
+      "min": -100,
+      "max": 100
+    },
+    "federalInvestigation": {
+      "min": 0,
+      "max": 100
+    }
   },
-  "control": { "ownerMinimum": 50, "ownerLeadMargin": 20 },
-  "heat": { "weeklyDecay": 5, "patrolThreshold": 30, "raidThreshold": 60, "crackdownThreshold": 85 },
+  "control": {
+    "ownerMinimum": 50,
+    "ownerLeadMargin": 20
+  },
+  "heat": {
+    "weeklyDecay": 5,
+    "patrolThreshold": 30,
+    "raidThreshold": 60,
+    "crackdownThreshold": 85
+  },
   "club": {
     "startingMembers": 6,
     "startingProspects": 2,
@@ -19,10 +54,82 @@
     "prospectStatPenalty": 2,
     "lowLoyaltyThreshold": 20
   },
-  "council": { "impeachmentAverageLoyalty": 35, "impeachmentWeeks": 3 },
-  "laundering": { "federalAttentionCapacityRatio": 0.7 },
-  "market": { "priceVariance": 0.2 },
-  "federal": { "visibleFrom": 50 },
-  "victory": { "zonesToControl": 12, "weeksHeld": 4 },
-  "defeat": { "minActiveMembers": 3 }
+  "council": {
+    "impeachmentAverageLoyalty": 35,
+    "impeachmentWeeks": 3
+  },
+  "laundering": {
+    "federalAttentionCapacityRatio": 0.7
+  },
+  "market": {
+    "priceVariance": 0.2
+  },
+  "federal": {
+    "visibleFrom": 50
+  },
+  "victory": {
+    "zonesToControl": 12,
+    "weeksHeld": 4,
+    "rivalToExpel": "faction_grim_wolves"
+  },
+  "defeat": {
+    "minActiveMembers": 3
+  },
+  "initiative": {
+    "randomMax": 5
+  },
+  "arrest": {
+    "base": 0.02,
+    "perHeat": 0.003,
+    "perPolicePresence": 0.02,
+    "perCunning": 0.01,
+    "patrolBonus": 0.05,
+    "minChance": 0.01,
+    "maxChance": 0.6,
+    "jailWeeksMin": 2,
+    "jailWeeksMax": 4
+  },
+  "tasks": {
+    "guard": {
+      "baseGain": 1,
+      "strengthDivisor": 3
+    },
+    "intimidate": {
+      "baseGain": 2,
+      "strengthDivisor": 2
+    },
+    "protection": {
+      "rate": 1,
+      "charmBase": 0.5,
+      "perCharm": 0.1
+    },
+    "stealBikes": {
+      "goodId": "good_stolen_bike",
+      "min": 1,
+      "max": 3
+    },
+    "bribe": {
+      "cost": 150,
+      "heatReduction": 15,
+      "sheriffRelationGain": 5
+    },
+    "recruit": {
+      "baseChance": 0.1,
+      "perCharm": 0.03,
+      "statMin": 2,
+      "statMax": 6,
+      "startingLoyalty": 50
+    }
+  },
+  "wages": {
+    "prospect": 10,
+    "member": 30,
+    "sergeant_at_arms": 50,
+    "treasurer": 50,
+    "vice_president": 60,
+    "president": 0
+  },
+  "loyalty": {
+    "unpaidPenalty": 10
+  }
 }

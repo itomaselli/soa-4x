@@ -5,7 +5,10 @@
     "kind": "club",
     "glyph": "S",
     "hqZoneId": "zone_redwater",
-    "startingMoney": { "clean": 1000, "dirty": 500 },
+    "startingMoney": {
+      "clean": 2000,
+      "dirty": 500
+    },
     "initialRelations": {}
   },
   {
@@ -14,7 +17,10 @@
     "kind": "club",
     "glyph": "W",
     "hqZoneId": "zone_millbrook",
-    "startingMoney": { "clean": 1000, "dirty": 500 },
+    "startingMoney": {
+      "clean": 2000,
+      "dirty": 500
+    },
     "initialRelations": {}
   },
   {
@@ -23,7 +29,10 @@
     "kind": "cartel",
     "glyph": "C",
     "hqZoneId": null,
-    "startingMoney": { "clean": 0, "dirty": 0 },
+    "startingMoney": {
+      "clean": 0,
+      "dirty": 0
+    },
     "initialRelations": {}
   },
   {
@@ -32,7 +41,10 @@
     "kind": "sheriff",
     "glyph": "*",
     "hqZoneId": null,
-    "startingMoney": { "clean": 0, "dirty": 0 },
+    "startingMoney": {
+      "clean": 0,
+      "dirty": 0
+    },
     "initialRelations": {}
   },
   {
@@ -41,7 +53,10 @@
     "kind": "federal",
     "glyph": "F",
     "hqZoneId": null,
-    "startingMoney": { "clean": 0, "dirty": 0 },
+    "startingMoney": {
+      "clean": 0,
+      "dirty": 0
+    },
     "initialRelations": {}
   }
 ]

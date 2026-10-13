@@ -61,5 +61,7 @@ export function createInitialState(data: GameData, options: NewGameOptions): Gam
     members,
     businesses: [],
     federalInvestigation: data.balance.ranges.federalInvestigation.min,
+    controlStreaks: {},
+    outcome: null,
   };
 }
