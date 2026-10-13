@@ -318,7 +318,7 @@ Ejemplos:
   - **Informe:** lo que pasó en la semana, por etapa.
 - Las órdenes de la semana anterior se conservan si siguen siendo válidas. La partida se guarda sola en el navegador al terminar cada semana.
 - **Fase 6 (hecha):**
-  - **Guardar y cargar:** «Guardar» descarga la partida como `.json` y «Cargar» la abre. Al cargar se valida el formato y que coincida con los datos actuales del juego; si no coincide, se explica por qué.
+  - **Guardar y cargar:** «Guardar» descarga la partida como `.json` y «Cargar» la abre. Al cargar, las partidas de versiones anteriores se actualizan al formato actual (por ejemplo, una partida de la v0.1.0 recibe lotes para sus negocios y los nombres y parches de los clubes). Después se valida el formato y que coincida con los datos actuales del juego; si no coincide, se explica por qué.
   - **Mapa:** los negocios se dibujan en el borde superior de cada zona con el color del dueño, las zonas con tareas planeadas se resaltan, al pasar el mouse se ve un resumen y hay una leyenda debajo.
   - **Partida:** ayuda «Cómo se juega» (botón «?»), pantalla de fin de partida y Enter para avanzar la semana.
   - **Arte:** ASCII con color por tipo de zona (pueblo, ruta, puerto, rural, industrial). Los colores están en `data/ui.json`.

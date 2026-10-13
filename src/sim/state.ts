@@ -168,7 +168,8 @@ export const OutcomeSchema = z.object({
 });
 export type Outcome = z.infer<typeof OutcomeSchema>;
 
-export const SAVE_SCHEMA_VERSION = 1;
+/** Bump it with a migration in src/sim/save.ts (SAVE_MIGRATIONS) whenever the shape of GameState changes. */
+export const SAVE_SCHEMA_VERSION = 2;
 
 export const GameStateSchema = z.object({
   schemaVersion: z.literal(SAVE_SCHEMA_VERSION),
