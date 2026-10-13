@@ -26,7 +26,10 @@ function playRandom(seed: number, weeks: number) {
   return { state, reports, violations };
 }
 
-describe("propiedades: partidas al azar contra la IA", () => {
+/** These tests play many full games: on slower machines (GitHub's Windows runners) they take more than Vitest's default 5 s. */
+const LONG_SIMULATION_TIMEOUT_MS = 60_000;
+
+describe("propiedades: partidas al azar contra la IA", { timeout: LONG_SIMULATION_TIMEOUT_MS }, () => {
   it(`en ${SEEDS} partidas de ${WEEKS} semanas con órdenes al azar nunca se rompen las invariantes (plata no NaN, control ≤ 100, etc.)`, () => {
     for (let seed = 1; seed <= SEEDS; seed++) {
       expect(playRandom(seed, WEEKS).violations).toEqual([]);
