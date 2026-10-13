@@ -117,6 +117,9 @@ export function validateGameData(data: GameData): string[] {
     if (faction.hqZoneId !== null && !zoneIds.has(faction.hqZoneId)) {
       errors.push(`${where}: sede en zona desconocida "${faction.hqZoneId}"`);
     }
+    if (faction.aiProfile !== null && !(faction.aiProfile in data.ai.profiles)) {
+      errors.push(`${where}: perfil de IA desconocido "${faction.aiProfile}"`);
+    }
     for (const [otherId, value] of Object.entries(faction.initialRelations)) {
       if (otherId === faction.id) errors.push(`${where}: no puede tener relación consigo misma`);
       else if (!factionIds.has(otherId)) errors.push(`${where}: relación con facción desconocida "${otherId}"`);

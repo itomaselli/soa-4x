@@ -95,6 +95,12 @@ export function formatStatus(state: GameState, data: GameData, viewer: string): 
       weeks: data.balance.victory.weeksHeld,
       streak: state.controlStreaks[viewer] ?? 0,
     }),
+    t(s, "play.relations", {
+      items: data.factions
+        .filter((f) => f.id !== viewer && f.kind === "club")
+        .map((f) => t(s, "play.relation_item", { faction: f.name, value: state.factions[f.id]?.relations[viewer] ?? 0 }))
+        .join(" · "),
+    }),
     stockItems.length > 0
       ? t(s, "play.stock", { items: stockItems.map(([id, n]) => `${t(s, `good.${id}`)} ×${n}`).join(", ") })
       : t(s, "play.stock_empty"),

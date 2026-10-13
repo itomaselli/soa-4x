@@ -53,6 +53,15 @@ export function checkOutcome(state: GameState, ctx: TurnContext): Outcome | null
   if (activeMembers(state, player).length < balance.defeat.minActiveMembers) {
     return { result: "defeat", reasonKey: "outcome.defeat.too_few_members", week };
   }
+  if (Object.values(state.zones).every((z) => controlOf(z, player) <= balance.ranges.control.min)) {
+    return { result: "defeat", reasonKey: "outcome.defeat.expelled", week };
+  }
+  const rivalWinner = Object.entries(state.controlStreaks).find(
+    ([factionId, streak]) => factionId !== player && streak >= balance.victory.weeksHeld,
+  );
+  if (rivalWinner) {
+    return { result: "defeat", reasonKey: "outcome.defeat.rival_territory", week };
+  }
   if ((state.controlStreaks[player] ?? 0) >= balance.victory.weeksHeld) {
     return { result: "victory", reasonKey: "outcome.victory.territory", week };
   }

@@ -1,6 +1,6 @@
 // Faction tasks (GDD §7): one task per active member, resolved by initiative across all factions.
 
-import type { TaskDef } from "../../data/schemas";
+import type { Balance, TaskDef } from "../../data/schemas";
 import { factionName, zoneName, type TurnContext } from "../context";
 import type { Assignment } from "../orders";
 import { STAT_KEYS, TRAITS, type GameState, type MemberState, type Stats, type ZoneState } from "../state";
@@ -86,8 +86,7 @@ function applyTaskHeat(run: TaskRun): void {
 
 const guardZone: TaskHandler = ({ ctx, member, zone, params }) => {
   const { balance } = ctx.data;
-  const rule = balance.tasks.guard;
-  const amount = rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+  const amount = guardAmount(member, balance);
   const gained = gainControl(zone, member.factionId, amount, balance);
   ctx.report(
     gained > 0 ? "report.task.guard" : "report.task.guard_no_space",
@@ -105,9 +104,7 @@ const collectProtection: TaskHandler = ({ state, ctx, member, zone, params }) =>
   }
   const zoneDef = ctx.data.zones.find((z) => z.id === zone.id);
   const control = controlOf(zone, member.factionId);
-  const rule = balance.tasks.protection;
-  const charmMultiplier = rule.charmBase + effectiveStat(member, "charm", balance) * rule.perCharm;
-  const income = Math.floor((zoneDef?.wealth ?? 0) * control * rule.rate * charmMultiplier);
+  const income = protectionIncome(member, zoneDef?.wealth ?? 0, control, balance);
   if (income <= 0) {
     ctx.report("report.task.protection_nothing", params, member.factionId);
     return;
@@ -122,18 +119,49 @@ const collectProtection: TaskHandler = ({ state, ctx, member, zone, params }) =>
   );
 };
 
-const intimidate: TaskHandler = ({ ctx, member, zone, params }) => {
-  const { balance } = ctx.data;
+/** Control an intimidation moves: 2 + Strength/2 (GDD §7). Exported so the AI estimates with the same rule. */
+export function intimidateAmount(member: MemberState, balance: Balance): number {
   const rule = balance.tasks.intimidate;
-  const amount = rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+  return rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+}
+
+/** Control a guard adds: 1 + Strength/3 (GDD §7). */
+export function guardAmount(member: MemberState, balance: Balance): number {
+  const rule = balance.tasks.guard;
+  return rule.baseGain + Math.floor(effectiveStat(member, "strength", balance) / rule.strengthDivisor);
+}
+
+/** Expected protection income before the arrest roll: wealth × control × rate × (charmBase + charm × perCharm). */
+export function protectionIncome(member: MemberState, wealth: number, control: number, balance: Balance): number {
+  const rule = balance.tasks.protection;
+  const charmMultiplier = rule.charmBase + effectiveStat(member, "charm", balance) * rule.perCharm;
+  return Math.floor(wealth * control * rule.rate * charmMultiplier);
+}
+
+const intimidate: TaskHandler = ({ state, ctx, member, zone, params }) => {
+  const { balance } = ctx.data;
+  const amount = intimidateAmount(member, balance);
   const rival = strongestRival(zone, member.factionId);
   const taken = rival ? loseControl(zone, rival, amount, balance) : 0;
   const gained = gainControl(zone, member.factionId, amount, balance);
   if (rival && taken > 0) {
+    // The victim remembers: its relation towards the aggressor drops (GDD §12).
+    const victim = state.factions[rival];
+    if (victim) {
+      victim.relations[member.factionId] = clamp(
+        (victim.relations[member.factionId] ?? 0) - balance.relations.intimidatedPenalty,
+        balance.ranges.relation,
+      );
+    }
     ctx.report(
       "report.task.intimidate",
       { ...params, gained, taken, rival: factionName(ctx.data, rival), control: controlOf(zone, member.factionId) },
       member.factionId,
+    );
+    ctx.report(
+      "report.task.intimidated_by",
+      { zone: params.zone ?? zone.id, taken, aggressor: factionName(ctx.data, member.factionId), control: controlOf(zone, rival) },
+      rival,
     );
   } else {
     ctx.report(

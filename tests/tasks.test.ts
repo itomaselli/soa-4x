@@ -111,6 +111,18 @@ describe("intimidar (GDD §7)", () => {
     const { state: next } = runTasks(newState(), [{ memberId: SERGEANT, taskId: "task_intimidate", zoneId: "zone_crossing" }]);
     expect(zone(next, "zone_crossing").heat).toBe(5);
   });
+
+  it("la facción intimidada empeora su relación con el agresor y se entera en el informe", () => {
+    const { state: next, report } = runTasks(newState(), [{ memberId: SERGEANT, taskId: "task_intimidate", zoneId: "zone_crossing" }]);
+    expect(next.factions[WOLVES]?.relations[PLAYER]).toBe(-baseData.balance.relations.intimidatedPenalty);
+    const notice = report.find((e) => e.key === "report.task.intimidated_by");
+    expect(notice?.factionId).toBe(WOLVES);
+  });
+
+  it("intimidar donde no hay rival no cambia ninguna relación", () => {
+    const { state: next } = runTasks(newState(), [{ memberId: SERGEANT, taskId: "task_intimidate", zoneId: "zone_gravel_pit" }]);
+    expect(next.factions[WOLVES]?.relations[PLAYER]).toBeUndefined();
+  });
 });
 
 describe("robar motos (GDD §7)", () => {

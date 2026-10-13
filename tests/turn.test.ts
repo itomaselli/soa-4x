@@ -96,7 +96,9 @@ describe("gastos: sueldos (GDD §8)", () => {
     const state = newState();
     money(state).dirty = 100;
     money(state).clean = 1000;
-    const totalWages = Object.values(state.members).reduce((s, m) => s + baseData.balance.wages[m.rank], 0);
+    const totalWages = Object.values(state.members)
+      .filter((m) => m.factionId === PLAYER)
+      .reduce((s, m) => s + baseData.balance.wages[m.rank], 0);
     const next = resolveTurn(state, empty, baseData).state;
     expect(money(next).dirty).toBe(0);
     expect(money(next).clean).toBe(1000 - (totalWages - 100));
@@ -205,6 +207,20 @@ describe("victoria y derrota (GDD §14)", () => {
     benchAllExcept(state, [PRESIDENT, VP]);
     const next = resolveTurn(state, empty, baseData).state;
     expect(next.outcome).toMatchObject({ result: "defeat", reasonKey: "outcome.defeat.too_few_members" });
+  });
+
+  it("perder el control de todas las zonas es derrota", () => {
+    const state = newState();
+    for (const z of Object.values(state.zones)) delete z.control[PLAYER];
+    const next = resolveTurn(state, empty, baseData).state;
+    expect(next.outcome).toMatchObject({ result: "defeat", reasonKey: "outcome.defeat.expelled" });
+  });
+
+  it("si un club rival domina 12 zonas durante 4 semanas, perdés", () => {
+    let state = newState();
+    for (const z of Object.values(state.zones).slice(5, 17)) z.control = { [WOLVES]: 80 };
+    for (let i = 0; i < 4; i++) state = resolveTurn(state, empty, baseData).state;
+    expect(state.outcome).toMatchObject({ result: "defeat", reasonKey: "outcome.defeat.rival_territory" });
   });
 
   it("la investigación federal al 100% es derrota", () => {

@@ -12,6 +12,7 @@ import { availableTasks, reachableZones, type Assignment } from "../sim/orders";
 import { deserializeState, serializeState } from "../sim/save";
 import { createInitialState } from "../sim/setup";
 import type { GameState } from "../sim/state";
+import { allAiOrders } from "../sim/systems/ai";
 import { resolveTurn } from "../sim/turn";
 import { t } from "../ui/strings";
 import { formatReport, formatStatus, sortedMembers } from "./text";
@@ -119,7 +120,8 @@ async function main(): Promise<void> {
     const assignments = await collectOrders(state, data, asker);
     if (assignments === null) break;
     const week = state.week;
-    const result = resolveTurn(state, { assignments }, data);
+    const ai = allAiOrders(state, data, state.playerFactionId);
+    const result = resolveTurn(state, { assignments: [...assignments, ...ai.assignments] }, data);
     state = result.state;
     console.log(`\n${t(s, "play.report_title", { week })}`);
     console.log(formatReport(result.report, data, state.playerFactionId).join("\n"));

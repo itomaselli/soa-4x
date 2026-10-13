@@ -189,6 +189,13 @@ Los precios tienen un mercado simple por bien: el precio base varía ±20% segú
 **Relaciones** de −100 a 100, con estados: `guerra`, `tensión`, `neutral`, `trato`.
 La IA usa las mismas reglas y tareas que el jugador. Nada de trampas.
 
+- **Las agresiones se recuerdan:** cuando una facción pierde control porque la intimidaron, su relación con el agresor baja 5. El informe le avisa a la víctima.
+- **Cómo decide la IA (Fase 2):** para cada miembro libre evalúa todas las tareas en todas las zonas a su alcance y estima el valor esperado de cada opción: plata, control, quedarse con la zona, riesgo de arresto y calor. Elige la mejor combinación, la descuenta de una proyección del estado (así dos miembros no persiguen lo mismo) y repite. Los pesos de cada personalidad están en `data/ai.json`:
+  - **`expansive`** (Grim Wolves): disputa zonas vecinas y le saca control al rival.
+  - **`balanced`**: valora más consolidar lo propio y defender su sede. Lo usa el simulador para jugar por los Iron Saints.
+  - Las dos defienden lo propio con más fuerza, responden a las agresiones (la facción que peor las trata pasa a ser su enemiga) y, si les falta plata, priorizan cobrar antes que expandirse o reclutar.
+- La IA todavía no ataca negocios: no hay negocios ni combate (ver §18).
+
 ## 13. Eventos
 
 Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opciones y efectos. Ejemplos:
@@ -201,7 +208,7 @@ Eventos narrativos en `data/events.json`, cada uno con condiciones, texto, opcio
 ## 14. Victoria y derrota
 
 - **Victoria:** controlar 12 de las 18 zonas durante 4 semanas seguidas, **o** expulsar a los Grim Wolves del condado (que no les quede control en ninguna zona).
-- **Derrota:** destitución en la mesa, investigación federal al 100%, o quedarte con menos de 3 miembros activos.
+- **Derrota:** destitución en la mesa, investigación federal al 100%, quedarte con menos de 3 miembros activos, **perder el control de todas las zonas**, o que **un club rival cumpla la victoria por territorio** (12 zonas durante 4 semanas).
 
 ## 15. Interfaz y arte
 
@@ -222,7 +229,7 @@ Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja,
 |---|---|---|
 | 0 | Esqueleto: repo, tipos, carga de datos, RNG con semilla, tests | `npm test` en verde |
 | 1 | Simulación núcleo en consola: zonas, miembros, tareas básicas, economía | Partida por texto en la terminal |
-| 2 | Simulador headless + IA de Grim Wolves | `npm run sim` con 100 semanas y estadísticas |
+| 2 | Simulador headless + IA de Grim Wolves | `npm run sim` con 100 semanas y estadísticas (`--runs N` para varias partidas, `--player ai|random|idle`) |
 | 3 | Mapa en PixiJS + panel de club + avanzar semana | Primera versión jugable en el navegador |
 | 4 | Mesa, lealtad, calor, sheriff, federales | El loop completo |
 | 5 | Cadenas de producción, cartel, eventos | Contenido |
@@ -250,6 +257,10 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿La riqueza de una zona cambia? | No, es fija por ahora. |
 | ¿Cuándo se descuentan las semanas de cárcel o heridas? | En el fin de turno, contando la semana en que empezó. |
 | ¿Qué significa "expulsar a los Grim Wolves"? | Que no les quede control en ninguna zona. |
+| ¿Qué pasa si un rival domina el condado? (Fase 2) | Perdés. La IA juega con las mismas reglas, así que su victoria por territorio es tu derrota. |
+| ¿Y si te quedás sin control en ninguna zona? (Fase 2) | Perdés: sin territorio no tenés dónde actuar. |
+| ¿Cómo "responde a agresiones" la IA? (Fase 2) | Intimidar a alguien le baja 5 de relación con el agresor. Con relación de −15 o menos, la IA lo trata como enemigo y prioriza golpearlo. |
+| ¿En qué fase entra el combate (§11)? (Fase 2) | Pendiente. El roadmap no lo ubica y requiere negocios (Fase 5) para "atacar negocio rival". Propuesta: implementarlo junto con los negocios. |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 
 ## 19. Preguntas abiertas

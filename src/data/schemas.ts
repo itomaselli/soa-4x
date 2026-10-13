@@ -107,6 +107,10 @@ export const BalanceSchema = z.object({
   }),
   /** Weekly wage per rank (GDD §8). */
   wages: z.record(RankSchema, z.number().nonnegative()),
+  relations: z.object({
+    /** Relation lost by a faction towards whoever intimidated it (GDD §12). */
+    intimidatedPenalty: z.number().nonnegative(),
+  }),
   loyalty: z.object({
     /** Loyalty lost by a member who wasn't paid this week (GDD §8). */
     unpaidPenalty: z.number().nonnegative(),
@@ -143,6 +147,8 @@ export const FactionDefSchema = z.object({
   startingMoney: MoneySchema,
   /** Starting relation towards other factions. Missing faction = 0 (neutral). */
   initialRelations: z.record(IdSchema, z.number().finite()),
+  /** AI profile from ai.json used when the computer plays this faction, or null if it never gives orders. */
+  aiProfile: z.string().nullable(),
 });
 export type FactionDef = z.infer<typeof FactionDefSchema>;
 
@@ -202,6 +208,55 @@ export const EventDefSchema = z.object({
 });
 export type EventDef = z.infer<typeof EventDefSchema>;
 
+// ---------- ai.json ----------
+// Weights for the AI's scoring. Scores are roughly in "dollars of value" so they can be compared.
+
+export const AiProfileSchema = z.object({
+  /** Value per expected $ of income. */
+  incomeWeight: z.number().nonnegative(),
+  /** Value per control point gained, × zone wealth. */
+  controlWeight: z.number().nonnegative(),
+  /** Value per control point taken from a rival, × zone wealth. */
+  takeWeight: z.number().nonnegative(),
+  /** Extra value when an action makes the faction owner of the zone. */
+  ownershipBonus: z.number().nonnegative(),
+  /** Extra value when an intimidation hits the faction's current enemy. */
+  enemyBonus: z.number().nonnegative(),
+  /** Cost per heat point an action adds. */
+  heatPenalty: z.number().nonnegative(),
+  /** Cost × arrest chance. */
+  arrestPenalty: z.number().nonnegative(),
+  lieLowHeatThreshold: z.number(),
+  lieLowWeight: z.number().nonnegative(),
+  bribeHeatThreshold: z.number(),
+  bribeWeightPerHeat: z.number().nonnegative(),
+  /** The AI recruits while it has fewer living members than this. */
+  recruitTargetMembers: z.number().int().nonnegative(),
+  recruitWeight: z.number().nonnegative(),
+  /** Money below `weeks × weekly wages` counts as "low money": income gets multiplied. */
+  moneyReserveWeeks: z.number().nonnegative(),
+  lowMoneyIncomeMultiplier: z.number().nonnegative(),
+  /** A faction whose relation towards us is at or below this is our enemy. */
+  enemyRelationThreshold: z.number(),
+  /**
+   * How much more a control point is worth where the faction is already strong:
+   * factor = 1 − c/2 + c × ownControl/100 (0 = all zones alike, 1 = from ×0.5 at 0 control to ×1.5 at 100).
+   */
+  consolidationWeight: z.number().min(0).max(1),
+  /** Multiplier for taking control back in zones the faction owns or where it has its HQ. */
+  defenseMultiplier: z.number().nonnegative(),
+  /** With low money, expansion and recruiting are worth this much (income is prioritised). */
+  lowMoneyInvestmentMultiplier: z.number().nonnegative(),
+  /** Random variation applied to each score (0.15 = ±15%). */
+  noise: z.number().min(0).max(1),
+});
+export type AiProfile = z.infer<typeof AiProfileSchema>;
+
+export const AiSchema = z.object({
+  profiles: z.record(z.string(), AiProfileSchema),
+});
+export type AiData = z.infer<typeof AiSchema>;
+
 // ---------- names.json ----------
 // Name pools for generated recruits.
 
@@ -229,6 +284,7 @@ export const GameDataSchema = z.object({
   businesses: z.array(BusinessDefSchema),
   events: z.array(EventDefSchema),
   names: NamesSchema,
+  ai: AiSchema,
   strings: StringsSchema,
 });
 export type GameData = z.infer<typeof GameDataSchema>;

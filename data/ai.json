@@ -1,0 +1,48 @@
+{
+  "profiles": {
+    "expansive": {
+      "incomeWeight": 1,
+      "controlWeight": 10,
+      "takeWeight": 12,
+      "ownershipBonus": 150,
+      "enemyBonus": 60,
+      "heatPenalty": 3,
+      "arrestPenalty": 500,
+      "lieLowHeatThreshold": 35,
+      "lieLowWeight": 8,
+      "bribeHeatThreshold": 50,
+      "bribeWeightPerHeat": 12,
+      "recruitTargetMembers": 11,
+      "recruitWeight": 300,
+      "moneyReserveWeeks": 4,
+      "lowMoneyIncomeMultiplier": 3,
+      "enemyRelationThreshold": -15,
+      "noise": 0.15,
+      "consolidationWeight": 0.6,
+      "defenseMultiplier": 2,
+      "lowMoneyInvestmentMultiplier": 0.3
+    },
+    "balanced": {
+      "incomeWeight": 1.2,
+      "controlWeight": 9,
+      "takeWeight": 12,
+      "ownershipBonus": 150,
+      "enemyBonus": 60,
+      "heatPenalty": 3,
+      "arrestPenalty": 500,
+      "lieLowHeatThreshold": 30,
+      "lieLowWeight": 10,
+      "bribeHeatThreshold": 45,
+      "bribeWeightPerHeat": 14,
+      "recruitTargetMembers": 10,
+      "recruitWeight": 250,
+      "moneyReserveWeeks": 5,
+      "lowMoneyIncomeMultiplier": 3,
+      "enemyRelationThreshold": -15,
+      "noise": 0.15,
+      "consolidationWeight": 1,
+      "defenseMultiplier": 3,
+      "lowMoneyInvestmentMultiplier": 0.3
+    }
+  }
+}

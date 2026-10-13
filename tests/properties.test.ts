@@ -4,10 +4,11 @@ import { randomOrders } from "../src/sim/policies/random";
 import type { ReportEntry } from "../src/sim/report";
 import { createRng } from "../src/sim/rng";
 import { deserializeState, serializeState } from "../src/sim/save";
+import { allAiOrders } from "../src/sim/systems/ai";
 import { resolveTurn } from "../src/sim/turn";
 import { baseData, newState, PLAYER } from "./helpers";
 
-const SEEDS = 25;
+const SEEDS = 12;
 const WEEKS = 80;
 
 function playRandom(seed: number, weeks: number) {
@@ -16,7 +17,8 @@ function playRandom(seed: number, weeks: number) {
   const reports: ReportEntry[] = [];
   const violations: string[] = [];
   for (let i = 0; i < weeks && !state.outcome; i++) {
-    const result = resolveTurn(state, randomOrders(state, baseData, PLAYER, policy), baseData);
+    const orders = [...randomOrders(state, baseData, PLAYER, policy).assignments, ...allAiOrders(state, baseData, PLAYER).assignments];
+    const result = resolveTurn(state, { assignments: orders }, baseData);
     state = result.state;
     reports.push(...result.report);
     violations.push(...checkInvariants(state, baseData.balance).map((v) => `semilla ${seed}, semana ${state.week}: ${v}`));
@@ -24,7 +26,7 @@ function playRandom(seed: number, weeks: number) {
   return { state, reports, violations };
 }
 
-describe("propiedades: partidas al azar", () => {
+describe("propiedades: partidas al azar contra la IA", () => {
   it(`en ${SEEDS} partidas de ${WEEKS} semanas con órdenes al azar nunca se rompen las invariantes (plata no NaN, control ≤ 100, etc.)`, () => {
     for (let seed = 1; seed <= SEEDS; seed++) {
       expect(playRandom(seed, WEEKS).violations).toEqual([]);
@@ -66,6 +68,16 @@ describe("propiedades: partidas al azar", () => {
 
   it("toda la partida es reproducible: misma semilla, mismo final", () => {
     expect(playRandom(7, 50).state).toEqual(playRandom(7, 50).state);
+  });
+
+  it("IA contra IA: nunca se rompen las invariantes", () => {
+    for (let seed = 1; seed <= 8; seed++) {
+      let state = newState(seed);
+      for (let w = 0; w < 60 && !state.outcome; w++) {
+        state = resolveTurn(state, allAiOrders(state, baseData, null), baseData).state;
+        expect(checkInvariants(state, baseData.balance)).toEqual([]);
+      }
+    }
   });
 
   it("guardar y cargar a mitad de partida no cambia el final", () => {

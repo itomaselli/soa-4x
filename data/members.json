@@ -126,5 +126,133 @@
     },
     "loyalty": 60,
     "glyph": "p"
+  },
+  {
+    "id": "member_wolves_cole_maddox",
+    "name": "Cole Maddox",
+    "nickname": "Fang",
+    "factionId": "faction_grim_wolves",
+    "rank": "president",
+    "trait": "violent",
+    "stats": {
+      "strength": 7,
+      "cunning": 5,
+      "hands": 3,
+      "charm": 6
+    },
+    "loyalty": 100,
+    "glyph": "@"
+  },
+  {
+    "id": "member_wolves_jed_sutter",
+    "name": "Jed Sutter",
+    "nickname": "Grizzly",
+    "factionId": "faction_grim_wolves",
+    "rank": "vice_president",
+    "trait": "ambitious",
+    "stats": {
+      "strength": 8,
+      "cunning": 4,
+      "hands": 3,
+      "charm": 5
+    },
+    "loyalty": 55,
+    "glyph": "V"
+  },
+  {
+    "id": "member_wolves_rex_hollis",
+    "name": "Rex Hollis",
+    "nickname": "Spike",
+    "factionId": "faction_grim_wolves",
+    "rank": "sergeant_at_arms",
+    "trait": "violent",
+    "stats": {
+      "strength": 8,
+      "cunning": 3,
+      "hands": 4,
+      "charm": 3
+    },
+    "loyalty": 65,
+    "glyph": "S"
+  },
+  {
+    "id": "member_wolves_amos_pike",
+    "name": "Amos Pike",
+    "nickname": "Abacus",
+    "factionId": "faction_grim_wolves",
+    "rank": "treasurer",
+    "trait": "greedy",
+    "stats": {
+      "strength": 3,
+      "cunning": 6,
+      "hands": 4,
+      "charm": 7
+    },
+    "loyalty": 60,
+    "glyph": "T"
+  },
+  {
+    "id": "member_wolves_lyle_crane",
+    "name": "Lyle Crane",
+    "nickname": "Ghost",
+    "factionId": "faction_grim_wolves",
+    "rank": "member",
+    "trait": "cautious",
+    "stats": {
+      "strength": 4,
+      "cunning": 7,
+      "hands": 4,
+      "charm": 5
+    },
+    "loyalty": 70,
+    "glyph": "m"
+  },
+  {
+    "id": "member_wolves_vern_kidd",
+    "name": "Vern Kidd",
+    "nickname": "Torch",
+    "factionId": "faction_grim_wolves",
+    "rank": "member",
+    "trait": "traditionalist",
+    "stats": {
+      "strength": 6,
+      "cunning": 4,
+      "hands": 6,
+      "charm": 3
+    },
+    "loyalty": 70,
+    "glyph": "m"
+  },
+  {
+    "id": "member_wolves_toby_reed",
+    "name": "Toby Reed",
+    "nickname": "Pup",
+    "factionId": "faction_grim_wolves",
+    "rank": "prospect",
+    "trait": "loyal",
+    "stats": {
+      "strength": 4,
+      "cunning": 4,
+      "hands": 3,
+      "charm": 3
+    },
+    "loyalty": 60,
+    "glyph": "p"
+  },
+  {
+    "id": "member_wolves_gil_stroud",
+    "name": "Gil Stroud",
+    "nickname": "Rat",
+    "factionId": "faction_grim_wolves",
+    "rank": "prospect",
+    "trait": "greedy",
+    "stats": {
+      "strength": 3,
+      "cunning": 5,
+      "hands": 3,
+      "charm": 4
+    },
+    "loyalty": 45,
+    "glyph": "p"
   }
 ]
