@@ -4,7 +4,7 @@
 
 import type { Proposal } from "../sim/council";
 import type { ManagementOrder } from "../sim/management";
-import type { ProposalType } from "../sim/state";
+import type { MapSize, ProposalType } from "../sim/state";
 import type { ReportEntry } from "../sim/report";
 import type { RenderMode } from "../render/map";
 import type { Draft } from "./draft";
@@ -26,6 +26,8 @@ export interface ProposalForm {
 export interface NewGameForm {
   name: string;
   patchId: string;
+  /** County size for the new game (phase 12). */
+  size: MapSize;
   firstTime: boolean;
 }
 
@@ -56,6 +58,8 @@ export interface UiState {
   form: ProposalForm;
   management: ManagementOrder[];
   eventChoices: Record<string, string>;
+  /** Specialty chosen per member this week (phase 13): member id → perk id. */
+  perkChoices: Record<string, string>;
 
   // Business view.
   chain: ChainId;
@@ -91,6 +95,7 @@ export function createUiState(options: { selectedZoneId: string | null; renderMo
     form: { ...EMPTY_FORM },
     management: [],
     eventChoices: {},
+    perkChoices: {},
     chain: "motorcycles",
     chainNode: null,
     launderAmount: 0,
@@ -117,7 +122,7 @@ export function leaveDistrict(ui: UiState): UiState {
 
 /** After resolving a week: this week's queued orders are spent; the member draft is carried over by the caller. */
 export function afterResolution(ui: UiState, report: ReportEntry[], draft: Draft): UiState {
-  return { ...ui, report, draft, proposals: [], management: [], eventChoices: {}, focusedMemberId: null, showReview: false, resolving: false, notice: null, view: "report" };
+  return { ...ui, report, draft, proposals: [], management: [], eventChoices: {}, perkChoices: {}, focusedMemberId: null, showReview: false, resolving: false, notice: null, view: "report" };
 }
 
 /** A new or loaded game starts with empty drafts. */
@@ -139,6 +144,7 @@ export function resetForGame(ui: UiState, selectedZoneId: string | null): UiStat
     form: { ...EMPTY_FORM },
     management: [],
     eventChoices: {},
+    perkChoices: {},
     chainNode: null,
     launderAmount: 0,
     report: [],

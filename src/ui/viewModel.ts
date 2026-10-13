@@ -11,10 +11,11 @@ import { chanceWithPresident, voters } from "../sim/systems/council";
 import { diplomaticState, getStance } from "../sim/systems/diplomacy";
 import { averageLoyalty } from "../sim/systems/loyalty";
 import { factionMembers, livingMembers } from "../sim/systems/members";
-import { cartelId } from "../sim/management";
+import { levelFor, maxPerks, nextLevelXp } from "../sim/systems/perks";
+import { cartelId, cartelPrice } from "../sim/management";
 import { businessAtLot, buildProblem, businessDef, freeSlots, launderCapacity, storageCapacity, workingBusinesses } from "../sim/systems/businesses";
 import { marketPrice } from "../sim/systems/economy";
-import { canAfford } from "../sim/systems/events";
+import { canAfford, eventZone } from "../sim/systems/events";
 import type { VoteType } from "../sim/state";
 
 /** What feeds the political map's markers besides the state: this week's orders and last week's report. */
@@ -220,6 +221,20 @@ export interface MemberSheet {
   dislikes: string[];
   /** Order planned this week, if any. */
   plan: { taskId: string; zoneId: string | null } | null;
+  /** Phase 13: experience and specialties. */
+  level: number;
+  xp: number;
+  /** Experience for the next level, or null at the top. */
+  nextXp: number | null;
+  perks: { id: string; stat: StatKey }[];
+  maxPerks: number;
+  scars: { id: string; stat: StatKey }[];
+  /** Specialties on offer after a level-up (empty = none). */
+  options: { id: string; stat: StatKey }[];
+  /** A level earned but no room at this rank. */
+  rankFull: boolean;
+  /** Tasks that use each stat (tasks.json) and specialties built on it. */
+  statUses: { key: StatKey; taskIds: string[]; perkIds: string[] }[];
 }
 
 export function memberSheet(
@@ -240,6 +255,19 @@ export function memberSheet(
     likes: affinity?.likes ?? [],
     dislikes: affinity?.dislikes ?? [],
     plan,
+    level: levelFor(data, member.xp),
+    xp: member.xp,
+    nextXp: nextLevelXp(data, member.xp),
+    perks: member.perks.map((id) => ({ id, stat: data.perks.perks.find((p) => p.id === id)?.stat ?? "strength" })),
+    maxPerks: maxPerks(data, member),
+    scars: member.scars.map((id) => ({ id, stat: data.perks.scars.list.find((x) => x.id === id)?.stat ?? "strength" })),
+    options: member.perkOptions.map((id) => ({ id, stat: data.perks.perks.find((p) => p.id === id)?.stat ?? "strength" })),
+    rankFull: levelFor(data, member.xp) > member.perks.length && member.perks.length >= maxPerks(data, member),
+    statUses: STAT_KEYS.map((key) => ({
+      key,
+      taskIds: data.tasks.filter((t) => t.enabled && t.stat === key).map((t) => t.id),
+      perkIds: data.perks.perks.filter((p) => p.stat === key).map((p) => p.id),
+    })),
   };
 }
 
@@ -442,10 +470,10 @@ export function cartelInfo(state: GameState, data: GameData, viewer: string): Ca
   return {
     cartelId: cartel,
     dealing,
-    catalog: Object.entries(data.balance.cartel.catalog).map(([goodId, price]) => ({
+    catalog: Object.keys(data.balance.cartel.catalog).map((goodId) => ({
       goodId,
       nameKey: `good.${goodId}`,
-      price,
+      price: cartelPrice(state, data, viewer, goodId),
       space: Math.max(0, (storageCapacity(state, data, viewer, goodId) ?? 0) - (state.factions[viewer]?.stock[goodId] ?? 0)),
     })),
     weeksLeft: dealing ? data.balance.cartel.graceWeeks - (state.week - (stance?.lastPurchaseWeek ?? stance?.sinceWeek ?? state.week)) : null,
@@ -457,6 +485,9 @@ export interface EventView {
   titleKey: string;
   textKey: string;
   subject: string;
+  /** Text parameters: the rival club and the zone the event happens in, when it has them. */
+  rival: string;
+  zone: string;
   options: { id: string; labelKey: string; affordable: boolean; isDefault: boolean }[];
 }
 
@@ -471,6 +502,8 @@ export function pendingEventViews(state: GameState, data: GameData, viewer: stri
         titleKey: `event.${e.eventId}.title`,
         textKey: `event.${e.eventId}.text`,
         subject: subject ? `${subject.nickname} (${subject.name})` : "",
+        rival: e.rivalFactionId ? (data.factions.find((f) => f.id === e.rivalFactionId)?.name ?? "") : "",
+        zone: eventPlace(data, e.factionId, def),
         options: (def?.options ?? []).map((o) => ({
           id: o.id,
           labelKey: `event.${e.eventId}.option.${o.id}`,
@@ -584,4 +617,21 @@ export function lotDetails(state: GameState, data: GameData, viewer: string, zon
           problem: buildProblem(state, data, viewer, b.id, zoneId, lot),
         })),
   };
+}
+
+/** Name of the first zone an event's effects point to (e.g. "the road nearest to our HQ"), for its text. */
+function eventPlace(data: GameData, factionId: string, def: GameData["events"][number] | undefined): string {
+  type Effect = GameData["events"][number]["options"][number]["effects"][number];
+  const find = (effects: readonly Effect[]): string | null => {
+    for (const fx of effects) {
+      if (fx.type === "heat") return eventZone(data, factionId, fx);
+      if (fx.type === "chance") return find(fx.success) ?? find(fx.failure);
+    }
+    return null;
+  };
+  for (const option of def?.options ?? []) {
+    const zoneId = find(option.effects);
+    if (zoneId) return data.zones.find((z) => z.id === zoneId)?.name ?? "";
+  }
+  return "";
 }

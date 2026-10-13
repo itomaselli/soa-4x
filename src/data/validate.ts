@@ -177,9 +177,6 @@ export function validateGameData(data: GameData): string[] {
   }
 
   // Balance references
-  if (!factionIds.has(data.balance.victory.rivalToExpel)) {
-    errors.push(`balance.json: victory.rivalToExpel apunta a una facción desconocida "${data.balance.victory.rivalToExpel}"`);
-  }
   if (!data.factions.some((f) => f.kind === "sheriff")) errors.push("factions.json: falta una facción de tipo sheriff");
   const { arrest, tasks } = data.balance;
   if (arrest.minChance > arrest.maxChance) errors.push("balance.json: arrest.minChance > arrest.maxChance");
@@ -216,7 +213,8 @@ export function validateGameData(data: GameData): string[] {
     if (!e.options.some((o) => o.id === e.defaultOption)) errors.push(`events.json › ${e.id}: defaultOption no es una opción`);
     const walk = (effects: (typeof e.options)[number]["effects"]): void => {
       for (const fx of effects) {
-        if (fx.type === "heat" && !zoneIds.has(fx.zoneId)) errors.push(`events.json › ${e.id}: zona desconocida "${fx.zoneId}"`);
+        if (fx.type === "heat" && (fx.zoneId === undefined) === (fx.zone === undefined)) errors.push(`events.json › ${e.id}: el calor necesita zoneId o zone (uno solo)`);
+        if (fx.type === "heat" && fx.zoneId !== undefined && !zoneIds.has(fx.zoneId)) errors.push(`events.json › ${e.id}: zona desconocida "${fx.zoneId}"`);
         if (fx.type === "chance") {
           walk(fx.success);
           walk(fx.failure);
@@ -224,9 +222,6 @@ export function validateGameData(data: GameData): string[] {
       }
     };
     for (const o of e.options) walk(o.effects);
-  }
-  for (const [name, profile] of Object.entries(data.ai.profiles)) {
-    for (const z of profile.allowedZones ?? []) if (!zoneIds.has(z)) errors.push(`ai.json › ${name}: zona desconocida "${z}"`);
   }
 
   // Patches: well-formed emblems, known parts, unique designs; factions use existing patches
@@ -321,6 +316,43 @@ export function validateGameData(data: GameData): string[] {
   }
   for (const taskId of Object.keys(ui.markers.tasks)) if (!data.tasks.some((t) => t.id === taskId)) errors.push(`ui.json › markers.tasks: tarea desconocida "${taskId}"`);
   if (!ui.markers.mood.some((m) => m.min <= data.balance.ranges.loyalty.min)) errors.push("ui.json › markers.mood: falta una cara para la lealtad más baja");
+
+  // Random counties (mapgen.json): each size adds up, has a port and enough towns, names and colors
+  const gen = data.mapgen;
+  for (const [size, cfg] of Object.entries(gen.sizes)) {
+    const where = `mapgen.json › sizes.${size}`;
+    const total = Object.values(cfg.types).reduce((a, b) => a + b, 0);
+    if (total !== cfg.zones) errors.push(`${where}: los tipos suman ${total} zonas y tienen que ser ${cfg.zones}`);
+    if ((cfg.types.port ?? 0) < 1) errors.push(`${where}: tiene que haber al menos un puerto (el del cartel)`);
+    if ((cfg.types.town ?? 0) < cfg.clubs + 1) errors.push(`${where}: hacen falta al menos ${cfg.clubs + 1} pueblos (una sede por club y la del sheriff)`);
+    for (const [type, count] of Object.entries(cfg.types)) {
+      const pool = gen.places[type as keyof typeof gen.places]?.length ?? 0;
+      if (pool < count) errors.push(`${where}: faltan nombres de ${type} (hay ${pool}, se usan ${count})`);
+    }
+    if (gen.rivals.names.length < cfg.clubs) errors.push(`${where}: faltan nombres de clubes rivales`);
+    if (gen.rivals.colors.length < cfg.clubs - 1) errors.push(`${where}: faltan colores para los clubes rivales`);
+    if (cfg.memberCap < gen.rivals.roster.length + cfg.extraMembers.length) errors.push(`${where}: el tope de miembros es menor que los miembros iniciales`);
+  }
+  for (const id of gen.rivals.aiProfiles) if (!(id in data.ai.profiles)) errors.push(`mapgen.json › rivals.aiProfiles: perfil desconocido "${id}"`);
+  if (!gen.rivals.roster.includes("president")) errors.push("mapgen.json › rivals.roster: un club necesita presidente");
+  if (gen.layout.minDistanceFloor > gen.layout.minDistance) errors.push("mapgen.json › layout: minDistanceFloor no puede ser mayor que minDistance");
+
+  // Specialties (perks.json): unique ids, real tasks and traits, rising levels, texts for every specialty and scar
+  const perkIds = new Set<string>();
+  for (const perk of data.perks.perks) {
+    if (perkIds.has(perk.id)) errors.push(`perks.json: especialidad repetida "${perk.id}"`);
+    perkIds.add(perk.id);
+    for (const fx of perk.effects) {
+      if ("taskId" in fx && !data.tasks.some((t) => t.id === fx.taskId)) errors.push(`perks.json › ${perk.id}: tarea desconocida "${fx.taskId}"`);
+    }
+    for (const key of [`perk.${perk.id}.name`, `perk.${perk.id}.text`]) if (!(key in data.strings)) errors.push(`strings.es.json: falta el texto "${key}"`);
+  }
+  for (const [trait, ids] of Object.entries(data.perks.traitAffinity)) {
+    for (const id of ids) if (!perkIds.has(id)) errors.push(`perks.json › traitAffinity.${trait}: especialidad desconocida "${id}"`);
+  }
+  const levels = data.perks.xp.levels;
+  if (levels.some((v, i) => i > 0 && v <= levels[i - 1]!)) errors.push("perks.json › xp.levels: tienen que ir de menor a mayor");
+  for (const scar of data.perks.scars.list) if (!(`scar.${scar.id}.name` in data.strings)) errors.push(`strings.es.json: falta el texto "scar.${scar.id}.name"`);
 
   // Trait task lists point to real tasks
   const taskIds = new Set(data.tasks.map((t) => t.id));

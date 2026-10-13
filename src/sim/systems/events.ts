@@ -11,12 +11,34 @@ import { clamp } from "../util";
 import { factionMembers, livingMembers, memberLabel } from "./members";
 import { jail } from "./tasks";
 
-/** The club an event's "rival" refers to: the other club that regards us worst (ties: the configured rival, then id). */
+/** The club an event's "rival" refers to: the other club (still in the game) that regards us worst (ties: by id). */
 export function mainRival(state: GameState, data: GameData, factionId: string): string | null {
-  const preferred = data.balance.victory.rivalToExpel;
-  const clubs = data.factions.filter((f) => f.kind === "club" && f.id !== factionId).map((f) => f.id);
+  const clubs = data.factions.filter((f) => f.kind === "club" && f.id !== factionId && livingMembers(state, f.id).length > 0).map((f) => f.id);
   const regard = (id: string) => state.factions[id]?.relations[factionId] ?? 0;
-  return clubs.sort((a, b) => regard(a) - regard(b) || Number(b === preferred) - Number(a === preferred) || a.localeCompare(b))[0] ?? null;
+  return clubs.sort((a, b) => regard(a) - regard(b) || a.localeCompare(b))[0] ?? null;
+}
+
+/** Zone of a type closest to a faction's HQ, walking the map's connections (ties: data order). */
+export function nearestZoneOfType(data: GameData, factionId: string, type: string): string | null {
+  const start = data.factions.find((f) => f.id === factionId)?.hqZoneId;
+  if (!start) return data.zones.find((z) => z.type === type)?.id ?? null;
+  const seen = new Set([start]);
+  let frontier = [start];
+  while (frontier.length > 0) {
+    const hit = data.zones.find((z) => frontier.includes(z.id) && z.type === type);
+    if (hit) return hit.id;
+    frontier = data.zones.filter((z) => !seen.has(z.id) && z.adjacent.some((a) => frontier.includes(a))).map((z) => z.id);
+    for (const id of frontier) seen.add(id);
+  }
+  return null;
+}
+
+const EVENT_ZONE_TYPES = { nearest_road: "road" } as const;
+
+/** The zone an event effect points to: a fixed one, or one picked from the club's map. */
+export function eventZone(data: GameData, factionId: string, fx: { zoneId?: string; zone?: keyof typeof EVENT_ZONE_TYPES }): string | null {
+  if (fx.zoneId) return fx.zoneId;
+  return fx.zone ? nearestZoneOfType(data, factionId, EVENT_ZONE_TYPES[fx.zone]) : null;
 }
 
 export function historyKey(eventId: string, factionId: string): string {
@@ -151,9 +173,11 @@ function applyEffect(state: GameState, ctx: TurnContext, event: PendingEvent, fx
       return;
     }
     case "heat": {
-      const zone = state.zones[fx.zoneId];
-      if (zone) zone.heat = clamp(zone.heat + fx.amount, ranges.heat);
-      report("report.event.heat", { amount: fx.amount, zone: data.zones.find((z) => z.id === fx.zoneId)?.name ?? fx.zoneId });
+      const zoneId = eventZone(data, event.factionId, fx);
+      const zone = zoneId ? state.zones[zoneId] : undefined;
+      if (!zoneId || !zone) return;
+      zone.heat = clamp(zone.heat + fx.amount, ranges.heat);
+      report("report.event.heat", { amount: fx.amount, zone: data.zones.find((z) => z.id === zoneId)?.name ?? zoneId });
       return;
     }
     case "promote_subject":

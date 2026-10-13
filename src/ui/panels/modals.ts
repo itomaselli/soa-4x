@@ -8,6 +8,8 @@ import { patchCanvas } from "../patchCanvas";
 import { portraitCanvas } from "../portraitCanvas";
 import { patchNameParts } from "../../render/patch";
 import { CLUB_NAME_MAX_LENGTH } from "../../sim/identity";
+import { MAP_SIZES } from "../../sim/state";
+import { taskForecast } from "../forecast";
 import { weekReview } from "../review";
 import { hqSheet, memberSheet, topBarModel } from "../viewModel";
 import { proposalLabel } from "./council";
@@ -16,7 +18,7 @@ import type { NewGameForm } from "../uiState";
 
 function renderNewGame(ctx: UiContext, form: NewGameForm): HTMLElement {
   const { content, tr, set, actions } = ctx;
-  const startButton = h("button", { class: "primary", disabled: form.name.trim().length === 0, onclick: () => actions.startNewGame(form.name.trim(), form.patchId) }, [tr("ui.new.start")]);
+  const startButton = h("button", { class: "primary", disabled: form.name.trim().length === 0, onclick: () => actions.startNewGame(form.name.trim(), form.patchId, form.size) }, [tr("ui.new.start")]);
   const nameInput = h("input", {
     type: "text",
     value: form.name,
@@ -35,6 +37,22 @@ function renderNewGame(ctx: UiContext, form: NewGameForm): HTMLElement {
   return h("div", { class: "modal new-game", role: "dialog", "aria-modal": "true", "aria-label": tr(form.firstTime ? "ui.new.title_first" : "ui.new.title") }, [
     h("h2", {}, [tr(form.firstTime ? "ui.new.title_first" : "ui.new.title")]),
     h("label", { class: "field" }, [h("span", {}, [tr("ui.new.name")]), nameInput]),
+    h("fieldset", { class: "map-size" }, [
+      h("legend", {}, [tr("ui.new.size")]),
+      h(
+        "div",
+        { class: "segmented size-choice", role: "radiogroup", "aria-label": tr("ui.new.size") },
+        MAP_SIZES.map((size) => {
+          const cfg = content.mapgen.sizes[size];
+          return h(
+            "button",
+            { role: "radio", "aria-checked": form.size === size ? "true" : "false", class: form.size === size ? "active" : "", onclick: () => set({ newGameForm: { ...form, size } }) },
+            [h("strong", {}, [tr(`map_size.${size}`)]), h("span", {}, [tr("ui.new.size_detail", { zones: cfg.zones, clubs: cfg.clubs })])],
+          );
+        }),
+      ),
+      h("p", { class: "muted" }, [tr("ui.new.size_hint")]),
+    ]),
     h("p", { class: "muted" }, [tr("ui.new.patch_hint"), " ", h("strong", {}, [parts(form.patchId)])]),
     h(
       "div",
@@ -59,7 +77,8 @@ function renderHelp(ctx: UiContext): HTMLElement {
   const { data, tr, set } = ctx;
   return h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": tr("ui.help.title") }, [
     h("h2", {}, [tr("ui.help.title")]),
-    ...["ui.help.goal", "ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose", "ui.help.keys"].map((k) => h("p", {}, [tr(k)])),
+    h("p", {}, [tr("ui.help.goal", { target: data.balance.victory.zonesToControl, total: data.zones.length, weeks: data.balance.victory.weeksHeld })]),
+    ...["ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose", "ui.help.keys"].map((k) => h("p", {}, [tr(k)])),
     h("p", { class: "muted" }, [tr("ui.help.credits", { credit: data.ui.tileset.credit })]),
     h("p", { class: "muted" }, [tr("ui.help.credits_ui")]),
     h("button", { class: "primary", onclick: () => set({ showHelp: false }) }, [tr("ui.close")]),
@@ -92,9 +111,57 @@ function renderMemberSheet(ctx: UiContext, memberId: string): HTMLElement | null
       ]),
     ]),
     sheet.loyalty.low ? h("p", { class: "error" }, [tr("ui.loyalty_danger")]) : null,
+    h("section", { class: "sheet-section" }, [
+      h("div", { class: "level-row" }, [
+        h("strong", {}, [tr("ui.sheet.level", { level: sheet.level })]),
+        bar(sheet.nextXp === null ? 1 : sheet.xp, sheet.nextXp ?? 1),
+        h("span", { class: "muted" }, [sheet.nextXp === null ? tr("ui.sheet.xp_max", { xp: sheet.xp }) : tr("ui.sheet.xp", { xp: sheet.xp, next: sheet.nextXp })]),
+      ]),
+      h("h3", {}, [tr("ui.sheet.perks", { count: sheet.perks.length, max: sheet.maxPerks })]),
+      sheet.perks.length === 0
+        ? h("p", { class: "muted" }, [tr("ui.sheet.no_perks")])
+        : h("ul", { class: "plain perk-list" }, sheet.perks.map((p) => h("li", {}, [h("strong", {}, [tr(`perk.${p.id}.name`)]), h("span", { class: "muted" }, [` (${tr(`stat.${p.stat}`)}) `]), tr(`perk.${p.id}.text`)]))),
+      sheet.options.length > 0
+        ? h("div", { class: "perk-choice", role: "group", "aria-label": tr("ui.sheet.choose") }, [
+            h("strong", {}, [tr("ui.sheet.choose")]),
+            h("p", { class: "muted" }, [tr("ui.sheet.choose_hint")]),
+            ...sheet.options.map((o) => {
+              const picked = ui.perkChoices[member.id] === o.id;
+              return h("div", { class: picked ? "perk-option picked" : "perk-option" }, [
+                h("div", {}, [h("strong", {}, [tr(`perk.${o.id}.name`)]), h("span", { class: "muted" }, [` (${tr(`stat.${o.stat}`)})`]), h("div", {}, [tr(`perk.${o.id}.text`)])]),
+                picked
+                  ? h("span", { class: "notice-inline" }, [tr("ui.sheet.picked")])
+                  : h("button", { onclick: () => set({ perkChoices: { ...ui.perkChoices, [member.id]: o.id } }) }, [tr("ui.sheet.pick")]),
+              ]);
+            }),
+          ])
+        : null,
+      sheet.rankFull ? h("p", { class: "warn-text" }, [tr("ui.sheet.rank_full")]) : null,
+      sheet.scars.length > 0
+        ? h("p", {}, [h("strong", {}, [tr("ui.sheet.scars"), ": "]), sheet.scars.map((x) => `${tr(`scar.${x.id}.name`)} (−${data.perks.scars.penalty} ${tr(`stat.${x.stat}`)})`).join(", ")])
+        : null,
+    ]),
     h("p", {}, [h("strong", {}, [tr("ui.sheet.likes")]), " ", taskList(sheet.likes)]),
     h("p", {}, [h("strong", {}, [tr("ui.sheet.dislikes")]), " ", taskList(sheet.dislikes)]),
     h("p", {}, [h("strong", {}, [tr("ui.sheet.plan")]), " ", sheet.plan ? `${tr(`task.${sheet.plan.taskId}`)} · ${sheet.plan.zoneId ? zoneName(data, sheet.plan.zoneId) : tr("ui.pick_zone")}` : tr("ui.sheet.no_plan")]),
+    sheet.plan
+      ? h("p", { class: "muted" }, [tr("ui.sheet.forecast"), ": ", taskForecast(state, data, member.id, sheet.plan.taskId, sheet.plan.zoneId).map((m) => msg(data, m)).join(" · ")])
+      : null,
+    h("details", { class: "stats-help" }, [
+      h("summary", {}, [tr("ui.sheet.stats_help")]),
+      h(
+        "dl",
+        { class: "facts" },
+        sheet.statUses.flatMap((u) => [
+          h("dt", {}, [tr(`stat.${u.key}`)]),
+          h("dd", {}, [
+            tr(`stat_use.${u.key}`),
+            u.perkIds.length > 0 ? h("div", { class: "muted" }, [u.perkIds.map((id) => tr(`perk.${id}.name`)).join(", ")]) : null,
+          ]),
+        ]),
+      ),
+      h("p", { class: "muted" }, [tr("stat_use.initiative")]),
+    ]),
     h("div", { class: "row" }, [
       h("button", { class: "primary", onclick: () => set({ sheetMemberId: null }) }, [tr("ui.close")]),
       ui.view !== "club" ? h("button", { onclick: () => { set({ sheetMemberId: null }); actions.navigate("club"); } }, [tr("ui.inspector.to_club")]) : null,
@@ -195,6 +262,7 @@ function renderReview(ctx: UiContext): HTMLElement {
       ),
       r.proposals.length > 0 ? h("p", { class: "muted" }, [tr("ui.review.vote_uncertain")]) : null,
     ]),
+    perksSection(ctx),
     r.events.length > 0
       ? h("section", {}, [
           h("h3", {}, [tr("ui.review.events")]),
@@ -206,6 +274,22 @@ function renderReview(ctx: UiContext): HTMLElement {
       : null,
     h("p", { class: "muted" }, [tr("ui.review.order_note")]),
     h("div", { class: "row" }, [confirm, h("button", { onclick: () => set({ showReview: false }) }, [tr("ui.review.back")])]),
+  ]);
+}
+
+/** Specialties chosen this week and members still waiting for a choice (a warning: the offer stays open). */
+function perksSection(ctx: UiContext): HTMLElement | null {
+  const { state, ui, tr } = ctx;
+  const waiting = Object.values(state.members).filter((m) => m.factionId === state.playerFactionId && m.perkOptions.length > 0);
+  if (waiting.length === 0) return null;
+  const chosen = waiting.filter((m) => ui.perkChoices[m.id]);
+  const open = waiting.filter((m) => !ui.perkChoices[m.id]);
+  return h("section", {}, [
+    h("h3", {}, [tr("ui.review.perks")]),
+    chosen.length > 0
+      ? h("ul", { class: "plain review-list" }, chosen.map((m) => h("li", {}, [tr("ui.review.perk_chosen", { member: m.nickname || m.name, perk: tr(`perk.${ui.perkChoices[m.id]}.name`) })])))
+      : null,
+    open.length > 0 ? h("p", { class: "warn-text" }, [h("span", { "aria-hidden": "true" }, ["▲ "]), tr("ui.review.perk_waiting", { names: open.map((m) => m.nickname || m.name).join(", ") })]) : null,
   ]);
 }
 

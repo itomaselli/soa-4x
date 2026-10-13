@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { loadGameData } from "../src/data/load";
 import { checkInvariants } from "../src/sim/invariants";
 import { loadSave, migrateSave, migrateV1toV2, serializeState, type RawSave, type SaveMigration } from "../src/sim/save";
+import { classicScenario } from "../src/sim/scenario";
 import { createInitialState } from "../src/sim/setup";
 import { SAVE_SCHEMA_VERSION } from "../src/sim/state";
 import { allAiOrders } from "../src/sim/systems/ai";
@@ -38,8 +39,15 @@ describe("migraciones de partidas guardadas", () => {
 
   it("una partida de la v0.2.0 (formato 1, con todos los campos) carga sin perder datos", () => {
     const raw = fixture("save-v0.2.0.json");
-    const state = loadSave(JSON.stringify(raw), data);
-    expect({ ...state, schemaVersion: 1 }).toEqual(raw);
+    const { scenario, ...state } = loadSave(JSON.stringify(raw), data);
+    // Phase 13 fields start empty; everything else is exactly what was saved.
+    const members = Object.fromEntries(Object.entries(state.members).map(([id, m]) => {
+      const { xp, perks, scars, perkOptions, ...rest } = m;
+      expect({ xp, perks, scars, perkOptions }).toEqual({ xp: 0, perks: [], scars: [], perkOptions: [] });
+      return [id, rest];
+    }));
+    expect({ ...state, members, schemaVersion: 1 }).toEqual(raw);
+    expect(scenario).toEqual(classicScenario(data));
   });
 
   it("los negocios viejos reciben el primer lote libre de su zona", () => {

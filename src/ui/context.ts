@@ -3,7 +3,7 @@
 // through the simulation (resolve the week, load a save, start a game).
 
 import type { GameData } from "../data/schemas";
-import type { GameState } from "../sim/state";
+import type { GameState, MapSize } from "../sim/state";
 import type { Msg } from "./productionChains";
 import { t } from "./strings";
 import type { NewGameForm, UiState, View } from "./uiState";
@@ -20,7 +20,7 @@ export interface UiActions {
   saveToFile(): void;
   loadFromFile(file: File): void;
   openNewGame(): void;
-  startNewGame(name: string, patchId: string): void;
+  startNewGame(name: string, patchId: string, size: MapSize): void;
   toggleRenderMode(): void;
 }
 

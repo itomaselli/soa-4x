@@ -6,7 +6,8 @@ import { newScratch, type TurnContext } from "./context";
 import type { Proposal } from "./council";
 import { validateAssignment, type Assignment, type TurnOrders } from "./orders";
 import { TURN_STAGES, type ReportEntry, type Reporter, type TurnStage } from "./report";
-import { withIdentities } from "./identity";
+import { gameData } from "./scenario";
+import { awardExperience, choosePerk } from "./systems/perks";
 import { createRng } from "./rng";
 import type { GameState } from "./state";
 import type { ManagementOrder } from "./management";
@@ -44,7 +45,10 @@ const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
   production: (state, ctx) => resolveProduction(state, ctx),
   transport: (state, ctx) => resolveTransport(state, ctx),
   sales: (state, ctx, orders) => resolveSales(state, orders.management, ctx),
-  faction_tasks: (state, ctx, orders) => resolveFactionTasks(state, orders.assignments, ctx),
+  faction_tasks: (state, ctx, orders) => {
+    resolveFactionTasks(state, orders.assignments, ctx);
+    awardExperience(state, ctx);
+  },
   combat: (state, ctx) => resolveCombat(state, ctx),
   laundering: (state, ctx, orders) => resolveLaundering(state, orders.management, ctx),
   expenses: (state, ctx) => payExpenses(state, ctx),
@@ -60,7 +64,7 @@ const STAGE_HANDLERS: Record<Exclude<TurnStage, "orders">, StageHandler> = {
 /** Pure: never mutates `state`. Same state + same orders + same data → same result. */
 export function resolveTurn(state: GameState, orders: TurnOrders, content: GameData): TurnResult {
   // Reports use the names the clubs go by in this game (phase 11).
-  const data = withIdentities(content, state);
+  const data = gameData(content, state);
   const report: ReportEntry[] = [];
   if (state.outcome) {
     report.push({ stage: "orders", key: "report.game_over", params: {}, factionId: null });
@@ -94,6 +98,12 @@ export function resolveTurn(state: GameState, orders: TurnOrders, content: GameD
     }
     valid.push(assignment);
     assigned.add(assignment.memberId);
+  }
+
+  // Specialties chosen this week apply from the start (phase 13). The faction is the member's own club.
+  for (const choice of orders.perkChoices ?? []) {
+    const member = next.members[choice.memberId];
+    choosePerk(next, ctx, member?.factionId ?? next.playerFactionId, choice.memberId, choice.perkId);
   }
 
   for (const def of data.factions) ctx.scratch.ownedBefore[def.id] = ownedZones(next, def.id, data.balance);

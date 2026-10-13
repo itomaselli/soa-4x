@@ -6,10 +6,10 @@ import type { GameData } from "../data/schemas";
 import { createMapView, type HoverTarget, type MapView } from "../render/map";
 import { reachableZones } from "../sim/orders";
 import { createInitialState } from "../sim/setup";
-import type { GameState } from "../sim/state";
+import type { GameState, MapSize } from "../sim/state";
 import { allAiOrders } from "../sim/systems/ai";
 import { resolveTurn } from "../sim/turn";
-import { withIdentities } from "../sim/identity";
+import { gameData } from "../sim/scenario";
 import { h } from "./dom";
 import type { UiActions, UiContext } from "./context";
 import { carryOverDraft, draftToOrders } from "./draft";
@@ -26,6 +26,8 @@ import { afterResolution, canResolve, createUiState, enterDistrict, leaveDistric
 import { localViewModel, lotDetails, mapViewModel, zoneTooltip } from "./viewModel";
 
 const PLAYER_FACTION = "faction_iron_saints";
+/** Preselected county size on the new game screen. */
+const DEFAULT_MAP_SIZE: MapSize = "medium";
 
 export interface AppElements {
   topBar: HTMLElement;
@@ -52,13 +54,13 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
   const saved = loadAutosave(content);
   let state: GameState = saved ?? createInitialState(content, { seed: newSeed(), playerFactionId: PLAYER_FACTION });
   // `data` is the content with this game's club names and patches applied (phase 11); refreshed in render().
-  let data = withIdentities(content, state);
+  let data = gameData(content, state);
   const defaultPatch = content.factions.find((f) => f.id === PLAYER_FACTION)?.patchId ?? content.patches.patches[0]?.id ?? "";
   const hqOf = (s: GameState) => data.factions.find((f) => f.id === s.playerFactionId)?.hqZoneId ?? null;
   let ui: UiState = createUiState({
     selectedZoneId: hqOf(state),
     renderMode: loadRenderMode(),
-    newGameForm: saved ? null : { name: content.factions.find((f) => f.id === PLAYER_FACTION)?.name ?? "", patchId: defaultPatch, firstTime: true },
+    newGameForm: saved ? null : { name: content.factions.find((f) => f.id === PLAYER_FACTION)?.name ?? "", patchId: defaultPatch, size: DEFAULT_MAP_SIZE, firstTime: true },
   });
 
   const update = (next: UiState) => {
@@ -87,14 +89,17 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
     loadFromFile: (file) => void loadFromFile(file),
     openNewGame: () => {
       const current = state.identities[state.playerFactionId];
-      set({ newGameForm: { name: current?.name ?? "", patchId: current?.patchId ?? defaultPatch, firstTime: false } });
+      set({ newGameForm: { name: current?.name ?? "", patchId: current?.patchId ?? defaultPatch, size: state.scenario.size === "classic" ? DEFAULT_MAP_SIZE : state.scenario.size, firstTime: false } });
     },
-    startNewGame: (name, patchId) => {
-      clearAutosave();
-      state = createInitialState(content, { seed: newSeed(), playerFactionId: PLAYER_FACTION, clubName: name, patchId });
-      data = withIdentities(content, state);
-      saveAutosave(state);
-      update({ ...resetForGame(ui, hqOf(state)), newGameForm: null, notice: null });
+    startNewGame: (name, patchId, size) => {
+      void (async () => {
+        clearAutosave();
+        state = createInitialState(content, { seed: newSeed(), playerFactionId: PLAYER_FACTION, clubName: name, patchId, size });
+        data = gameData(content, state);
+        saveAutosave(state);
+        await rebuildMapIfNeeded();
+        update({ ...resetForGame(ui, hqOf(state)), newGameForm: null, notice: null });
+      })();
     },
     toggleRenderMode: () => {
       const renderMode = ui.renderMode === "tiles" ? "ascii" : "tiles";
@@ -119,11 +124,12 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
         proposals: [...ui.proposals, ...(ai.proposals ?? [])],
         management: [...ui.management, ...(ai.management ?? [])],
         eventChoices: Object.entries(ui.eventChoices).map(([instanceId, optionId]) => ({ instanceId, optionId })),
+        perkChoices: [...Object.entries(ui.perkChoices).map(([memberId, perkId]) => ({ memberId, perkId })), ...(ai.perkChoices ?? [])],
       },
       data,
     );
     state = result.state;
-    data = withIdentities(content, state);
+    data = gameData(content, state);
     saveAutosave(state);
     update(afterResolution(ui, result.report, carryOverDraft(ui.draft, state, data)));
   }
@@ -131,8 +137,9 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
   async function loadFromFile(file: File): Promise<void> {
     try {
       state = await importSave(file, content);
-      data = withIdentities(content, state);
+      data = gameData(content, state);
       saveAutosave(state);
+      await rebuildMapIfNeeded();
       update({ ...resetForGame(ui, hqOf(state)), notice: { text: tr("ui.loaded_file", { week: state.week }), error: false } });
     } catch (error) {
       set({ notice: { text: `${tr("ui.load_failed")}\n${(error as Error).message}`, error: true } });
@@ -141,8 +148,8 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
 
   const context = (): UiContext => ({ state, data, content, ui, tr, set, actions });
 
-  const map: MapView = await createMapView(els.mapHost, data, {
-    onZoneClick: (zoneId) => {
+  const mapCallbacks = {
+    onZoneClick: (zoneId: string) => {
       const entry = ui.focusedMemberId ? ui.draft[ui.focusedMemberId] : undefined;
       if (ui.focusedMemberId && entry && reachableZones(state, data, state.playerFactionId).includes(zoneId)) {
         set({ selectedZoneId: zoneId, draft: { ...ui.draft, [ui.focusedMemberId]: { ...entry, zoneId } } });
@@ -150,11 +157,21 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
         set({ selectedZoneId: zoneId });
       }
     },
-    onZoneEnter: actions.enterZone,
-    onExitClick: actions.enterZone,
-    onLotClick: (lot) => set({ selectedLot: lot }),
-    onHover: (target, x, y) => showTooltip(target, x, y),
-  });
+    onZoneEnter: (zoneId: string) => actions.enterZone(zoneId),
+    onExitClick: (zoneId: string) => actions.enterZone(zoneId),
+    onLotClick: (lot: number) => set({ selectedLot: lot }),
+    onHover: (target: HoverTarget | null, x: number, y: number) => showTooltip(target, x, y),
+  };
+  // The renderer is built for one map: it's created once per game (new game or loaded save), never per view.
+  let map: MapView = await createMapView(els.mapHost, data, mapCallbacks);
+  let mapScenario = state.scenario;
+  async function rebuildMapIfNeeded(): Promise<void> {
+    if (state.scenario === mapScenario) return;
+    map.destroy();
+    els.mapHost.replaceChildren();
+    mapScenario = state.scenario;
+    map = await createMapView(els.mapHost, data, mapCallbacks);
+  }
 
   function showTooltip(target: HoverTarget | null, x: number, y: number): void {
     if (target?.kind === "lot" && ui.localZoneId) {
@@ -224,7 +241,7 @@ export async function startApp(content: GameData, els: AppElements): Promise<voi
   });
 
   function render(): void {
-    data = withIdentities(content, state);
+    data = gameData(content, state);
     const ctx = context();
     els.topBar.replaceChildren(renderHeader(ctx), ui.notice ? h("div", { class: ui.notice.error ? "notice error" : "notice", role: "status" }, [ui.notice.text]) : "");
     els.nav.replaceChildren(renderNav(ctx));

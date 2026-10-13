@@ -15,10 +15,10 @@ import { availableTasks, reachableZones, type Assignment, type TurnOrders } from
 import { createRng } from "../rng";
 import type { GameState, MemberState, ZoneState } from "../state";
 import { controlOf, freeControl, gainControl, loseControl, ownedZones, zoneOwner } from "./control";
-import { arrestChance } from "./law";
 import { activeMembers, effectiveStat, livingMembers } from "./members";
 import { atWar, getStance, inTruce, warEnemies } from "./diplomacy";
-import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, protectionIncome, retailUnits, taskHeat } from "./tasks";
+import { bestPerk } from "./perks";
+import { guardAmount, gunRunCrates, intimidateAmount, intimidationTarget, memberArrestChance, protectionIncome, retailUnits, taskHeat, workExtra } from "./tasks";
 import type { Proposal } from "../council";
 import type { ManagementOrder } from "../management";
 import { buildLocationProblem, businessDef, factionBusinesses, launderCapacity, storageCapacity, workingBusinesses } from "./businesses";
@@ -82,8 +82,8 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
   };
 
   const tasks = availableTasks(data);
-  const allowed = profile.allowedZones;
-  const zones = reachableZones(state, data, factionId).filter((z) => allowed === null || allowed.includes(z));
+  const home = data.factions.find((f) => f.id === factionId)?.hqZoneId ?? null;
+  const zones = reachableZones(state, data, factionId).filter((z) => !profile.homeOnly || z === home);
   const free = activeMembers(state, factionId).sort((a, b) => a.id.localeCompare(b.id));
   const assignments: Assignment[] = [];
 
@@ -107,7 +107,14 @@ export function aiOrders(state: GameState, data: GameData, factionId: string): T
   const { management, proposals: businessProposals } = aiManagement(state, data, factionId, profile);
   const isClub = faction?.kind === "club";
   const proposals = isClub ? limitProposals([...aiProposals(state, data, factionId, profile), ...businessProposals], data) : [];
-  return { assignments, management, proposals, eventChoices: aiEventChoices(state, data, factionId) };
+  // Specialties: each member on offer takes the one that suits him best (same choice a player would see).
+  const perkChoices = livingMembers(state, factionId)
+    .filter((m) => m.perkOptions.length > 0)
+    .flatMap((m) => {
+      const perkId = bestPerk(data, m, m.perkOptions);
+      return perkId ? [{ memberId: m.id, perkId }] : [];
+    });
+  return { assignments, management, proposals, eventChoices: aiEventChoices(state, data, factionId), perkChoices };
 }
 
 /** Orders for every faction with an AI profile except `exclude` (usually the human player). */
@@ -118,6 +125,7 @@ export function allAiOrders(state: GameState, data: GameData, exclude: string | 
     management: orders.flatMap((o) => o.management ?? []),
     proposals: orders.flatMap((o) => o.proposals ?? []),
     eventChoices: orders.flatMap((o) => o.eventChoices ?? []),
+    perkChoices: orders.flatMap((o) => o.perkChoices ?? []),
   };
 }
 
@@ -273,7 +281,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
   const incomeWeight = p.incomeWeight * (plan.lowMoney ? p.lowMoneyIncomeMultiplier : 1);
   const investment = plan.lowMoney ? p.lowMoneyInvestmentMultiplier : 1;
   const arrest = task.illegal
-    ? arrestChance(zone.heat, zone.policePresence, effectiveStat(member, "cunning", balance), balance)
+    ? memberArrestChance(zone, member, data)
     : 0;
   const addedHeat = Math.max(0, taskHeatEstimate(plan, data, member.factionId, task.heat));
   const crackdownRisk = task.illegal && zone.heat + addedHeat >= balance.heat.crackdownThreshold ? p.crackdownPenalty : 0;
@@ -309,7 +317,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       }
       case "task_intimidate": {
         const rival = intimidationTarget(plan.state, zone, member.factionId);
-        const amount = intimidateAmount(member, balance, rival !== null && atWar(plan.state, rival, member.factionId));
+        const amount = intimidateAmount(member, data, rival !== null && atWar(plan.state, rival, member.factionId));
         const taken = rival ? Math.min(amount, controlOf(zone, rival)) : 0;
         const gain = Math.min(amount, freeControl(zone, balance) + taken);
         const enemy = rival !== null && rival === plan.enemyId && taken > 0 ? p.enemyBonus : 0;
@@ -361,7 +369,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       );
       const rule = business ? businessDef(data, business.typeId)?.workshop : undefined;
       if (!business || !rule) return null;
-      const byHands = Math.floor(effectiveStat(member, "hands", balance) / rule.handsPerExtraUnit);
+      const byHands = workExtra(member, rule.handsPerExtraUnit, taskId, data);
       const spare =
         rule.inputGoodId && rule.inputPerUnit > 0
           ? Math.floor((faction.stock[rule.inputGoodId] ?? 0) / rule.inputPerUnit) - rule.baseOutput - business.workCapacity
@@ -377,7 +385,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
       return units * best * incomeWeight - risk - heatCost;
     }
     case "task_gun_run": {
-      const crates = Math.min(plan.gunsLeft, gunRunCrates(member, balance));
+      const crates = Math.min(plan.gunsLeft, gunRunCrates(member, data));
       if (crates <= 0) return null;
       const price = marketPrice(plan.state, data, balance.tasks.gunRun.goodId) ?? 0;
       return crates * price * incomeWeight - risk - heatCost;
@@ -396,7 +404,7 @@ function scoreAction(plan: Plan, data: GameData, p: AiProfile, member: MemberSta
     }
     case "task_recruit": {
         const living = livingMembers(plan.state, member.factionId).length + plan.plannedRecruits;
-        if (plan.lowMoney || living >= p.recruitTargetMembers || living >= balance.club.memberCap) return null;
+        if (plan.lowMoney || living >= Math.round(p.recruitTargetShare * balance.club.memberCap) || living >= balance.club.memberCap) return null;
         const chance = balance.tasks.recruit.baseChance + effectiveStat(member, "charm", balance) * balance.tasks.recruit.perCharm;
         return chance * p.recruitWeight * investment;
       }
@@ -471,7 +479,7 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
       break;
     case "task_intimidate": {
       const rival = intimidationTarget(plan.state, zone, c.member.factionId);
-      const amount = intimidateAmount(c.member, balance, rival !== null && atWar(plan.state, rival, c.member.factionId));
+      const amount = intimidateAmount(c.member, data, rival !== null && atWar(plan.state, rival, c.member.factionId));
       if (rival) loseControl(zone, rival, amount, balance);
       gainControl(zone, c.member.factionId, amount, balance);
       break;
@@ -491,7 +499,7 @@ function applyExpected(plan: Plan, data: GameData, c: Candidate): void {
       break;
     }
     case "task_gun_run":
-      plan.gunsLeft -= Math.min(plan.gunsLeft, gunRunCrates(c.member, balance));
+      plan.gunsLeft -= Math.min(plan.gunsLeft, gunRunCrates(c.member, data));
       break;
     case "task_attack_business":
       plan.attackStrength[c.zoneId] = (plan.attackStrength[c.zoneId] ?? 0) + sideStrength(plan.state, data, c.member.factionId, [c.member], false);

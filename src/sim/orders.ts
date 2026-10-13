@@ -23,6 +23,8 @@ export const TurnOrdersSchema = z.object({
   management: z.array(ManagementOrderSchema).optional(),
   /** Answers to last week's events (GDD §13). Unanswered events take their default option. */
   eventChoices: z.array(z.object({ instanceId: z.string(), optionId: IdSchema })).optional(),
+  /** Specialties chosen for members who leveled up (phase 13). Applied at the start of the week. */
+  perkChoices: z.array(z.object({ memberId: IdSchema, perkId: IdSchema })).optional(),
 });
 export type TurnOrders = z.infer<typeof TurnOrdersSchema>;
 

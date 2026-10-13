@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { GameData } from "../data/schemas";
 import { businessDef, buildProblem, launderCapacity, storageCapacity } from "./systems/businesses";
 import { getStance } from "./systems/diplomacy";
+import { clubEffects } from "./systems/perks";
 import { IdSchema, type GameState } from "./state";
 
 export const ManagementOrderSchema = z.discriminatedUnion("kind", [
@@ -14,6 +15,13 @@ export const ManagementOrderSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("buy"), factionId: IdSchema, goodId: IdSchema, quantity: z.number().int().positive() }),
 ]);
 export type ManagementOrder = z.infer<typeof ManagementOrderSchema>;
+
+/** What the cartel charges this club per unit: catalog price minus the best negotiator's discount (phase 13). */
+export function cartelPrice(state: GameState, data: GameData, factionId: string, goodId: string): number {
+  const base = data.balance.cartel.catalog[goodId] ?? 0;
+  const discount = Math.max(0, ...clubEffects(state, data, factionId, "cartel_discount").map((fx) => fx.value));
+  return Math.round(base * (1 - discount));
+}
 
 export function cartelId(data: GameData): string | null {
   return data.factions.find((f) => f.kind === "cartel")?.id ?? null;
@@ -41,8 +49,8 @@ export function validateManagement(state: GameState, data: GameData, order: Mana
     case "buy": {
       const cartel = cartelId(data);
       if (!cartel || getStance(state, order.factionId, cartel)?.type !== "deal") return "management_error.no_deal";
-      const price = data.balance.cartel.catalog[order.goodId];
-      if (price === undefined) return "management_error.not_in_catalog";
+      if (data.balance.cartel.catalog[order.goodId] === undefined) return "management_error.not_in_catalog";
+      const price = cartelPrice(state, data, order.factionId, order.goodId);
       const capacity = storageCapacity(state, data, order.factionId, order.goodId) ?? 0;
       if ((faction.stock[order.goodId] ?? 0) + order.quantity > capacity) return "management_error.no_storage";
       if (faction.money.dirty < order.quantity * price) return "management_error.no_money";

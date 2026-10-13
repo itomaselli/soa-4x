@@ -5,6 +5,7 @@ import { factionName, type TurnContext } from "../context";
 import type { GameState, Outcome } from "../state";
 import { controlOf, loseControl, ownedZones, zoneOwner } from "./control";
 import { decayMarket } from "./economy";
+import { offerPerks } from "./perks";
 import { livingMembers, memberLabel } from "./members";
 
 export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
@@ -14,6 +15,7 @@ export function resolveEndOfTurn(state: GameState, ctx: TurnContext): void {
   recordHistory(state, ctx);
   expireTruces(state, ctx);
   decayMarket(state, ctx.data);
+  offerPerks(state, ctx);
   // An outcome may already be set earlier in the week (e.g. impeachment in the loyalty stage).
   state.outcome = state.outcome ?? checkOutcome(state, ctx);
   if (state.outcome) {
@@ -117,8 +119,9 @@ export function checkOutcome(state: GameState, ctx: TurnContext): Outcome | null
   if ((state.controlStreaks[player] ?? 0) >= balance.victory.weeksHeld) {
     return { result: "victory", reasonKey: "outcome.victory.territory", week };
   }
-  const rival = balance.victory.rivalToExpel;
-  if (rival !== player && Object.values(state.zones).every((z) => controlOf(z, rival) <= balance.ranges.control.min)) {
+  // Expulsion: no rival club keeps any influence in the county (GDD §14, phase 12: every rival, not just one).
+  const rivals = ctx.data.factions.filter((f) => f.kind === "club" && f.id !== player).map((f) => f.id);
+  if (rivals.length > 0 && rivals.every((rival) => Object.values(state.zones).every((z) => controlOf(z, rival) <= balance.ranges.control.min))) {
     return { result: "victory", reasonKey: "outcome.victory.rival_expelled", week };
   }
   return null;

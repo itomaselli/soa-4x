@@ -13,6 +13,7 @@ export function renderHeader(ctx: UiContext): HTMLElement {
   const m = topBarModel(state, data, state.playerFactionId);
   const progress = Math.min(100, Math.round((100 * m.owned) / m.target));
   const pendingEvents = state.pendingEvents.filter((e) => e.factionId === state.playerFactionId).length;
+  const pendingPerks = Object.values(state.members).filter((m) => m.factionId === state.playerFactionId && m.perkOptions.length > 0 && !ui.perkChoices[m.id]).length;
   const fileInput = h("input", {
     type: "file",
     accept: "application/json,.json",
@@ -70,6 +71,7 @@ export function renderHeader(ctx: UiContext): HTMLElement {
     ]),
     h("div", { class: "header-actions" }, [
       pendingEvents > 0 ? h("button", { class: "warn-chip", onclick: () => actions.navigate("report") }, [tr("ui.events_pending", { count: pendingEvents })]) : null,
+      pendingPerks > 0 ? h("button", { class: "warn-chip", onclick: () => actions.navigate("club") }, [tr("ui.h.perks_pending", { count: pendingPerks })]) : null,
       state.outcome
         ? h("div", { class: `outcome ${state.outcome.result}` }, [tr(state.outcome.reasonKey)])
         : h("button", { class: "primary", disabled: ui.resolving, onclick: actions.openReview, title: tr("ui.review.enter_hint") }, [tr("ui.review.open")]),

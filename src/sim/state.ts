@@ -98,6 +98,14 @@ export const MemberStateSchema = z.object({
   statusWeeks: NonNegativeInt,
   /** Secretly talking to the federals (GDD §10). Hidden from the player. */
   informant: z.boolean(),
+  /** Phase 13: experience from tasks carried out; levels come from perks.json xp.levels. */
+  xp: NonNegativeInt,
+  /** Specialties (perks.json ids). */
+  perks: z.array(IdSchema),
+  /** Scars from combat wounds (perks.json scars ids): each one is −penalty to a stat, for good. */
+  scars: z.array(IdSchema),
+  /** Specialties offered after a level-up, waiting for a choice (empty = nothing to choose). */
+  perkOptions: z.array(IdSchema),
 });
 export type MemberState = z.infer<typeof MemberStateSchema>;
 
@@ -168,8 +176,73 @@ export const OutcomeSchema = z.object({
 });
 export type Outcome = z.infer<typeof OutcomeSchema>;
 
+// ---------- Map definitions (a game's scenario) ----------
+// Defined here, not in src/data, because each game stores its own map: the classic county from zones.json /
+// factions.json, or one generated at random (src/sim/mapgen.ts). src/data re-exports them for the content files.
+
+const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "color como #rrggbb");
+
+export const ZoneDefSchema = z.object({
+  id: IdSchema,
+  name: z.string().min(1),
+  /** Label drawn on the map (one character per tile, so keep it short). */
+  shortName: z.string().min(1).max(9),
+  /** Center of the zone on the map, in tiles. Only used for drawing: the rules use `adjacent`. */
+  position: z.object({ x: z.number().int(), y: z.number().int() }),
+  type: ZoneTypeSchema,
+  glyph: z.string().length(1),
+  adjacent: z.array(IdSchema),
+  wealth: z.number().int(),
+  policePresence: z.number().int(),
+  businessSlots: z.number().int(),
+  initialHeat: z.number().finite(),
+  /** Starting influence per faction id. Missing faction = 0. */
+  initialControl: z.record(IdSchema, z.number().finite()),
+  /** Seed for the district's local map. Missing = derived from the id (the classic county keeps its look). */
+  localSeed: z.number().int().optional(),
+});
+export type ZoneDef = z.infer<typeof ZoneDefSchema>;
+
+export const FactionDefSchema = z.object({
+  id: IdSchema,
+  name: z.string().min(1),
+  kind: FactionKindSchema,
+  glyph: z.string().length(1),
+  /** Headquarters zone, or null if it is outside the current map. */
+  hqZoneId: IdSchema.nullable(),
+  startingMoney: MoneySchema,
+  /** Starting relation towards other factions. Missing faction = 0 (neutral). */
+  initialRelations: z.record(IdSchema, z.number().finite()),
+  /** Color for the map and the interface. */
+  color: HexColorSchema,
+  /** Default patch (patches.json), or null for factions that don't wear one. */
+  patchId: IdSchema.nullable(),
+  /** AI profile from ai.json used when the computer plays this faction, or null if it never gives orders. */
+  aiProfile: z.string().nullable(),
+});
+export type FactionDef = z.infer<typeof FactionDefSchema>;
+
+export const MAP_SIZES = ["small", "medium", "large"] as const;
+export const MapSizeSchema = z.enum(MAP_SIZES);
+export type MapSize = z.infer<typeof MapSizeSchema>;
+
+/** The map a game is played on: zones and factions (with their HQs), the cartel's port and the territory goal. */
+export const ScenarioSchema = z.object({
+  /** "classic" = the hand-made county in /data; otherwise a generated map of that size. */
+  size: z.union([z.literal("classic"), MapSizeSchema]),
+  zones: z.array(ZoneDefSchema).min(1),
+  factions: z.array(FactionDefSchema).min(1),
+  /** Where cartel purchases arrive (GDD §12). */
+  portZoneId: IdSchema,
+  /** Zones to own during `victory.weeksHeld` weeks to win (GDD §14). */
+  zonesToControl: z.number().int().positive(),
+  /** Most members a club can have (recruiting stops there); bigger maps, bigger clubs. */
+  memberCap: z.number().int().positive(),
+});
+export type Scenario = z.infer<typeof ScenarioSchema>;
+
 /** Bump it with a migration in src/sim/save.ts (SAVE_MIGRATIONS) whenever the shape of GameState changes. */
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export const GameStateSchema = z.object({
   schemaVersion: z.literal(SAVE_SCHEMA_VERSION),
@@ -198,6 +271,8 @@ export const GameStateSchema = z.object({
   businessSerial: NonNegativeInt,
   /** Name and patch of each club (phase 11): the player names their club; rivals use their defaults. */
   identities: z.record(IdSchema, z.object({ name: z.string().min(1).max(40), patchId: IdSchema.nullable() })),
+  /** The map this game is played on (v3). */
+  scenario: ScenarioSchema,
   /** null while the game is running. */
   outcome: OutcomeSchema.nullable(),
 });

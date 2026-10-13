@@ -5,7 +5,7 @@
 // Nothing here predicts random results: pending orders and current values are shown apart.
 
 import type { GameData } from "../data/schemas";
-import { cartelId, validateManagement, type ManagementOrder } from "../sim/management";
+import { cartelId, cartelPrice, validateManagement, type ManagementOrder } from "../sim/management";
 import type { GameState } from "../sim/state";
 import { businessDef, storageCapacity } from "../sim/systems/businesses";
 import { getStance } from "../sim/systems/diplomacy";
@@ -319,7 +319,7 @@ function cartelNode(state: GameState, data: GameData, viewer: string, goodId: st
   const cartel = cartelId(data);
   const stance = cartel ? getStance(state, viewer, cartel) : null;
   const dealing = stance?.type === "deal";
-  const price = data.balance.cartel.catalog[goodId] ?? 0;
+  const price = cartelPrice(state, data, viewer, goodId);
   const capacity = storageCapacity(state, data, viewer, goodId);
   const stock = state.factions[viewer]?.stock[goodId] ?? 0;
   const space = capacity === null ? null : Math.max(0, capacity - stock);

@@ -1,0 +1,474 @@
+{
+  "sizes": {
+    "small": {
+      "zones": 12,
+      "clubs": 2,
+      "area": {
+        "width": 34,
+        "height": 22
+      },
+      "types": {
+        "town": 3,
+        "road": 3,
+        "rural": 3,
+        "industrial": 2,
+        "port": 1
+      },
+      "memberCap": 15,
+      "extraMembers": []
+    },
+    "medium": {
+      "zones": 18,
+      "clubs": 3,
+      "area": {
+        "width": 44,
+        "height": 28
+      },
+      "types": {
+        "town": 5,
+        "road": 4,
+        "rural": 5,
+        "industrial": 3,
+        "port": 1
+      },
+      "memberCap": 15,
+      "extraMembers": []
+    },
+    "large": {
+      "zones": 26,
+      "clubs": 4,
+      "area": {
+        "width": 50,
+        "height": 32
+      },
+      "types": {
+        "town": 7,
+        "road": 6,
+        "rural": 7,
+        "industrial": 5,
+        "port": 1
+      },
+      "memberCap": 15,
+      "extraMembers": []
+    }
+  },
+  "layout": {
+    "minDistance": 7,
+    "minDistanceFloor": 5.5,
+    "sameRowGap": 10,
+    "sameRowRows": 3,
+    "margin": 2,
+    "attemptsPerZone": 400,
+    "layoutsPerDistance": 40,
+    "minSharedBorder": 2,
+    "closedBorderShare": 0.15,
+    "minDegree": 2
+  },
+  "zoneTypes": {
+    "town": {
+      "wealth": [
+        2,
+        3
+      ],
+      "policePresence": 2,
+      "businessSlots": 3,
+      "glyphs": []
+    },
+    "road": {
+      "wealth": [
+        1,
+        1
+      ],
+      "policePresence": 1,
+      "businessSlots": 1,
+      "glyphs": [
+        "="
+      ]
+    },
+    "port": {
+      "wealth": [
+        4,
+        4
+      ],
+      "policePresence": 3,
+      "businessSlots": 2,
+      "glyphs": [
+        "P"
+      ]
+    },
+    "rural": {
+      "wealth": [
+        1,
+        1
+      ],
+      "policePresence": 0,
+      "businessSlots": 1,
+      "glyphs": [
+        "\"",
+        "~",
+        "^"
+      ]
+    },
+    "industrial": {
+      "wealth": [
+        2,
+        2
+      ],
+      "policePresence": 1,
+      "businessSlots": 2,
+      "glyphs": [
+        "#"
+      ]
+    }
+  },
+  "crossroads": {
+    "minDegree": 4,
+    "wealth": 2,
+    "glyph": "+"
+  },
+  "sheriffTown": {
+    "wealth": 4,
+    "policePresence": 4
+  },
+  "control": {
+    "hq": 70,
+    "neighbors": {
+      "town": 0,
+      "road": 20,
+      "port": 0,
+      "rural": 30,
+      "industrial": 25
+    },
+    "contested": 10,
+    "cartelPort": 40
+  },
+  "places": {
+    "town": [
+      {
+        "name": "Redwater",
+        "short": "Redwater"
+      },
+      {
+        "name": "Millbrook",
+        "short": "Millbrook"
+      },
+      {
+        "name": "Bayside",
+        "short": "Bayside"
+      },
+      {
+        "name": "Lone Pine",
+        "short": "Lone Pine"
+      },
+      {
+        "name": "Ash Valley",
+        "short": "Ash Valle"
+      },
+      {
+        "name": "Silver Gulch",
+        "short": "Silver G."
+      },
+      {
+        "name": "Harlan",
+        "short": "Harlan"
+      },
+      {
+        "name": "Cottonwood",
+        "short": "Cottonwd"
+      },
+      {
+        "name": "Blackstone",
+        "short": "Blackstn"
+      },
+      {
+        "name": "Fairhaven",
+        "short": "Fairhaven"
+      },
+      {
+        "name": "Mesa Verde",
+        "short": "Mesa Vrd"
+      },
+      {
+        "name": "Kingsford",
+        "short": "Kingsford"
+      },
+      {
+        "name": "Sutter Falls",
+        "short": "Sutter F."
+      },
+      {
+        "name": "Greenfield",
+        "short": "Greenfld"
+      },
+      {
+        "name": "Paso Hondo",
+        "short": "Paso Hond"
+      },
+      {
+        "name": "Ridgeway",
+        "short": "Ridgeway"
+      },
+      {
+        "name": "Oakdale",
+        "short": "Oakdale"
+      },
+      {
+        "name": "San Rafael",
+        "short": "San Rafa"
+      },
+      {
+        "name": "Westbrook",
+        "short": "Westbrook"
+      },
+      {
+        "name": "Copperton",
+        "short": "Coppertn"
+      }
+    ],
+    "road": [
+      {
+        "name": "Ruta 9 Sur",
+        "short": "Ruta 9 S"
+      },
+      {
+        "name": "Ruta 9 Norte",
+        "short": "Ruta 9 N"
+      },
+      {
+        "name": "El Cruce",
+        "short": "El Cruce"
+      },
+      {
+        "name": "Hollister Junction",
+        "short": "Hollister"
+      },
+      {
+        "name": "Ruta 40",
+        "short": "Ruta 40"
+      },
+      {
+        "name": "Paso del Cóndor",
+        "short": "Cóndor"
+      },
+      {
+        "name": "Autopista 66",
+        "short": "Hwy 66"
+      },
+      {
+        "name": "Cruce de Vías",
+        "short": "C. Vías"
+      },
+      {
+        "name": "Ruta del Desierto",
+        "short": "Desierto"
+      },
+      {
+        "name": "Puente Viejo",
+        "short": "Puente V."
+      },
+      {
+        "name": "Curva del Muerto",
+        "short": "Curva M."
+      },
+      {
+        "name": "Ruta 12",
+        "short": "Ruta 12"
+      },
+      {
+        "name": "Parador Sunset",
+        "short": "Sunset"
+      },
+      {
+        "name": "Cuesta Larga",
+        "short": "Cuesta L."
+      }
+    ],
+    "rural": [
+      {
+        "name": "Saltmarsh",
+        "short": "Saltmarsh"
+      },
+      {
+        "name": "Dry Creek",
+        "short": "Dry Creek"
+      },
+      {
+        "name": "Cedar Flats",
+        "short": "Cedar"
+      },
+      {
+        "name": "Pine Hollow",
+        "short": "Pine H."
+      },
+      {
+        "name": "Copper Ridge",
+        "short": "Copper"
+      },
+      {
+        "name": "Sierra Alta",
+        "short": "Sierra A."
+      },
+      {
+        "name": "Valle Seco",
+        "short": "Valle S."
+      },
+      {
+        "name": "Wolf Canyon",
+        "short": "Wolf Cany"
+      },
+      {
+        "name": "Los Pinares",
+        "short": "Pinares"
+      },
+      {
+        "name": "Rancho Grande",
+        "short": "Rancho G."
+      },
+      {
+        "name": "Bluebell Fields",
+        "short": "Bluebell"
+      },
+      {
+        "name": "Cañada Honda",
+        "short": "Cañada H."
+      },
+      {
+        "name": "Crow Meadows",
+        "short": "Crow Mdw"
+      },
+      {
+        "name": "Lago Escondido",
+        "short": "Lago Esc."
+      },
+      {
+        "name": "Bitter Springs",
+        "short": "Bitter Sp"
+      },
+      {
+        "name": "Monte Negro",
+        "short": "Monte N."
+      },
+      {
+        "name": "Hollow Oak",
+        "short": "Hollow Ok"
+      },
+      {
+        "name": "Prado Verde",
+        "short": "Prado V."
+      }
+    ],
+    "industrial": [
+      {
+        "name": "La Cantera",
+        "short": "Cantera"
+      },
+      {
+        "name": "Old Mill",
+        "short": "Molino"
+      },
+      {
+        "name": "Playa Ferroviaria",
+        "short": "Ferrovia"
+      },
+      {
+        "name": "Refinería Norte",
+        "short": "Refinería"
+      },
+      {
+        "name": "Parque Industrial",
+        "short": "P. Indust"
+      },
+      {
+        "name": "Fundición Vieja",
+        "short": "Fundición"
+      },
+      {
+        "name": "Depósitos del Sur",
+        "short": "Depósitos"
+      },
+      {
+        "name": "Aserradero",
+        "short": "Aserrad."
+      },
+      {
+        "name": "Planta Eléctrica",
+        "short": "Planta E."
+      },
+      {
+        "name": "Chatarrería",
+        "short": "Chatarra"
+      },
+      {
+        "name": "Silos Grain Co.",
+        "short": "Silos"
+      },
+      {
+        "name": "Mina Abandonada",
+        "short": "Mina"
+      }
+    ],
+    "port": [
+      {
+        "name": "Port Calloway",
+        "short": "Puerto"
+      },
+      {
+        "name": "Puerto Viejo",
+        "short": "Pto Viejo"
+      },
+      {
+        "name": "Harbor Point",
+        "short": "Harbor"
+      },
+      {
+        "name": "Muelle Sur",
+        "short": "Muelle S."
+      },
+      {
+        "name": "Bahía Gris",
+        "short": "Bahía"
+      },
+      {
+        "name": "Dock Town",
+        "short": "Docks"
+      }
+    ]
+  },
+  "sheriffName": "Oficina del Sheriff de {town}",
+  "rivals": {
+    "names": [
+      "Grim Wolves MC",
+      "Black Vultures MC",
+      "Rust Reapers MC",
+      "Iron Coyotes MC",
+      "Night Jackals MC",
+      "Steel Serpents MC",
+      "Desert Kings MC",
+      "Bone Riders MC",
+      "Red Hounds MC",
+      "Gravediggers MC",
+      "Ash Crows MC",
+      "Lost Saints MC"
+    ],
+    "colors": [
+      "#e0503c",
+      "#5fd17a",
+      "#c77dff",
+      "#ff9f43"
+    ],
+    "aiProfiles": [
+      "expansive",
+      "balanced"
+    ],
+    "roster": [
+      "president",
+      "vice_president",
+      "sergeant_at_arms",
+      "treasurer",
+      "member",
+      "member",
+      "prospect",
+      "prospect"
+    ]
+  }
+}

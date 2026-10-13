@@ -103,11 +103,18 @@ describe("guardar y cargar contra los datos del juego", () => {
     expect(loadSave(serializeState(newGame()), data)).toEqual(newGame());
   });
 
-  it("si cambiaron los datos (por ejemplo, se borró una zona), la carga lo explica en lugar de romperse después", () => {
+  it("el mapa viaja con la partida: si el contenido cambia sus zonas, la partida sigue con las suyas", () => {
     const state = newGame();
     const fewerZones = { ...data, zones: data.zones.filter((z) => z.id !== "zone_lone_pine") };
-    expect(saveDataProblems(state, fewerZones)).toContainEqual("zona desconocida: zone_lone_pine");
-    expect(() => loadSave(serializeState(state), fewerZones)).toThrow(/no coincide con los datos/);
+    expect(saveDataProblems(state, fewerZones)).toEqual([]);
+    expect(loadSave(serializeState(state), fewerZones).scenario.zones.some((z) => z.id === "zone_lone_pine")).toBe(true);
+  });
+
+  it("si la partida y su propio mapa no coinciden, la carga lo explica en lugar de romperse después", () => {
+    const state = newGame();
+    state.scenario.zones = state.scenario.zones.filter((z) => z.id !== "zone_lone_pine");
+    expect(saveDataProblems(state, data)).toContainEqual("zona desconocida: zone_lone_pine");
+    expect(() => loadSave(serializeState(state), data)).toThrow(/no coincide con los datos/);
   });
 
   it("detecta negocios de un tipo que ya no existe", () => {
