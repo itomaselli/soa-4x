@@ -56,11 +56,13 @@ El orden de resolución es parte del diseño. Cambiarlo requiere actualizar este
 - **18 zonas** conectadas como **grafo de adyacencia**. Se dibuja con tiles, pero la lógica no usa grilla.
 - **Condados aleatorios (Fase 12):** cada partida nueva genera su condado (`src/sim/mapgen.ts`, valores en `data/mapgen.json`) y lo guarda en la partida. Al empezar se elige el tamaño:
 
-| Tamaño | Zonas | Clubes (con el tuyo) | Zonas para ganar | Tope de miembros | Miembros iniciales por club |
-|---|---|---|---|---|---|
-| Pequeño | 12 | 2 | 8 | 15 | 8 |
-| Mediano | 18 | 3 | 12 | 18 | 10 |
-| Grande | 26 | 4 | 18 | 22 | 12 |
+| Tamaño | Zonas | Clubes (con el tuyo) | Zonas para ganar |
+|---|---|---|---|
+| Pequeño | 12 | 2 | 8 |
+| Mediano | 18 | 3 | 12 |
+| Grande | 26 | 4 | 18 |
+
+  - **Balance por tamaño:** cada club tiene unas 6 zonas propias del mapa en cualquier tamaño, los mismos 8 miembros y tope de 15, y la misma plata inicial. Se probó agrandar los clubes en mapas grandes (12 miembros, tope 22): con más sueldos y la misma plata se fundían (en la simulación, 80% de destituciones en el grande contra 47% sin agrandarlos), así que se descartó. Los valores quedan en `mapgen.json` (`memberCap`, `extraMembers`) por si se quiere volver a probar.
 
   - Cómo se arma: los centros se reparten al azar (sin pisar nombres ni salirse del mapa; si un condado grande no entra, se usa una grilla escalonada), las conexiones salen de qué regiones del mapa político se tocan y un 15% se cierra (río o sierra) sin aislar a nadie. Siempre hay **un puerto en el borde**, con el cartel; las sedes de los clubes son pueblos lo más lejos posible entre sí y nunca vecinos; el sheriff va al pueblo más central. Las rutas caen en los cruces y lo rural en los bordes.
   - Cada club arranca con 70 en su sede e influencia en las zonas de alrededor (rural 30, industrial 25, ruta 20; 10 cada uno si la zona toca dos sedes).
@@ -94,7 +96,7 @@ Zonas iniciales sugeridas: Redwater (tu sede), Millbrook (sede de los Grim Wolve
 ## 6. El club
 
 ### Miembros
-- Empezás con 6 miembros y 2 prospectos (más en condados medianos y grandes, Fase 12). Tope: 15 en el clásico y en el pequeño, 18 en el mediano, 22 en el grande.
+- Empezás con 6 miembros y 2 prospectos. Tope: 15 (configurable por tamaño de condado en `mapgen.json`).
 - Stats (1–10): **Fuerza** (combate, intimidar), **Astucia** (robos, evitar arrestos), **Manos** (taller, producción), **Labia** (cobrar, sobornar, reclutar).
 - **Qué hace cada stat (también en la ficha de cada miembro, «Para qué sirve cada stat»):**
   - **Fuerza:** cuánto control mueven custodiar e intimidar, atacar negocios y la fuerza en los combates.
@@ -446,7 +448,7 @@ Huecos del GDD que se cerraron al implementar la Fase 1, con el acuerdo del due�
 | ¿Los lotes cambian las reglas? (Fase 10) | Solo agregan dónde: cada negocio ocupa un lote (0 a lugares−1). Construir en un lote ocupado o inexistente se rechaza; sin lote, se usa el primero libre (así construye la IA). |
 | ¿Mapa inicial? | 18 zonas en `data/zones.json`, con Redwater al sur, Millbrook al norte, El Cruce en el medio y Port Calloway en la costa. |
 | ¿Mapa aleatorio? (Fase 12, decidido por el dueño) | Sí, en cada partida nueva. Tamaños 12/18/26 zonas con 2/3/4 clubes; victoria por 2/3 del mapa o por expulsar a todos los rivales; rivales con nombre, parche, color y perfil al azar. |
-| ¿Cómo se escala con más clubes? (Fase 12) | Mismas zonas por club (unas 6). Los clubes son más grandes en mapas más grandes (tope y miembros iniciales en `mapgen.json`) y la IA recluta hasta una fracción del tope (`recruitTargetShare`). El cartel solo actúa en su puerto (`homeOnly`). El evento del camión ocurre en la ruta más cercana a la sede. |
+| ¿Cómo se escala con más clubes? (Fase 12) | Mismas zonas por club (unas 6) y clubes iguales en todos los tamaños (agrandarlos los fundía en sueldos). La IA recluta hasta una fracción del tope (`recruitTargetShare`). El cartel solo actúa en su puerto (`homeOnly`). El evento del camión ocurre en la ruta más cercana a la sede. |
 
 ## 19. Preguntas abiertas
 

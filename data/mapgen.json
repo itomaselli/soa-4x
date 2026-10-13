@@ -31,11 +31,8 @@
         "industrial": 3,
         "port": 1
       },
-      "memberCap": 18,
-      "extraMembers": [
-        "member",
-        "prospect"
-      ]
+      "memberCap": 15,
+      "extraMembers": []
     },
     "large": {
       "zones": 26,
@@ -51,13 +48,8 @@
         "industrial": 5,
         "port": 1
       },
-      "memberCap": 22,
-      "extraMembers": [
-        "member",
-        "member",
-        "prospect",
-        "prospect"
-      ]
+      "memberCap": 15,
+      "extraMembers": []
     }
   },
   "layout": {
