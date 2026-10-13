@@ -303,7 +303,8 @@ Ejemplos:
 
 ## 16. Fuera de alcance (MVP)
 
-Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja, multijugador, sonido, drogas como cadena (se puede agregar más adelante), personajes con historia propia.
+Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja, multijugador, sonido, personajes con historia propia.
+(Las drogas como cadena salieron de esta lista por pedido del dueño: ver Fase 9.)
 
 ## 17. Roadmap
 
@@ -317,6 +318,12 @@ Varios chapters, mapa de varios condados, combate táctico, diplomacia compleja,
 | 5 | Cadenas de producción, cartel, eventos | Contenido |
 | 6 | Arte, pulido de interfaz, guardar y cargar, balance | Prototipo "terminado" |
 | 7 (opcional) | Empaquetado con Tauri a .exe | Juego de PC (instalador `.exe` armado por GitHub Actions; ver `docs/ESCRITORIO.md`) |
+| 8 | IA que juega como el jugador: usa la mesa (guerra, tregua, ascensos, expulsiones, cartel, negocios ilegales), compra armas, tiene eventos y los decide; sucesión en clubes de la IA | Rivales que toman decisiones visibles y coherentes |
+| 9 | Dos cadenas nuevas: marihuana (plantación propia en zonas rurales) y cocaína (trato con el cartel, laboratorio de corte, distribución) | Más variedad económica |
+| 10 | Mapa político (límites de distrito como bordes, estilo overworld de *Caves of Qud*) y zoom jugable a cada zona: mapa local donde se elige el tile de cada negocio | Mapa nuevo |
+| 11 | Identidad del club: nombre editable y parche elegido entre 50 diseños pixel art; los rivales también tienen parche; el parche se ve en la barra, el club y el mapa | Pantalla de nueva partida |
+
+**Feedback del dueño después de jugar v0.1.0 (origen de las fases 8 a 11):** la IA tiene que decidir como el jugador; hacen falta más cadenas para que no sea repetitivo; nombre y parche propios; y un mapa político con zoom a cada zona.
 
 ## 18. Decisiones de la Fase 1
 
