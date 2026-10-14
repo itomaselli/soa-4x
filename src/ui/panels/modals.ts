@@ -79,7 +79,7 @@ function renderHelp(ctx: UiContext): HTMLElement {
     h("h2", {}, [tr("ui.help.title")]),
     h("p", {}, [tr("ui.help.goal", { target: data.balance.victory.zonesToControl, total: data.zones.length, weeks: data.balance.victory.weeksHeld })]),
     ...["ui.help.week", "ui.help.tasks", "ui.help.money", "ui.help.law", "ui.help.council", "ui.help.lose", "ui.help.keys"].map((k) => h("p", {}, [tr(k)])),
-    h("p", { class: "muted" }, [tr("ui.help.credits", { credit: data.ui.tileset.credit })]),
+    h("p", { class: "muted" }, [tr("ui.help.credits", { credit: data.tileset.credit })]),
     h("p", { class: "muted" }, [tr("ui.help.credits_ui")]),
     h("button", { class: "primary", onclick: () => set({ showHelp: false }) }, [tr("ui.close")]),
   ]);

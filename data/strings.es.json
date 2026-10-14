@@ -520,7 +520,7 @@
   "ui.h.sheriff": "Sheriff",
   "ui.h.federal": "Federales",
   "ui.help.keys": "Teclado: Enter abre «Revisar semana» desde la pantalla principal; dentro de la revisión, Enter sobre «Resolver semana» la confirma. Escape cierra ventanas. Dentro de formularios, Enter nunca avanza la partida.",
-  "ui.help.credits_ui": "Ilustraciones de la interfaz: generadas para este proyecto (no son del pack de Kenney).",
+  "ui.help.credits_ui": "Ilustraciones de la interfaz: generadas para este proyecto, con la misma paleta que el tileset.",
   "ui.map.breadcrumb": "Ubicación",
   "ui.zone.lots_used": "{used} de {total} ocupados",
   "ui.inspector.members": "Miembros",

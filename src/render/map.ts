@@ -5,16 +5,18 @@
 //   - Zone: the district's local map (see localMap.ts) with its building lots, our members working there, exits
 //     to neighbouring districts and landmarks (headquarters, gas station, motel). Click a lot to select it; click
 //     an exit to walk over. Roads are autotiled: their sprites are rotated a quarter turn at a time.
+// Sprites come from data/tileset.json in full color and are drawn untinted. Faction colors go on a second layer,
+// the sprite's mask tinted with the owner's color; selection, planned tasks and heat are frames drawn with Graphics.
 // The renderer only reads a MapViewModel built by the UI; it never looks at game rules.
 
-import { Application, Assets, BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, Texture, TextureStyle } from "pixi.js";
-import tilesetUrl from "../../assets/tiles/kenney-1bit-monochrome.png?url";
+import { Application, BitmapFont, BitmapText, Container, Graphics, Rectangle, Sprite, Texture, TextureStyle } from "pixi.js";
 import type { GameData, UiConfig } from "../data/schemas";
 import { buildMapLayout, zoneTiles, type MapLayout } from "./layout";
+import { localTextureId } from "../data/validate";
 import { generateLocalMap, LOCAL_LOT_SIZE, type LocalMap } from "./localMap";
-import { extraTilePixels } from "./extraTile";
 import { patchPixels } from "./patch";
 import { computeRegions, zoneAtTile, type RegionMap } from "./regions";
+import { maskTextureId, spritePixels } from "./tileset";
 
 export type RenderMode = "tiles" | "ascii";
 
@@ -27,6 +29,8 @@ export interface ZoneLook {
   /** Sprite id for the tile view, e.g. "zone_type.town". */
   spriteId: string;
   glyphColor: string;
+  /** We planned tasks here this week: framed in the tile view. */
+  planned: boolean;
   labelColor: string;
   /** Show a heat marker next to the zone. */
   heatWarning: boolean;
@@ -91,6 +95,10 @@ export interface MapCallbacks {
 const FONT_NAME = "ascii-tiles";
 const OWNER_FILL_ALPHA = 0.22;
 const SELECTED_FILL_ALPHA = 0.12;
+/** Heat marker background in the tile view. */
+const HEAT_BACK_ALPHA = 0.45;
+/** No tint: tileset sprites carry their own colors. */
+const WHITE = 0xffffff;
 
 /** Sparse background texture of each district type on the county map (deterministic per tile). */
 const TERRAIN_DOTS: Record<string, { glyph: string; density: number }> = {
@@ -131,24 +139,33 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   });
 
   // ---------- Tileset ----------
-  const sheet = await Assets.load<Texture>(tilesetUrl);
-  sheet.source.scaleMode = "nearest";
-  const ts = ui.tileset.tileSize;
-  const cut = ([col, row]: [number, number]) => new Texture({ source: sheet.source, frame: new Rectangle(col * ts, row * ts, ts, ts) });
   const textures = new Map<string, Texture>();
-  for (const [id, coords] of Object.entries(ui.tileset.sprites)) textures.set(id, cut(coords));
-  for (const [id, coords] of Object.entries(ui.localMap.sprites)) textures.set(`local.${id}`, cut(coords));
+  const canvasTexture = (canvas: HTMLCanvasElement): Texture => {
+    const texture = Texture.from(canvas);
+    texture.source.scaleMode = "nearest";
+    return texture;
+  };
+  const rgbaTexture = (rgba: Uint8ClampedArray, size: number): Texture => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const image = new ImageData(size, size);
+    image.data.set(rgba);
+    canvas.getContext("2d")?.putImageData(image, 0, 0);
+    return canvasTexture(canvas);
+  };
   const pixelTexture = (pixels: (string | null)[][], size: number): Texture => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = size;
     const ctx2d = canvas.getContext("2d");
     pixels.forEach((row, y) => row.forEach((c, x) => { if (c && ctx2d) { ctx2d.fillStyle = c; ctx2d.fillRect(x, y, 1, 1); } }));
-    const texture = Texture.from(canvas);
-    texture.source.scaleMode = "nearest";
-    return texture;
+    return canvasTexture(canvas);
   };
-  // The project's own tiles: white on transparent, tinted like the Kenney sheet.
-  for (const [id, extra] of Object.entries(data.tilesExtra.tiles)) textures.set(`extra.${id}`, pixelTexture(extraTilePixels(extra), data.tilesExtra.tileSize));
+  // Every sprite under its own id, plus "<id>#mask" for those with faction-mask pixels.
+  for (const [id, sprite] of Object.entries(data.tileset.sprites)) {
+    const pixels = spritePixels(sprite, data.tileset.palette);
+    textures.set(id, rgbaTexture(pixels.rgba, pixels.size));
+    if (pixels.mask) textures.set(maskTextureId(id), rgbaTexture(pixels.mask, pixels.size));
+  }
   /** Patch textures are made on demand from their pixels. */
   const patchTexture = (patchId: string): Texture | undefined => {
     const key = `patch.${patchId}`;
@@ -176,29 +193,49 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     text.text = ch;
     place(text, x, y);
   };
-  /** Sprites are centered on their tile so they can turn and mirror in place. */
-  const tile = (x: number, y: number): Sprite => {
-    const sprite = new Sprite(Texture.EMPTY);
-    sprite.anchor.set(0.5);
-    sprite.x = x * t + t / 2;
-    sprite.y = y * t + t / 2;
-    sprite.visible = false;
-    return sprite;
+  /** A sprite and its faction mask, centered on their tile so they can turn and mirror in place. */
+  interface TileSlot {
+    root: Container;
+    base: Sprite;
+    mask: Sprite;
+  }
+  const tile = (x: number, y: number): TileSlot => {
+    const root = new Container();
+    root.x = x * t + t / 2;
+    root.y = y * t + t / 2;
+    root.visible = false;
+    const base = new Sprite(Texture.EMPTY);
+    const mask = new Sprite(Texture.EMPTY);
+    base.anchor.set(0.5);
+    mask.anchor.set(0.5);
+    mask.visible = false;
+    root.addChild(base, mask);
+    return { root, base, mask };
+  };
+  const hideTile = (slot: TileSlot) => {
+    slot.root.visible = false;
   };
   /**
-   * Shows a sprite if the texture exists and we're in tile mode; returns whether it did.
+   * Shows a sprite if the texture exists and we're in tile mode; returns whether it did. The sprite keeps its own
+   * colors; its mask (if it has one) is tinted with `maskColor` (the owner's color, else neutral).
    * `turns` rotates it a quarter turn clockwise each (autotiled roads); `mirror` flips it in X.
    */
-  const showTile = (sprite: Sprite, spriteId: string | undefined, color: string, mode: RenderMode, turns = 0, mirror = false): boolean => {
+  const showTile = (slot: TileSlot, spriteId: string | undefined, maskColor: string | null, mode: RenderMode, turns = 0, mirror = false): boolean => {
     const texture = spriteId ? textures.get(spriteId) : undefined;
-    sprite.visible = mode === "tiles" && texture !== undefined;
-    if (sprite.visible && texture) {
-      sprite.texture = texture;
-      sprite.tint = color;
-      sprite.rotation = (turns * Math.PI) / 2;
-      sprite.scale.x = mirror ? -1 : 1;
+    slot.root.visible = mode === "tiles" && texture !== undefined;
+    if (slot.root.visible && texture && spriteId) {
+      slot.base.texture = texture;
+      slot.base.tint = WHITE;
+      const mask = textures.get(maskTextureId(spriteId));
+      slot.mask.visible = mask !== undefined;
+      if (mask) {
+        slot.mask.texture = mask;
+        slot.mask.tint = maskColor ?? ui.colors.neutral;
+      }
+      slot.root.rotation = (turns * Math.PI) / 2;
+      slot.root.scale.x = mirror ? -1 : 1;
     }
-    return sprite.visible;
+    return slot.root.visible;
   };
 
   // ---------- County view ----------
@@ -207,8 +244,10 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   const terrainLayer = new Container();
   const borderLayer = new Graphics();
   const selectionLayer = new Graphics();
+  /** Tile view: frames for planned districts and business owners, and the heat marker's background. */
+  const frameLayer = new Graphics();
   const zoneLayer = new Container();
-  county.addChild(fills, terrainLayer, borderLayer, selectionLayer, zoneLayer);
+  county.addChild(fills, terrainLayer, borderLayer, selectionLayer, frameLayer, zoneLayer);
 
   const zoneType = new Map(data.zones.map((z) => [z.id, z.type]));
   // Keep the terrain texture away from icons and names so they stay readable.
@@ -244,17 +283,17 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
 
   interface ZoneSprites {
     center: BitmapText;
-    centerTile: Sprite;
+    centerTile: TileSlot;
     heat: BitmapText;
-    heatTile: Sprite;
+    heatTile: TileSlot;
     label: BitmapText[];
     marks: BitmapText[];
-    markTiles: Sprite[];
+    markTiles: TileSlot[];
     /** Event markers on the row below the icon, and the mood face to its right. */
-    markers: { glyph: BitmapText; tile: Sprite }[];
-    mood: { glyph: BitmapText; tile: Sprite };
+    markers: { glyph: BitmapText; tile: TileSlot }[];
+    mood: { glyph: BitmapText; tile: TileSlot };
   }
-  const heatGlyph = ui.tileset.glyphs["marker.heat"] ?? "!";
+  const heatGlyph = data.tileset.sprites["marker.heat"]?.glyph ?? "!";
   const sprites = new Map<string, ZoneSprites>();
   for (const z of layout.zones) {
     const { x, y } = z.center;
@@ -267,7 +306,18 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     const markTiles = [0, 1, 2].map((i) => tile(x - 1 + i, y - 1));
     const markers = Array.from({ length: ui.markers.max }, (_, i) => ({ glyph: glyph(" ", x - 1 + i, y + 1, ui.colors.label), tile: tile(x - 1 + i, y + 1) }));
     const mood = { glyph: glyph(" ", x + 1, y, ui.colors.label), tile: tile(x + 1, y) };
-    zoneLayer.addChild(center, centerTile, heat, heatTile, ...label, ...marks, ...markTiles, ...markers.flatMap((m) => [m.glyph, m.tile]), mood.glyph, mood.tile);
+    zoneLayer.addChild(
+      center,
+      centerTile.root,
+      heat,
+      heatTile.root,
+      ...label,
+      ...marks,
+      ...markTiles.map((m) => m.root),
+      ...markers.flatMap((m) => [m.glyph, m.tile.root]),
+      mood.glyph,
+      mood.tile.root,
+    );
     sprites.set(z.id, { center, centerTile, heat, heatTile, label, marks, markTiles, markers, mood });
   }
 
@@ -275,18 +325,28 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   interface LocalLayer {
     container: Container;
     map: LocalMap;
-    terrainGlyphs: { glyph: BitmapText; sprite: Sprite; spriteId: string | null; turns: number; color: string; char: string; x: number; y: number }[];
-    landmarks: { glyph: BitmapText; sprite: Sprite; spriteId: string; color: string; char: string; x: number; y: number }[];
+    terrainGlyphs: {
+      glyph: BitmapText;
+      under: TileSlot;
+      underId: string | null;
+      sprite: TileSlot;
+      spriteId: string | null;
+      turns: number;
+      char: string;
+      x: number;
+      y: number;
+    }[];
+    landmarks: { glyph: BitmapText; sprite: TileSlot; spriteId: string; color: string; char: string; x: number; y: number }[];
     lotFrames: Graphics;
     lotGlyphs: BitmapText[];
-    lotTiles: Sprite[];
+    lotTiles: TileSlot[];
     signGlyphs: BitmapText[];
-    signTiles: Sprite[];
+    signTiles: TileSlot[];
     memberGlyphs: BitmapText[];
-    memberTiles: Sprite[];
+    memberTiles: TileSlot[];
   }
   const landmarksUi = ui.localMap.landmarks;
-  const barSignGlyph = data.tilesExtra.tiles[landmarksUi.barSign.replace(/^extra\./, "")]?.glyph ?? "Y";
+  const barSignGlyph = data.tileset.sprites[landmarksUi.barSign]?.glyph ?? "Y";
   const localLayers = new Map<string, LocalLayer>();
   const localRoot = new Container();
   app.stage.addChild(county, localRoot);
@@ -301,26 +361,37 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
         const cell = map.tiles[y]![x]!;
         const color = colors[cell.terrain] ?? ui.colors.label;
         const g = glyph(cell.glyph, x, y, color);
+        const under = tile(x, y);
         const s = tile(x, y);
-        container.addChild(g, s);
-        terrainGlyphs.push({ glyph: g, sprite: s, spriteId: cell.sprite ? `local.${cell.sprite}` : null, turns: cell.rotation, color, char: cell.glyph, x, y });
+        container.addChild(under.root, s.root, g);
+        terrainGlyphs.push({
+          glyph: g,
+          under,
+          underId: cell.under ? localTextureId(cell.under) : null,
+          sprite: s,
+          spriteId: cell.sprite ? localTextureId(cell.sprite) : null,
+          turns: cell.rotation,
+          char: cell.glyph,
+          x,
+          y,
+        });
       }
     }
     const landmarks = map.landmarks.map((l) => {
       const color = (l.factionId ? data.factions.find((f) => f.id === l.factionId)?.color : undefined) ?? colors.landmark ?? ui.colors.glyph;
       const g = glyph(l.glyph, l.x, l.y, color);
       const s = tile(l.x, l.y);
-      container.addChild(g, s);
+      container.addChild(g, s.root);
       return { glyph: g, sprite: s, spriteId: l.sprite, color, char: l.glyph, x: l.x, y: l.y };
     });
     const lotFrames = new Graphics();
     container.addChild(lotFrames);
     const lotGlyphs = map.lots.map((lot) => glyph(" ", lot.x + 1, lot.y + 1, colors.lot ?? ui.colors.selected));
     const lotTiles = map.lots.map((lot) => tile(lot.x + 1, lot.y + 1));
-    container.addChild(...lotGlyphs, ...lotTiles);
+    container.addChild(...lotGlyphs, ...lotTiles.map((s) => s.root));
     const signGlyphs = map.lots.map((lot) => glyph(" ", lot.signSpot.x, lot.signSpot.y, colors.landmark ?? ui.colors.glyph));
     const signTiles = map.lots.map((lot) => tile(lot.signSpot.x, lot.signSpot.y));
-    container.addChild(...signGlyphs, ...signTiles);
+    container.addChild(...signGlyphs, ...signTiles.map((s) => s.root));
     for (const exit of map.exits) {
       container.addChild(glyph(exit.arrow, exit.x, exit.y, colors.exit ?? ui.colors.selected));
       const name = data.zones.find((z) => z.id === exit.zoneId)?.shortName ?? "";
@@ -331,7 +402,7 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     }
     const memberGlyphs = map.memberSpots.map((p) => glyph("@", p.x, p.y, colors.member ?? ui.colors.glyph));
     const memberTiles = map.memberSpots.map((p) => tile(p.x, p.y));
-    container.addChild(...memberGlyphs, ...memberTiles);
+    container.addChild(...memberGlyphs, ...memberTiles.map((s) => s.root));
     return { container, map, terrainGlyphs, landmarks, lotFrames, lotGlyphs, lotTiles, signGlyphs, signTiles, memberGlyphs, memberTiles };
   };
   const localFor = (zoneId: string): LocalLayer => {
@@ -399,6 +470,10 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   const updateCounty = (model: MapViewModel) => {
     fills.clear();
     selectionLayer.clear();
+    frameLayer.clear();
+    const tiles = model.mode === "tiles";
+    /** A 1px frame around tile (x, y), inside it. */
+    const frame = (x: number, y: number, color: string) => frameLayer.rect(x * t + 0.5, y * t + 0.5, t - 1, t - 1).stroke({ width: 1, color });
     for (let y = 0; y < regions.height; y++) {
       for (let x = 0; x < regions.width; x++) {
         const id = zoneAtTile(regions, x, y);
@@ -420,30 +495,37 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       const selected = model.selectedZoneId === z.id;
       const patch = look.ownerPatchId && model.mode === "tiles" ? patchTexture(look.ownerPatchId) : undefined;
       if (patch) {
-        sp.centerTile.texture = patch;
-        sp.centerTile.tint = 0xffffff;
-        sp.centerTile.visible = true;
+        sp.centerTile.base.texture = patch;
+        sp.centerTile.base.tint = WHITE;
+        sp.centerTile.mask.visible = false;
+        sp.centerTile.root.rotation = 0;
+        sp.centerTile.root.scale.x = 1;
+        sp.centerTile.root.visible = true;
       }
-      const centerAsTile = patch ? true : showTile(sp.centerTile, look.spriteId, look.glyphColor, model.mode);
+      const centerAsTile = patch ? true : showTile(sp.centerTile, look.spriteId, look.ownerColor, model.mode);
+      if (tiles && look.planned) frame(z.center.x, z.center.y, ui.colors.planned);
       setChar(sp.center, centerAsTile ? " " : look.glyph, z.center.x, z.center.y);
       sp.center.tint = look.glyphColor;
       for (let i = 0; i < 3; i++) {
         const business = look.businesses[i];
-        const asTile = business ? showTile(sp.markTiles[i]!, business.spriteId, business.color, model.mode) : showTile(sp.markTiles[i]!, undefined, "", model.mode);
+        const asTile = business ? showTile(sp.markTiles[i]!, business.spriteId, business.color, model.mode) : showTile(sp.markTiles[i]!, undefined, null, model.mode);
+        // The owner's color: a frame around the business sprite.
+        if (asTile && business) frame(z.center.x - 1 + i, z.center.y - 1, business.color);
         setChar(sp.marks[i]!, asTile || !business ? " " : business.glyph, z.center.x - 1 + i, z.center.y - 1);
         if (business) sp.marks[i]!.tint = business.color;
       }
       sp.markers.forEach((slot, i) => {
         const marker = look.markers[i];
-        const asTile = marker ? showTile(slot.tile, marker.spriteId, marker.color, model.mode) : showTile(slot.tile, undefined, "", model.mode);
+        const asTile = marker ? showTile(slot.tile, marker.spriteId, null, model.mode) : showTile(slot.tile, undefined, null, model.mode);
         setChar(slot.glyph, asTile || !marker ? " " : marker.glyph, z.center.x - 1 + i, z.center.y + 1);
         if (marker) slot.glyph.tint = marker.color;
       });
-      const moodAsTile = look.mood ? showTile(sp.mood.tile, look.mood.spriteId, look.mood.color, model.mode) : showTile(sp.mood.tile, undefined, "", model.mode);
+      const moodAsTile = look.mood ? showTile(sp.mood.tile, look.mood.spriteId, null, model.mode) : showTile(sp.mood.tile, undefined, null, model.mode);
       setChar(sp.mood.glyph, moodAsTile || !look.mood ? " " : look.mood.glyph, z.center.x + 1, z.center.y);
       if (look.mood) sp.mood.glyph.tint = look.mood.color;
-      const heatAsTile = look.heatWarning && showTile(sp.heatTile, "marker.heat", ui.colors.heat, model.mode);
-      if (!look.heatWarning) sp.heatTile.visible = false;
+      const heatAsTile = look.heatWarning && showTile(sp.heatTile, "marker.heat", null, model.mode);
+      if (!look.heatWarning) hideTile(sp.heatTile);
+      if (heatAsTile) frameLayer.rect((z.center.x + 2) * t, (z.center.y - 1) * t, t, t).fill({ color: ui.colors.heat, alpha: HEAT_BACK_ALPHA });
       sp.heat.visible = look.heatWarning && !heatAsTile;
       for (const l of sp.label) l.tint = selected ? ui.colors.selected : look.labelColor;
     }
@@ -454,7 +536,9 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     localRoot.removeChildren();
     localRoot.addChild(layer.container);
     for (const cell of layer.terrainGlyphs) {
-      const asTile = showTile(cell.sprite, cell.spriteId ?? undefined, cell.color, mode, cell.turns);
+      showTile(cell.under, cell.underId ?? undefined, null, mode);
+      const asTile = showTile(cell.sprite, cell.spriteId ?? undefined, null, mode, cell.turns);
+      // A cell without sprite (a dock) keeps its glyph, drawn over the ground.
       setChar(cell.glyph, asTile ? " " : cell.char, cell.x, cell.y);
     }
     for (const l of layer.landmarks) {
@@ -472,7 +556,7 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       frames.rect(lot.x * t + 1, lot.y * t + 1, LOCAL_LOT_SIZE * t - 2, LOCAL_LOT_SIZE * t - 2);
       frames.stroke({ width: look?.selected ? 2 : 1, color, alpha: look?.business || look?.buildable || look?.selected ? 1 : 0.4 });
       const signTile = layer.signTiles[i]!;
-      const signAsTile = look?.sign ? showTile(signTile, landmarksUi.barSign, look.business?.color ?? color, mode) : showTile(signTile, undefined, "", mode);
+      const signAsTile = look?.sign ? showTile(signTile, landmarksUi.barSign, look.business?.color ?? color, mode) : showTile(signTile, undefined, null, mode);
       setChar(layer.signGlyphs[i]!, look?.sign && !signAsTile ? barSignGlyph : " ", lot.signSpot.x, lot.signSpot.y);
       if (look?.business) layer.signGlyphs[i]!.tint = look.business.color;
       if (look?.business) {
@@ -480,7 +564,7 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
         setChar(g, asTile ? " " : look.business.glyph, lot.x + 1, lot.y + 1);
         g.tint = look.business.color;
       } else {
-        s.visible = false;
+        hideTile(s);
         setChar(g, look?.buildable ? "+" : " ", lot.x + 1, lot.y + 1);
         g.tint = color;
       }
@@ -491,7 +575,7 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       // Riders face the middle of the map: the sprite looks right, so those on the right half are mirrored.
       const spot = layer.map.memberSpots[i]!;
       const mirror = spot.x >= layer.map.width / 2;
-      const asTile = member ? showTile(s, landmarksUi.member, member.color, mode, 0, mirror) : showTile(s, undefined, "", mode);
+      const asTile = member ? showTile(s, landmarksUi.member, member.color, mode, 0, mirror) : showTile(s, undefined, null, mode);
       g.visible = !!member && !asTile;
       if (member) g.tint = member.color;
     });

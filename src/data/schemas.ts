@@ -3,7 +3,7 @@
 // ranges are checked afterwards in validate.ts.
 
 import { z } from "zod";
-import { extraTilePixelProblems } from "./validate";
+import { tilesetPixelProblems } from "./validate";
 import {
   CurrencySchema,
   IdSchema,
@@ -532,11 +532,15 @@ export const UiSchema = z.object({
   /** Local (zoomed) map of a district: colors per terrain and tileset sprites for its features. */
   localMap: z.object({
     colors: z.record(z.string(), HexColorSchema),
+    /** Sprite keys of the district map ("house_1" is "local.house_1" in tileset.json); the pairs are old Kenney positions. */
     sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
-    /** ASCII glyph of each sprite, for the ASCII mode. */
-    glyphs: z.record(z.string(), z.string().length(1)),
-    /** Sprite variants drawn per tile: terrain kind → zone type (or "*" for any) → sprite ids. */
+    /**
+     * Sprite variants drawn per tile: terrain kind → zone type (or "*" for any) → sprite keys. Buildings come from
+     * tileset.json's buildingVariants. A key with a prefix ("county.water_a") is a full texture id.
+     */
     variants: z.record(z.string(), z.record(z.string(), z.array(z.string()))),
+    /** Sprites that don't cover their cell get a ground sprite below: the "ground" variants, or this terrain's (a boat floats on water). */
+    underTerrain: z.record(z.string(), z.string()),
     /** Roads drawn with a 4-neighbour mask: each piece's connections before rotating, e.g. "ES" for a curve. */
     autotile: z.record(
       z.enum(ROAD_KINDS),
@@ -560,7 +564,7 @@ export const UiSchema = z.object({
     }),
     /** Fence sprite on the back row of building lots, per zone type. */
     lotFence: z.record(ZoneTypeSchema, z.string()),
-    /** Landmarks drawn with tiles-extra.json textures ("extra.<id>"). */
+    /** Landmarks: tileset.json texture ids ("extra.club_hq"). */
     landmarks: z.object({
       clubHq: z.string(),
       sheriffHq: z.string(),
@@ -585,16 +589,13 @@ export const UiSchema = z.object({
   /** Political map: tiles farther than maxDistance from every district center are outside the county. */
   regions: z.object({ maxDistance: z.number().positive() }),
   /**
-   * Tileset (assets/tiles/kenney-1bit-monochrome.png): white 1-bit tiles that the renderer tints.
-   * Sprites map ids like "zone_type.town" or "business.business_garage" to [column, row] in the sheet.
-   * Anything without a sprite falls back to its ASCII glyph.
+   * Sprite ids the political map uses ("zone_type.town", "business.business_garage", "marker.heat"...); each one
+   * must exist in tileset.json. The [column, row] pairs are positions in the old Kenney sheet
+   * (assets/tiles/kenney-1bit-monochrome.png), no longer loaded: kept until that sheet is removed.
    */
   tileset: z.object({
-    credit: z.string(),
     tileSize: Int.positive(),
     sprites: z.record(z.string(), z.tuple([Int.nonnegative(), Int.nonnegative()])),
-    /** ASCII glyph of sprites that have no glyph elsewhere in the content (markers). */
-    glyphs: z.record(z.string(), z.string().length(1)),
   }),
 });
 export type UiConfig = z.infer<typeof UiSchema>;
@@ -673,31 +674,56 @@ export const PortraitsSchema = z.object({
 });
 export type PortraitsData = z.infer<typeof PortraitsSchema>;
 
-// ---------- tiles-extra.json ----------
-// The project's own 16×16 tiles, 1-bit like the Kenney sheet: white pixels on transparent, tinted at runtime.
+// ---------- tileset.json ----------
+// The project's full-color 16×16 tileset. Each sprite is drawn as text: every character indexes the palette
+// ("." = transparent). "z" is a translucent shadow (its palette color carries alpha) and "T" is the faction mask:
+// those pixels go to a separate white texture that the renderer tints with the owner's color.
 
-export const EXTRA_TILE_SIZE = 16;
+export const TILESET_TILE_SIZE = 16;
+/** Transparent pixel. */
+export const TILESET_EMPTY = ".";
+/** Faction mask pixel. */
+export const TILESET_MASK = "T";
 
-export const ExtraTileSchema = z
-  .object({
-    /** EXTRA_TILE_SIZE rows of EXTRA_TILE_SIZE characters: "#" = pixel on, "." = transparent. */
-    pixels: z.array(z.string()),
-    /** Character for the ASCII mode. */
-    glyph: z.string().length(1, "el glyph tiene que ser un solo carácter"),
-    description: z.string(),
-  })
-  .superRefine((tile, ctx) => {
-    for (const message of extraTilePixelProblems(tile.pixels, EXTRA_TILE_SIZE)) ctx.addIssue({ code: "custom", path: ["pixels"], message });
-  });
-export type ExtraTile = z.infer<typeof ExtraTileSchema>;
+/** #rrggbb or #rrggbbaa (alpha for the shadow). */
+const PaletteColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/, "color como #rrggbb o #rrggbbaa");
 
-export const TilesExtraSchema = z.object({
-  tileSize: z.literal(EXTRA_TILE_SIZE),
-  credit: z.string(),
-  legend: z.record(z.string(), z.string()),
-  tiles: z.record(IdSchema, ExtraTileSchema),
+export const TilesetSpriteSchema = z.object({
+  group: z.string(),
+  /** Character for the ASCII mode. */
+  glyph: z.string().length(1, "el glyph tiene que ser un solo carácter"),
+  description: z.string(),
+  /** TILESET_TILE_SIZE rows of TILESET_TILE_SIZE palette characters. */
+  pixels: z.array(z.string()),
+  /** Covers the whole cell (ground, roads, rivers); anything else needs a ground sprite below. */
+  opaque: z.boolean().optional(),
+  /** Has faction-mask pixels ("T"). Informative: the renderer looks at the pixels. */
+  teamMask: z.boolean().optional(),
 });
-export type TilesExtraData = z.infer<typeof TilesExtraSchema>;
+export type TilesetSprite = z.infer<typeof TilesetSpriteSchema>;
+
+export const TilesetSchema = z
+  .object({
+    version: Int.positive(),
+    tileSize: z.literal(TILESET_TILE_SIZE),
+    style: z.string(),
+    /** Shown in the help (credits). */
+    credit: z.string(),
+    legend: z.record(z.string(), z.string()),
+    palette: z.record(z.string().length(1, "cada color de la paleta va con un solo carácter"), PaletteColorSchema),
+    notes: z.array(z.string()),
+    /** Building sprites per zone type (keys of local.* without the prefix), for the district map. */
+    buildingVariants: z.record(ZoneTypeSchema, z.array(z.string()).min(1)),
+    /** Texture id ("local.house_1", "zone_type.town", "extra.club_hq"...) → sprite. */
+    sprites: z.record(z.string(), TilesetSpriteSchema),
+  })
+  .superRefine((tileset, ctx) => {
+    const keys = new Set(Object.keys(tileset.palette));
+    for (const [id, sprite] of Object.entries(tileset.sprites)) {
+      for (const message of tilesetPixelProblems(sprite.pixels, TILESET_TILE_SIZE, keys)) ctx.addIssue({ code: "custom", path: ["sprites", id, "pixels"], message });
+    }
+  });
+export type TilesetData = z.infer<typeof TilesetSchema>;
 
 // ---------- perks.json ----------
 // Experience, levels and specialties (phase 13, owner's proposal B). Effects are applied by the same rules the
@@ -845,7 +871,7 @@ export const GameDataSchema = z.object({
   council: CouncilSchema,
   patches: PatchesSchema,
   portraits: PortraitsSchema,
-  tilesExtra: TilesExtraSchema,
+  tileset: TilesetSchema,
   mapgen: MapgenSchema,
   perks: PerksSchema,
   strings: StringsSchema,
