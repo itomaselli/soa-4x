@@ -4,10 +4,13 @@
 // It holds the zone's building lots (one per business slot), exits towards neighbouring zones, spots where our
 // members show up while working there and landmarks (club and sheriff headquarters, gas station, motel).
 // Roads are one tile wide and drawn with a 4-neighbour mask (autotiling); trees, buildings and ground get a
-// sprite variant per tile. Sprites, glyphs and variants come from data/ui.json. Pure: tested in Node.
+// sprite variant per tile. Sprites and variants come from data/ui.json, buildings and glyphs from data/tileset.json.
+// Sprites that don't cover their whole cell (trees, buildings, fences...) get a ground sprite below, picked with the
+// same ground variants of the zone type. Pure: tested in Node.
 
 import type { GameData, RoadKind, ZoneDef } from "../data/schemas";
 import { createRng, type Rng } from "../sim/rng";
+import { localTextureId } from "../data/validate";
 import { hashId } from "./hash";
 
 /** What a tile shows: terrain kind (for color) and an optional sprite from the tileset. */
@@ -28,8 +31,10 @@ export type LocalTerrain =
 export interface LocalTile {
   terrain: LocalTerrain;
   glyph: string;
-  /** Key in ui.json localMap.sprites, e.g. "building", "asphalt_curve". */
+  /** Sprite key, e.g. "building", "asphalt_curve" (texture "local.<key>"; see localTextureId). */
   sprite: string | null;
+  /** Ground sprite key drawn below a sprite that doesn't cover the cell (or below a cell without sprite). */
+  under?: string;
   /** Quarter turns clockwise applied to the sprite (autotiled roads and rails). */
   rotation: number;
   /** Which kind of road, for autotiling. */
@@ -57,7 +62,7 @@ export interface Exit {
 
 export type LandmarkKind = "club_hq" | "sheriff_hq" | "parked_bike" | "gas_station" | "motel";
 
-/** Something drawn on top of the terrain with a tiles-extra.json texture. */
+/** Something drawn on top of the terrain with a tileset.json texture. */
 export interface Landmark {
   kind: LandmarkKind;
   /** Texture id, e.g. "extra.club_hq". */
@@ -175,7 +180,7 @@ function applyAutotile(data: GameData, tiles: LocalTile[][]): void {
       } else if (cell.terrain === "rail") {
         const mask = maskAt(tiles, x, y, (t) => t.terrain === "rail");
         const piece = autotile([local.rails], mask);
-        tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation, glyph: local.glyphs[piece.sprite] ?? cell.glyph };
+        tiles[y]![x] = { ...cell, sprite: piece.sprite, rotation: piece.rotation, glyph: spriteGlyph(data, piece.sprite) ?? cell.glyph };
       }
     }
   }
@@ -359,24 +364,49 @@ function variantIndex(zoneId: string, x: number, y: number, count: number): numb
   return hashId(`${zoneId}:${x},${y}`) % count;
 }
 
+/** ASCII glyph of a sprite key, from tileset.json. */
+function spriteGlyph(data: GameData, key: string): string | undefined {
+  return data.tileset.sprites[localTextureId(key)]?.glyph;
+}
+
+/** Variant options for a terrain kind in a zone type: buildings from tileset.json, the rest from ui.json. */
+function variantOptions(data: GameData, terrain: LocalTerrain, type: ZoneDef["type"]): readonly string[] {
+  if (terrain === "building") return data.tileset.buildingVariants[type];
+  const byType = data.ui.localMap.variants[terrain];
+  return byType?.[type] ?? byType?.["*"] ?? [];
+}
+
+/**
+ * The ground sprite drawn below a cell of this terrain at (x, y): the zone type's ground variant (same pick as
+ * ground cells), or the variant of the terrain set in ui.json underTerrain (water below a boat).
+ */
+export function groundUnder(data: GameData, zone: ZoneDef, terrain: LocalTerrain, x: number, y: number): string | undefined {
+  const below = (data.ui.localMap.underTerrain[terrain] ?? "ground") as LocalTerrain;
+  const options = variantOptions(data, below, zone.type);
+  return options.length > 0 ? options[variantIndex(`${zone.localSeed ?? ""}${zone.id}`, x, y, options.length)] : undefined;
+}
+
 function applyVariants(data: GameData, zone: ZoneDef, tiles: LocalTile[][]): void {
-  const { variants, glyphs } = data.ui.localMap;
   for (let y = 0; y < tiles.length; y++) {
     for (let x = 0; x < tiles[y]!.length; x++) {
-      const cell = tiles[y]![x]!;
-      const byType = variants[cell.terrain];
-      const options = byType?.[zone.type] ?? byType?.["*"] ?? [];
-      if (options.length === 0) continue;
-      const sprite = options[variantIndex(`${zone.localSeed ?? ""}${zone.id}`, x, y, options.length)]!;
-      tiles[y]![x] = { ...cell, sprite, glyph: glyphs[sprite] ?? cell.glyph };
+      let cell = tiles[y]![x]!;
+      // River tiles already have their autotiled piece.
+      const options = cell.river ? [] : variantOptions(data, cell.terrain, zone.type);
+      if (options.length > 0) {
+        const sprite = options[variantIndex(`${zone.localSeed ?? ""}${zone.id}`, x, y, options.length)]!;
+        cell = { ...cell, sprite, glyph: spriteGlyph(data, sprite) ?? cell.glyph };
+      }
+      const opaque = cell.sprite !== null && data.tileset.sprites[localTextureId(cell.sprite)]?.opaque === true;
+      const under = opaque ? undefined : groundUnder(data, zone, cell.terrain, x, y);
+      tiles[y]![x] = under === undefined ? cell : { ...cell, under };
     }
   }
 }
 
 // ---------- Landmarks ----------
 
-function extraGlyph(data: GameData, textureId: string): string {
-  return data.tilesExtra.tiles[textureId.replace(/^extra\./, "")]?.glyph ?? "?";
+function landmarkGlyph(data: GameData, textureId: string): string {
+  return data.tileset.sprites[textureId]?.glyph ?? "?";
 }
 
 /** Tiles no landmark may cover: lots, the space around exits, member spots, roads and water. */
@@ -401,7 +431,7 @@ function placeLandmarks(data: GameData, zone: ZoneDef, tiles: LocalTile[][], for
     return cell !== undefined && !BLOCKING.has(cell.terrain) && !forbidden.has(`${x},${y}`);
   };
   const add = (kind: LandmarkKind, sprite: string, x: number, y: number, factionId: string | null) => {
-    landmarks.push({ kind, sprite, glyph: extraGlyph(data, sprite), x, y, factionId });
+    landmarks.push({ kind, sprite, glyph: landmarkGlyph(data, sprite), x, y, factionId });
     forbidden.add(`${x},${y}`);
     tiles[y]![x] = { ...T.ground };
   };
@@ -466,7 +496,7 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
     const backRow = lot.signSpot.y === lot.y ? lot.y + LOT_SIZE - 1 : lot.y;
     for (let y = lot.y; y < lot.y + LOT_SIZE; y++) {
       for (let x = lot.x; x < lot.x + LOT_SIZE; x++) {
-        tiles[y]![x] = y === backRow ? { terrain: "fence", glyph: local.glyphs[fence] ?? "-", sprite: fence, rotation: 0 } : { ...T.ground };
+        tiles[y]![x] = y === backRow ? { terrain: "fence", glyph: spriteGlyph(data, fence) ?? "-", sprite: fence, rotation: 0 } : { ...T.ground };
       }
     }
   }

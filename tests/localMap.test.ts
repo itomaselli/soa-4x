@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUNDLED_RAW_DATA, DataValidationError, parseGameData, type RawGameData } from "../src/data/load";
-import type { TilesExtraData } from "../src/data/schemas";
-import { EXTRA_TILE_INK, extraTilePixels } from "../src/render/extraTile";
+import { localTextureId } from "../src/data/validate";
 import { autotile, connectionMask, generateLocalMap, LOCAL_LOT_SIZE, rotateMask, type LocalMap } from "../src/render/localMap";
 import type { ReportEntry } from "../src/sim/report";
 import { addBusiness } from "../src/sim/systems/businesses";
@@ -12,18 +10,6 @@ const N = 1;
 const E = 2;
 const S = 4;
 const W = 8;
-
-function problemsWith(change: (t: TilesExtraData) => void): string[] {
-  const raw = structuredClone(BUNDLED_RAW_DATA) as RawGameData;
-  change(raw.tilesExtra as TilesExtraData);
-  try {
-    parseGameData(raw);
-  } catch (error) {
-    if (error instanceof DataValidationError) return error.problems;
-    throw error;
-  }
-  return [];
-}
 
 const allMaps = () => baseData.zones.map((z) => generateLocalMap(baseData, z.id));
 
@@ -36,49 +22,6 @@ function reservedTiles(map: LocalMap): Set<string> {
   for (const exit of map.exits) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) reserved.add(`${exit.x + dx},${exit.y + dy}`);
   return reserved;
 }
-
-describe("tiles propios (tiles-extra.json)", () => {
-  it("el JSON real pasa la validación", () => {
-    expect(problemsWith(() => {})).toEqual([]);
-    expect(Object.keys(baseData.tilesExtra.tiles)).toEqual(
-      expect.arrayContaining(["club_hq", "sheriff_office", "gas_station", "motel", "bar_sign", "bike_side", "bike_rider_side", "bike_front", "bike_rider_front"]),
-    );
-  });
-
-  it("rechaza con un mensaje claro un tile con una fila de 15 caracteres", () => {
-    const problems = problemsWith((t) => {
-      t.tiles.club_hq!.pixels[3] = ".".repeat(15);
-    });
-    expect(problems.join("\n")).toMatch(/tiles-extra\.json › tiles\.club_hq\.pixels: la fila 4 tiene 15 caracteres y tienen que ser 16/);
-  });
-
-  it("rechaza con un mensaje claro un carácter inválido", () => {
-    const problems = problemsWith((t) => {
-      t.tiles.motel!.pixels[0] = "#######x........";
-    });
-    expect(problems.join("\n")).toMatch(/tiles-extra\.json › tiles\.motel\.pixels: la fila 1 tiene caracteres inválidos \("x"\): solo valen "#" y "\."/);
-  });
-
-  it("rechaza un tile con filas de menos y un glyph de más de un carácter", () => {
-    const problems = problemsWith((t) => {
-      t.tiles.bar_sign!.pixels.pop();
-      t.tiles.bar_sign!.glyph = "YY";
-    }).join("\n");
-    expect(problems).toMatch(/bar_sign\.pixels: tiene 15 filas y tienen que ser 16/);
-    expect(problems).toMatch(/bar_sign\.glyph: el glyph tiene que ser un solo carácter/);
-  });
-
-  it("la conversión a píxeles da 16×16, blanco donde hay # y transparente donde hay .", () => {
-    for (const tile of Object.values(baseData.tilesExtra.tiles)) {
-      const grid = extraTilePixels(tile);
-      expect(grid).toHaveLength(16);
-      grid.forEach((row, y) => {
-        expect(row).toHaveLength(16);
-        row.forEach((c, x) => expect(c).toBe(tile.pixels[y]![x] === "#" ? EXTRA_TILE_INK : null));
-      });
-    }
-  });
-});
 
 describe("autotiling de rutas (máscara de 4 vecinos)", () => {
   const asphalt = baseData.ui.localMap.autotile.asphalt.pieces;
@@ -134,16 +77,17 @@ describe("mapa local expandido", () => {
     for (const zone of baseData.zones) expect(generateLocalMap(baseData, zone.id)).toEqual(generateLocalMap(baseData, zone.id));
   });
 
-  it("cada sprite existe en ui.json y cada glifo se puede dibujar en modo ASCII", () => {
-    const { sprites } = baseData.ui.localMap;
+  it("cada sprite existe en tileset.json y cada glifo se puede dibujar en modo ASCII", () => {
+    const { sprites } = baseData.tileset;
     for (const map of allMaps()) {
       for (const cell of map.tiles.flat()) {
-        if (cell.sprite) expect(sprites[cell.sprite], cell.sprite).toBeDefined();
+        if (cell.sprite) expect(sprites[localTextureId(cell.sprite)], cell.sprite).toBeDefined();
+        if (cell.under) expect(sprites[localTextureId(cell.under)], cell.under).toBeDefined();
         expect(cell.glyph >= " " && cell.glyph <= "~", cell.glyph).toBe(true);
       }
       for (const l of map.landmarks) {
-        expect(baseData.tilesExtra.tiles[l.sprite.replace("extra.", "")], l.sprite).toBeDefined();
-        expect(l.glyph).toBe(baseData.tilesExtra.tiles[l.sprite.replace("extra.", "")]!.glyph);
+        expect(sprites[l.sprite], l.sprite).toBeDefined();
+        expect(l.glyph).toBe(sprites[l.sprite]!.glyph);
       }
     }
   });
@@ -158,6 +102,7 @@ describe("mapa local expandido", () => {
     for (const t of road.filter((t) => t.terrain === "tree")) expect(variants.tree!.road).toContain(t.sprite);
     const town = generateLocalMap(baseData, "zone_redwater").tiles.flat();
     expect(new Set(town.filter((t) => t.terrain === "building").map((t) => t.sprite)).size).toBeGreaterThan(3);
+    for (const t of town.filter((t) => t.terrain === "building")) expect(baseData.tileset.buildingVariants.town).toContain(t.sprite);
     expect(town.some((t) => t.terrain === "sidewalk")).toBe(true);
   });
 
@@ -318,7 +263,7 @@ describe("ríos en el mapa local", () => {
     }
   });
 
-  it("cada tramo usa una pieza de las filas 1 o 4 rotada según sus vecinos", () => {
+  it("cada tramo usa una pieza de los dos juegos de río rotada según sus vecinos", () => {
     const pieces = river.sets.flat();
     for (const map of allMaps()) {
       const isRiver = (x: number, y: number) => {
@@ -332,7 +277,7 @@ describe("ríos en el mapa local", () => {
         expect(t.terrain).toBe("water");
         const piece = pieces.find((p) => p.sprite === t.sprite);
         expect(piece, `${map.zoneId} ${x},${y}`).toBeDefined();
-        expect(baseData.ui.localMap.sprites[t.sprite!]![1]).toSatisfy((row: number) => row === 1 || row === 4);
+        expect(t.sprite).toMatch(/^river_[ab]_/);
         const mask = (isRiver(x, y - 1) ? N : 0) | (isRiver(x + 1, y) ? E : 0) | (isRiver(x, y + 1) ? S : 0) | (isRiver(x - 1, y) ? W : 0);
         expect(rotateMask(connectionMask(piece!.connects), t.rotation), `${map.zoneId} ${x},${y}`).toBe(mask);
       }

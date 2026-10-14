@@ -41,18 +41,23 @@ export function requiredStringKeys(data: GameData): string[] {
 }
 
 /**
- * Readable problems of a 1-bit tile drawn as text (tiles-extra.json): `size` rows of `size` characters, only "#"
- * and ".". The zod schema calls it, so a broken tile is rejected saying which row and why.
+ * Readable problems of a tileset sprite drawn as text (tileset.json): `size` rows of `size` characters, each one a
+ * palette key or "." (transparent). The zod schema calls it, so a broken sprite is rejected saying which row and why.
  */
-export function extraTilePixelProblems(rows: readonly string[], size: number): string[] {
+export function tilesetPixelProblems(rows: readonly string[], size: number, palette: ReadonlySet<string>): string[] {
   const problems: string[] = [];
   if (rows.length !== size) problems.push(`tiene ${rows.length} filas y tienen que ser ${size}`);
   rows.forEach((row, i) => {
     if (row.length !== size) problems.push(`la fila ${i + 1} tiene ${row.length} caracteres y tienen que ser ${size}`);
-    const bad = [...new Set(row.replace(/[#.]/g, ""))];
-    if (bad.length > 0) problems.push(`la fila ${i + 1} tiene caracteres inválidos (${bad.map((c) => `"${c}"`).join(", ")}): solo valen "#" y "."`);
+    const bad = [...new Set(row)].filter((c) => c !== "." && !palette.has(c));
+    if (bad.length > 0) problems.push(`la fila ${i + 1} tiene caracteres que no están en la paleta (${bad.map((c) => `"${c}"`).join(", ")})`);
   });
   return problems;
+}
+
+/** Texture id of a local-map sprite key: "house_1" → "local.house_1"; ids with a prefix ("county.water_a") stay. */
+export function localTextureId(key: string): string {
+  return key.includes(".") ? key : `local.${key}`;
 }
 
 /** Returns a list of human-readable problems. Empty list = valid. */
@@ -124,10 +129,10 @@ export function validateGameData(data: GameData): string[] {
 
   // Every zone type and business has a sprite (else the tile view would mix in ASCII)
   for (const type of new Set(data.zones.map((z) => z.type))) {
-    if (!(`zone_type.${type}` in data.ui.tileset.sprites)) errors.push(`ui.json: falta el sprite "zone_type.${type}"`);
+    if (!(`zone_type.${type}` in data.tileset.sprites)) errors.push(`tileset.json: falta el sprite "zone_type.${type}"`);
   }
   for (const b of data.businesses) {
-    if (!(`business.${b.id}` in data.ui.tileset.sprites)) errors.push(`ui.json: falta el sprite "business.${b.id}"`);
+    if (!(`business.${b.id}` in data.tileset.sprites)) errors.push(`tileset.json: falta el sprite "business.${b.id}"`);
   }
 
   // Map connectivity: every zone reachable from the first one
@@ -269,27 +274,30 @@ export function validateGameData(data: GameData): string[] {
   const slot = portraits.patchSlot;
   if (slot.x + slot.size > portraits.size || slot.y + slot.size > portraits.size) errors.push("portraits.json › patchSlot: el parche se sale del retrato");
 
-  // Map sprites (ui.json, tiles-extra.json): every reference exists and every glyph is in the bitmap font
-  const { ui, tilesExtra } = data;
+  // Map sprites (ui.json → tileset.json): every reference exists and every glyph is in the bitmap font
+  const { ui, tileset } = data;
   const local = ui.localMap;
   const asciiOk = (ch: string) => ch.length === 1 && ch >= " " && ch <= "~";
-  const extraIds = new Set(Object.keys(tilesExtra.tiles).map((id) => `extra.${id}`));
-  for (const [id, tile] of Object.entries(tilesExtra.tiles)) {
-    if (!asciiOk(tile.glyph)) errors.push(`tiles-extra.json › ${id}: el glyph "${tile.glyph}" no está en la fuente ASCII`);
+  for (const [id, sprite] of Object.entries(tileset.sprites)) {
+    if (!asciiOk(sprite.glyph)) errors.push(`tileset.json › sprites.${id}: el glyph "${sprite.glyph}" no está en la fuente ASCII`);
   }
-  for (const id of Object.keys(local.sprites)) {
-    const g = local.glyphs[id];
-    if (g === undefined) errors.push(`ui.json › localMap.glyphs: falta el glifo de "${id}" para el modo ASCII`);
-    else if (!asciiOk(g)) errors.push(`ui.json › localMap.glyphs › ${id}: "${g}" no está en la fuente ASCII`);
-  }
-  const localSprite = (id: string, where: string) => {
-    if (!(id in local.sprites)) errors.push(`ui.json › localMap.${where}: sprite desconocido "${id}"`);
+  const sprite = (id: string, where: string) => {
+    if (!(id in tileset.sprites)) errors.push(`ui.json › ${where}: no existe "${id}" en tileset.json`);
   };
+  const localSprite = (key: string, where: string) => sprite(localTextureId(key), `localMap.${where}`);
+  for (const id of Object.keys(ui.tileset.sprites)) sprite(id, "tileset.sprites");
+  for (const key of Object.keys(local.sprites)) localSprite(key, "sprites");
   for (const [terrain, byType] of Object.entries(local.variants)) {
     for (const [type, ids] of Object.entries(byType)) {
       if (type !== "*" && !(ZONE_TYPES as readonly string[]).includes(type)) errors.push(`ui.json › localMap.variants.${terrain}: tipo de zona desconocido "${type}"`);
       for (const id of ids) localSprite(id, `variants.${terrain}.${type}`);
     }
+  }
+  for (const [terrain, below] of Object.entries(local.underTerrain)) {
+    if (!(below in local.variants)) errors.push(`ui.json › localMap.underTerrain.${terrain}: no hay variantes de "${below}"`);
+  }
+  for (const [type, ids] of Object.entries(tileset.buildingVariants)) {
+    for (const id of ids) if (!(localTextureId(id) in tileset.sprites)) errors.push(`tileset.json › buildingVariants.${type}: no existe "${localTextureId(id)}"`);
   }
   for (const [kind, set] of Object.entries(local.autotile)) {
     for (const piece of set.pieces) localSprite(piece.sprite, `autotile.${kind}`);
@@ -302,16 +310,26 @@ export function validateGameData(data: GameData): string[] {
     if (!set.some((p) => p.connects.length === 2 && p.connects !== "NS" && p.connects !== "EW")) errors.push(`ui.json › localMap.river.sets.${i}: falta una curva`);
   });
   for (const id of Object.values(local.lotFence)) localSprite(id, "lotFence");
-  for (const [key, id] of Object.entries(local.landmarks)) {
-    if (typeof id === "string" && !extraIds.has(id)) errors.push(`ui.json › localMap.landmarks.${key}: no existe "${id}" en tiles-extra.json`);
+  for (const [key, id] of Object.entries(local.landmarks)) if (typeof id === "string") sprite(id, `localMap.landmarks.${key}`);
+  const county = ui.county;
+  const countyIds: [string, string][] = [
+    ...Object.entries(county.ground).flatMap(([type, ids]) => ids.map((id): [string, string] => [id, `ground.${type}`])),
+    [county.marsh.sprite, "marsh"],
+    ...county.crops.sprites.map((id): [string, string] => [id, "crops"]),
+    ...county.forest.sprites.map((id): [string, string] => [id, "forest"]),
+    [county.rocks.sprite, "rocks"],
+    ...county.sea.sprites.map((id): [string, string] => [id, "sea"]),
+    ...county.outside.ground.map((id): [string, string] => [id, "outside"]),
+    ...Object.entries(county.buildings).flatMap(([type, b]) => (b?.sprites ?? []).map((id): [string, string] => [id, `buildings.${type}`])),
+    [localTextureId(county.rails.sprite), "rails"],
+  ];
+  for (const [id, where] of countyIds) sprite(id, `county.${where}`);
+  for (const [id, where] of countyIds.filter(([, w]) => w.startsWith("ground") || ["marsh", "crops", "sea", "outside"].includes(w))) {
+    if (tileset.sprites[id] && !tileset.sprites[id]!.opaque) errors.push(`ui.json › county.${where}: "${id}" no cubre la celda (opaque) y es un suelo`);
   }
-  for (const id of Object.keys(ui.tileset.sprites).filter((id) => id.startsWith("marker."))) {
-    if (!(id in ui.tileset.glyphs)) errors.push(`ui.json › tileset.glyphs: falta el glifo de "${id}" para el modo ASCII`);
-  }
-  for (const [id, g] of Object.entries(ui.tileset.glyphs)) if (!asciiOk(g)) errors.push(`ui.json › tileset.glyphs › ${id}: "${g}" no está en la fuente ASCII`);
   const markerIds = [...Object.values(ui.markers.tasks), ...ui.markers.mood.map((m) => m.sprite)];
   for (const id of markerIds) {
-    if (!(id in ui.tileset.sprites)) errors.push(`ui.json › markers: sprite desconocido "${id}"`);
+    if (!(id in tileset.sprites)) errors.push(`ui.json › markers: no existe "${id}" en tileset.json`);
     if (!(id in ui.markers.colors)) errors.push(`ui.json › markers.colors: falta el color de "${id}"`);
   }
   for (const taskId of Object.keys(ui.markers.tasks)) if (!data.tasks.some((t) => t.id === taskId)) errors.push(`ui.json › markers.tasks: tarea desconocida "${taskId}"`);

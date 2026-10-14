@@ -33,7 +33,6 @@
     "industrial": "#d6a36b"
   },
   "tileset": {
-    "credit": "1-Bit Pack de Kenney (www.kenney.nl), CC0",
     "tileSize": 16,
     "sprites": {
       "zone_type.town": [
@@ -120,18 +119,6 @@
         36,
         14
       ]
-    },
-    "glyphs": {
-      "marker.heat": "!",
-      "marker.combat": "X",
-      "marker.raid_warned": "?",
-      "marker.gun_run": "g",
-      "marker.money": "$",
-      "marker.death": "+",
-      "marker.mood_great": "^",
-      "marker.mood_good": "o",
-      "marker.mood_low": "~",
-      "marker.mood_angry": "x"
     }
   },
   "regions": {
@@ -386,70 +373,15 @@
         4
       ]
     },
-    "glyphs": {
-      "building": "n",
-      "factory": "M",
-      "tree": "T",
-      "crate": "x",
-      "boat": "b",
-      "member": "@",
-      "dirt_a": ".",
-      "dirt_b": ".",
-      "grass_a": "\"",
-      "grass_b": "\"",
-      "pavement_a": ",",
-      "pavement_b": ",",
-      "pine": "A",
-      "tree_round": "T",
-      "tree_pair": "T",
-      "forest": "A",
-      "tree_dead": "Y",
-      "bush": "*",
-      "cactus_a": "!",
-      "cactus_b": "!",
-      "asphalt_end": "=",
-      "asphalt_straight": "=",
-      "asphalt_curve": "+",
-      "asphalt_cross": "+",
-      "asphalt_tee": "+",
-      "dirt_road_straight": ":",
-      "dirt_road_curve": ":",
-      "dirt_road_tee": ":",
-      "dirt_road_cross": ":",
-      "rails": "#",
-      "fence_picket_low": "-",
-      "fence_picket": "-",
-      "fence_door": "-",
-      "fence_posts": "-",
-      "fence_iron": "-",
-      "fence_rail": "-",
-      "house_1": "n",
-      "house_2": "n",
-      "house_3": "n",
-      "house_4": "n",
-      "house_5": "n",
-      "house_6": "n",
-      "shop_1": "s",
-      "shop_2": "s",
-      "shop_3": "s",
-      "tower": "I",
-      "church": "t",
-      "river_a_straight": "~",
-      "river_a_curve": "~",
-      "river_a_tee": "~",
-      "river_a_cross": "~",
-      "river_a_end": "~",
-      "river_b_straight": "~",
-      "river_b_curve": "~",
-      "river_b_tee": "~",
-      "river_b_cross": "~",
-      "river_b_end": "~"
-    },
     "variants": {
       "ground": {
+        "town": [
+          "pavement_a",
+          "pavement_b"
+        ],
         "rural": [
-          "dirt_a",
-          "dirt_b"
+          "grass_a",
+          "grass_b"
         ],
         "road": [
           "dirt_a",
@@ -500,40 +432,15 @@
           "bush"
         ]
       },
-      "building": {
-        "town": [
-          "house_1",
-          "house_2",
-          "house_3",
-          "house_4",
-          "house_5",
-          "house_6",
-          "shop_1",
-          "shop_2",
-          "shop_3",
-          "tower",
-          "church"
-        ],
-        "rural": [
-          "house_1",
-          "house_2",
-          "house_3",
-          "house_4",
-          "house_5",
-          "house_6"
-        ],
-        "road": [
-          "house_5",
-          "house_6",
-          "shop_1"
-        ],
-        "port": [
-          "shop_1",
-          "shop_2",
-          "shop_3",
-          "tower"
+      "water": {
+        "*": [
+          "county.water_a",
+          "county.water_b"
         ]
       }
+    },
+    "underTerrain": {
+      "boat": "water"
     },
     "autotile": {
       "asphalt": {
@@ -705,5 +612,145 @@
       }
     ],
     "max": 3
+  },
+  "county": {
+    "ground": {
+      "town": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "road": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "rural": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "industrial": [
+        "local.dirt_a",
+        "local.dirt_b"
+      ],
+      "port": [
+        "local.pavement_a",
+        "local.pavement_b"
+      ]
+    },
+    "marsh": {
+      "glyph": "~",
+      "sprite": "county.marsh"
+    },
+    "crops": {
+      "types": [
+        "rural"
+      ],
+      "sprites": [
+        "county.crops_a",
+        "county.crops_b"
+      ],
+      "patchSize": 3,
+      "chance": 0.3
+    },
+    "forest": {
+      "sprites": [
+        "local.pine",
+        "local.forest"
+      ],
+      "density": {
+        "rural": 0.08,
+        "road": 0.03,
+        "town": 0.02
+      },
+      "denseGlyph": "\"",
+      "denseDensity": 0.3
+    },
+    "rocks": {
+      "glyph": "^",
+      "sprite": "local.rocks",
+      "density": 0.25
+    },
+    "sea": {
+      "sprites": [
+        "county.water_a",
+        "county.water_b"
+      ],
+      "reach": 4
+    },
+    "outside": {
+      "ground": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "dim": 0.6
+    },
+    "buildings": {
+      "town": {
+        "sprites": [
+          "local.house_1",
+          "local.house_2",
+          "local.house_3",
+          "local.house_4",
+          "local.house_5",
+          "local.house_6",
+          "local.house_7",
+          "local.house_8",
+          "local.house_9",
+          "local.house_10",
+          "local.house_11",
+          "local.house_12"
+        ],
+        "density": 0.85,
+        "falloff": 0.17
+      },
+      "port": {
+        "sprites": [
+          "local.warehouse_1",
+          "local.warehouse_2",
+          "local.shed",
+          "local.house_5",
+          "local.house_9"
+        ],
+        "density": 0.8,
+        "falloff": 0.2
+      },
+      "industrial": {
+        "sprites": [
+          "local.factory",
+          "local.warehouse_1",
+          "local.warehouse_2",
+          "local.silo"
+        ],
+        "density": 0.7,
+        "falloff": 0.2
+      }
+    },
+    "rails": {
+      "types": [
+        "industrial"
+      ],
+      "sprite": "rails",
+      "row": -2
+    },
+    "road": "asphalt",
+    "control": {
+      "tintAlpha": 0.16,
+      "band": 2,
+      "selected": 1
+    },
+    "colors": {
+      "river": "#4a7a9a",
+      "riverLight": "#5d82a6",
+      "open": "#d8c39a",
+      "edge": "#14141a",
+      "plate": "#14141a",
+      "plateNeutral": "#8a8478",
+      "outside": "#101014"
+    },
+    "lines": {
+      "river": 4,
+      "open": 1,
+      "edge": 2,
+      "plateBorder": 1
+    }
   }
 }
