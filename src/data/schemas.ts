@@ -541,6 +541,16 @@ export const UiSchema = z.object({
     variants: z.record(z.string(), z.record(z.string(), z.array(z.string()))),
     /** Sprites that don't cover their cell get a ground sprite below: the "ground" variants, or this terrain's (a boat floats on water). */
     underTerrain: z.record(z.string(), z.string()),
+    /**
+     * Town districts: streets at these fractions of the map's height (rows) and width (columns), then each free
+     * cell, sidewalks included, gets a building or a tree with these chances (a packed city block).
+     */
+    town: z.object({
+      building: Probability,
+      tree: Probability,
+      streetRows: z.array(Probability).min(1),
+      streetColumns: z.array(Probability).min(1),
+    }),
     /** Roads drawn with a 4-neighbour mask: each piece's connections before rotating, e.g. "ES" for a curve. */
     autotile: z.record(
       z.enum(ROAD_KINDS),

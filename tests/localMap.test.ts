@@ -106,6 +106,18 @@ describe("mapa local expandido", () => {
     expect(town.some((t) => t.terrain === "sidewalk")).toBe(true);
   });
 
+  it("los pueblos son manzanas llenas: la mayoría de las celdas fuera de las calles tiene un edificio", () => {
+    for (const zone of baseData.zones.filter((z) => z.type === "town")) {
+      const cells = generateLocalMap(baseData, zone.id).tiles.flat();
+      const blocks = cells.filter((t) => t.terrain !== "road" && t.terrain !== "water");
+      const buildings = blocks.filter((t) => t.terrain === "building").length;
+      expect(buildings / blocks.length, zone.id).toBeGreaterThan(0.5);
+      // Three streets across and four down, from ui.json.
+      const roadRows = new Set(generateLocalMap(baseData, zone.id).tiles.map((row, y) => (row.every((t) => t.terrain === "road" || t.river) ? y : -1)).filter((y) => y >= 0));
+      expect(roadRows.size, zone.id).toBe(baseData.ui.localMap.town.streetRows.length);
+    }
+  });
+
   it("las vías de la zona industrial corren horizontales (sprite rotado)", () => {
     const rails = generateLocalMap(baseData, "zone_gravel_pit").tiles.flat().filter((t) => t.terrain === "rail");
     expect(rails.length).toBeGreaterThan(0);
