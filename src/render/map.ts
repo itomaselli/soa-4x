@@ -1,7 +1,9 @@
 // PixiJS map (phase 10): two views of the same canvas.
-//   - County: the political map. Districts are filled with their owner's color and separated by borders
-//     (dotted = connected zones, thick = no direct way through, outline = county edge). Each district shows its
-//     icon, name, businesses and a heat marker. Click selects a district; double-click enters it.
+//   - County: the political map. In tile mode it's a small painted county (see county.ts): ground, roads, rivers on
+//     closed borders, houses and woods, a soft tint and an inner band in the owner's color, and a name plate per
+//     district. In ASCII mode districts are filled with their owner's color and separated by borders (dotted =
+//     connected zones, thick = no direct way through, outline = county edge). Each district shows its icon (or its
+//     headquarters), name, businesses and a heat marker. Click selects a district; double-click enters it.
 //   - Zone: the district's local map (see localMap.ts) with its building lots, our members working there, exits
 //     to neighbouring districts and landmarks (headquarters, gas station, motel). Click a lot to select it; click
 //     an exit to walk over. Roads are autotiled: their sprites are rotated a quarter turn at a time.
@@ -14,7 +16,7 @@ import type { GameData, UiConfig } from "../data/schemas";
 import { buildMapLayout, zoneTiles, type MapLayout } from "./layout";
 import { localTextureId } from "../data/validate";
 import { generateLocalMap, LOCAL_LOT_SIZE, type LocalMap } from "./localMap";
-import { patchPixels } from "./patch";
+import { generateCountyMap, innerBand, riverSegments } from "./county";
 import { computeRegions, zoneAtTile, type RegionMap } from "./regions";
 import { maskTextureId, spritePixels } from "./tileset";
 
@@ -23,8 +25,6 @@ export type RenderMode = "tiles" | "ascii";
 export interface ZoneLook {
   /** Owner's color, or null if nobody owns the district. */
   ownerColor: string | null;
-  /** Owner's patch (phase 11), drawn instead of the district icon in tile mode. */
-  ownerPatchId: string | null;
   glyph: string;
   /** Sprite id for the tile view, e.g. "zone_type.town". */
   spriteId: string;
@@ -97,6 +97,8 @@ const OWNER_FILL_ALPHA = 0.22;
 const SELECTED_FILL_ALPHA = 0.12;
 /** Heat marker background in the tile view. */
 const HEAT_BACK_ALPHA = 0.45;
+/** Space between a name and the edge of its plate, in pixels. */
+const PLATE_PADDING = 4;
 /** No tint: tileset sprites carry their own colors. */
 const WHITE = 0xffffff;
 
@@ -153,30 +155,12 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     canvas.getContext("2d")?.putImageData(image, 0, 0);
     return canvasTexture(canvas);
   };
-  const pixelTexture = (pixels: (string | null)[][], size: number): Texture => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    const ctx2d = canvas.getContext("2d");
-    pixels.forEach((row, y) => row.forEach((c, x) => { if (c && ctx2d) { ctx2d.fillStyle = c; ctx2d.fillRect(x, y, 1, 1); } }));
-    return canvasTexture(canvas);
-  };
   // Every sprite under its own id, plus "<id>#mask" for those with faction-mask pixels.
   for (const [id, sprite] of Object.entries(data.tileset.sprites)) {
     const pixels = spritePixels(sprite, data.tileset.palette);
     textures.set(id, rgbaTexture(pixels.rgba, pixels.size));
     if (pixels.mask) textures.set(maskTextureId(id), rgbaTexture(pixels.mask, pixels.size));
   }
-  /** Patch textures are made on demand from their pixels. */
-  const patchTexture = (patchId: string): Texture | undefined => {
-    const key = `patch.${patchId}`;
-    if (!textures.has(key)) {
-      const pixels = patchPixels(data, patchId);
-      if (!pixels) return undefined;
-      textures.set(key, pixelTexture(pixels, data.patches.size));
-    }
-    return textures.get(key);
-  };
-
   // ---------- Helpers ----------
   const place = (obj: BitmapText | Sprite, x: number, y: number) => {
     obj.x = x * t + Math.round((t - obj.width) / 2);
@@ -240,14 +224,21 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
 
   // ---------- County view ----------
   const county = new Container();
+  // ASCII mode: owner fills, terrain dots, borders and selection.
   const fills = new Graphics();
   const terrainLayer = new Container();
   const borderLayer = new Graphics();
   const selectionLayer = new Graphics();
+  // Tile mode: the painted county (drawn once), the owners' tint and bands, and the name plates.
+  const paintedLayer = new Container();
+  const controlLayer = new Graphics();
+  const plateLayer = new Container();
+  const plateFrames = new Graphics();
+  plateLayer.addChild(plateFrames);
   /** Tile view: frames for planned districts and business owners, and the heat marker's background. */
   const frameLayer = new Graphics();
   const zoneLayer = new Container();
-  county.addChild(fills, terrainLayer, borderLayer, selectionLayer, frameLayer, zoneLayer);
+  county.addChild(fills, terrainLayer, paintedLayer, borderLayer, controlLayer, selectionLayer, frameLayer, zoneLayer, plateLayer);
 
   const zoneType = new Map(data.zones.map((z) => [z.id, z.type]));
   // Keep the terrain texture away from icons and names so they stay readable.
@@ -281,12 +272,66 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
   }
   borderLayer.stroke({ width: 1, color: ui.colors.border.open });
 
+  // The painted county (tile mode): computed and drawn once per game.
+  const countyCfg = ui.county;
+  const painted = generateCountyMap(data, regions, layout);
+  const cellSprite = (id: string, x: number, y: number, rotation = 0) => {
+    const texture = textures.get(id);
+    if (!texture) return;
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(0.5);
+    sprite.x = x * t + t / 2;
+    sprite.y = y * t + t / 2;
+    sprite.rotation = (rotation * Math.PI) / 2;
+    paintedLayer.addChild(sprite);
+  };
+  painted.cells.forEach((row, y) =>
+    row.forEach((cell, x) => {
+      cellSprite(cell.ground, x, y);
+      if (cell.track) cellSprite(cell.track.sprite, x, y, cell.track.rotation);
+      if (cell.deco) cellSprite(cell.deco, x, y);
+    }),
+  );
+  const paintedLines = new Graphics();
+  painted.cells.forEach((row, y) =>
+    row.forEach((cell, x) => {
+      if (cell.zoneId === null && !cell.sea) paintedLines.rect(x * t, y * t, t, t).fill({ color: countyCfg.colors.outside, alpha: countyCfg.outside.dim });
+    }),
+  );
+  // Closed borders are a river; open ones a faint dotted line; the county's outline a dark line.
+  const rivers = riverSegments(regions);
+  for (const b of rivers) segment(paintedLines, b);
+  paintedLines.stroke({ width: countyCfg.lines.river, color: countyCfg.colors.river, cap: "square" });
+  for (const b of rivers) segment(paintedLines, b);
+  paintedLines.stroke({ width: Math.max(1, countyCfg.lines.river / 4), color: countyCfg.colors.riverLight });
+  for (const b of regions.borders.filter((b) => b.kind === "open")) {
+    const x0 = (b.x + 1) * t;
+    const y0 = (b.y + 1) * t;
+    if (b.side === "right") paintedLines.moveTo(x0, b.y * t + t * 0.25).lineTo(x0, b.y * t + t * 0.75);
+    else paintedLines.moveTo(b.x * t + t * 0.25, y0).lineTo(b.x * t + t * 0.75, y0);
+  }
+  paintedLines.stroke({ width: countyCfg.lines.open, color: countyCfg.colors.open, alpha: 0.35 });
+  for (const b of regions.borders.filter((b) => b.kind === "edge")) segment(paintedLines, b);
+  paintedLines.stroke({ width: countyCfg.lines.edge, color: countyCfg.colors.edge });
+  paintedLayer.addChild(paintedLines);
+
+  // Headquarters stand on their district's center in tile mode.
+  const hqSprite = new Map<string, { spriteId: string; color: string }>();
+  for (const f of data.factions) {
+    if (!f.hqZoneId) continue;
+    if (f.kind === "club") hqSprite.set(f.hqZoneId, { spriteId: data.ui.localMap.landmarks.clubHq, color: f.color });
+    else if (f.kind === "sheriff") hqSprite.set(f.hqZoneId, { spriteId: data.ui.localMap.landmarks.sheriffHq, color: f.color });
+  }
+
   interface ZoneSprites {
     center: BitmapText;
     centerTile: TileSlot;
     heat: BitmapText;
     heatTile: TileSlot;
     label: BitmapText[];
+    /** Tile mode: one centered name on a plate. */
+    plate: BitmapText;
+    plateRect: { x: number; y: number; w: number; h: number };
     marks: BitmapText[];
     markTiles: TileSlot[];
     /** Event markers on the row below the icon, and the mood face to its right. */
@@ -306,6 +351,16 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     const markTiles = [0, 1, 2].map((i) => tile(x - 1 + i, y - 1));
     const markers = Array.from({ length: ui.markers.max }, (_, i) => ({ glyph: glyph(" ", x - 1 + i, y + 1, ui.colors.label), tile: tile(x - 1 + i, y + 1) }));
     const mood = { glyph: glyph(" ", x + 1, y, ui.colors.label), tile: tile(x + 1, y) };
+    const plate = new BitmapText({ text: z.label, style: { fontFamily: FONT_NAME, fontSize: ui.font.size } });
+    // The plate stays within the name's row of cells (the generator keeps those rows from overlapping).
+    const rowLeft = z.labelStart.x * t;
+    const rowWidth = z.label.length * t;
+    const plateW = Math.min(rowWidth, Math.ceil(plate.width) + PLATE_PADDING * 2);
+    const plateRect = { x: Math.round(x * t + t / 2 - plateW / 2), y: z.labelStart.y * t, w: plateW, h: t };
+    plateRect.x = Math.min(Math.max(plateRect.x, rowLeft), rowLeft + rowWidth - plateW);
+    plate.x = plateRect.x + Math.round((plateW - plate.width) / 2);
+    plate.y = plateRect.y + Math.round((t - plate.height) / 2);
+    plateLayer.addChild(plate);
     zoneLayer.addChild(
       center,
       centerTile.root,
@@ -318,7 +373,7 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       mood.glyph,
       mood.tile.root,
     );
-    sprites.set(z.id, { center, centerTile, heat, heatTile, label, marks, markTiles, markers, mood });
+    sprites.set(z.id, { center, centerTile, heat, heatTile, label, plate, plateRect, marks, markTiles, markers, mood });
   }
 
   // ---------- Local view (one cached layer per district) ----------
@@ -471,38 +526,61 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
     fills.clear();
     selectionLayer.clear();
     frameLayer.clear();
+    controlLayer.clear();
+    plateFrames.clear();
     const tiles = model.mode === "tiles";
+    for (const layer of [fills, terrainLayer, borderLayer, selectionLayer]) layer.visible = !tiles;
+    for (const layer of [paintedLayer, controlLayer, plateLayer]) layer.visible = tiles;
     /** A 1px frame around tile (x, y), inside it. */
     const frame = (x: number, y: number, color: string) => frameLayer.rect(x * t + 0.5, y * t + 0.5, t - 1, t - 1).stroke({ width: 1, color });
-    for (let y = 0; y < regions.height; y++) {
-      for (let x = 0; x < regions.width; x++) {
-        const id = zoneAtTile(regions, x, y);
-        const color = id ? model.zones[id]?.ownerColor : null;
-        if (color) fills.rect(x * t, y * t, t, t).fill({ color, alpha: OWNER_FILL_ALPHA });
-        if (id && id === model.selectedZoneId) fills.rect(x * t, y * t, t, t).fill({ color: ui.colors.selected, alpha: SELECTED_FILL_ALPHA });
+    const ownerColorAt = (x: number, y: number) => {
+      const id = zoneAtTile(regions, x, y);
+      return id ? (model.zones[id]?.ownerColor ?? null) : null;
+    };
+    if (tiles) {
+      // A soft tint over each owner's districts and an inner band along the outline of all of them together.
+      const owners = new Set<string>();
+      for (let y = 0; y < regions.height; y++) {
+        for (let x = 0; x < regions.width; x++) {
+          const color = ownerColorAt(x, y);
+          if (!color) continue;
+          owners.add(color);
+          controlLayer.rect(x * t, y * t, t, t).fill({ color, alpha: ui.county.control.tintAlpha });
+        }
       }
-    }
-    if (model.selectedZoneId) {
-      for (const b of regions.borders) {
-        if (b.a === model.selectedZoneId || b.b === model.selectedZoneId) segment(selectionLayer, b);
+      for (const color of owners) {
+        for (const r of innerBand(regions.width, regions.height, (x, y) => ownerColorAt(x, y) === color, t, ui.county.control.band)) controlLayer.rect(r.x, r.y, r.w, r.h);
+        controlLayer.fill({ color });
       }
-      selectionLayer.stroke({ width: 2, color: ui.colors.selected });
+      if (model.selectedZoneId) {
+        const selectedId = model.selectedZoneId;
+        for (const r of innerBand(regions.width, regions.height, (x, y) => zoneAtTile(regions, x, y) === selectedId, t, ui.county.control.selected)) controlLayer.rect(r.x, r.y, r.w, r.h);
+        controlLayer.fill({ color: ui.colors.selected });
+      }
+    } else {
+      for (let y = 0; y < regions.height; y++) {
+        for (let x = 0; x < regions.width; x++) {
+          const id = zoneAtTile(regions, x, y);
+          const color = ownerColorAt(x, y);
+          if (color) fills.rect(x * t, y * t, t, t).fill({ color, alpha: OWNER_FILL_ALPHA });
+          if (id && id === model.selectedZoneId) fills.rect(x * t, y * t, t, t).fill({ color: ui.colors.selected, alpha: SELECTED_FILL_ALPHA });
+        }
+      }
+      if (model.selectedZoneId) {
+        for (const b of regions.borders) {
+          if (b.a === model.selectedZoneId || b.b === model.selectedZoneId) segment(selectionLayer, b);
+        }
+        selectionLayer.stroke({ width: 2, color: ui.colors.selected });
+      }
     }
     for (const z of layout.zones) {
       const look = model.zones[z.id];
       const sp = sprites.get(z.id);
       if (!look || !sp) continue;
       const selected = model.selectedZoneId === z.id;
-      const patch = look.ownerPatchId && model.mode === "tiles" ? patchTexture(look.ownerPatchId) : undefined;
-      if (patch) {
-        sp.centerTile.base.texture = patch;
-        sp.centerTile.base.tint = WHITE;
-        sp.centerTile.mask.visible = false;
-        sp.centerTile.root.rotation = 0;
-        sp.centerTile.root.scale.x = 1;
-        sp.centerTile.root.visible = true;
-      }
-      const centerAsTile = patch ? true : showTile(sp.centerTile, look.spriteId, look.ownerColor, model.mode);
+      // Headquarters (club, in its color, or sheriff) instead of the district icon.
+      const hq = hqSprite.get(z.id);
+      const centerAsTile = hq ? showTile(sp.centerTile, hq.spriteId, hq.color, model.mode) : showTile(sp.centerTile, look.spriteId, look.ownerColor, model.mode);
       if (tiles && look.planned) frame(z.center.x, z.center.y, ui.colors.planned);
       setChar(sp.center, centerAsTile ? " " : look.glyph, z.center.x, z.center.y);
       sp.center.tint = look.glyphColor;
@@ -527,7 +605,16 @@ export async function createMapView(host: HTMLElement, data: GameData, callbacks
       if (!look.heatWarning) hideTile(sp.heatTile);
       if (heatAsTile) frameLayer.rect((z.center.x + 2) * t, (z.center.y - 1) * t, t, t).fill({ color: ui.colors.heat, alpha: HEAT_BACK_ALPHA });
       sp.heat.visible = look.heatWarning && !heatAsTile;
-      for (const l of sp.label) l.tint = selected ? ui.colors.selected : look.labelColor;
+      for (const l of sp.label) {
+        l.tint = selected ? ui.colors.selected : look.labelColor;
+        l.visible = !tiles;
+      }
+      // Name plate: dark, with a border in the owner's color (gray if nobody owns the district).
+      const r = sp.plateRect;
+      const border = ui.county.lines.plateBorder;
+      plateFrames.rect(r.x, r.y, r.w, r.h).fill({ color: ui.county.colors.plate });
+      plateFrames.rect(r.x + border / 2, r.y + border / 2, r.w - border, r.h - border).stroke({ width: border, color: look.ownerColor ?? ui.county.colors.plateNeutral });
+      sp.plate.tint = selected ? ui.colors.selected : look.labelColor;
     }
   };
 

@@ -311,6 +311,22 @@ export function validateGameData(data: GameData): string[] {
   });
   for (const id of Object.values(local.lotFence)) localSprite(id, "lotFence");
   for (const [key, id] of Object.entries(local.landmarks)) if (typeof id === "string") sprite(id, `localMap.landmarks.${key}`);
+  const county = ui.county;
+  const countyIds: [string, string][] = [
+    ...Object.entries(county.ground).flatMap(([type, ids]) => ids.map((id): [string, string] => [id, `ground.${type}`])),
+    [county.marsh.sprite, "marsh"],
+    ...county.crops.sprites.map((id): [string, string] => [id, "crops"]),
+    ...county.forest.sprites.map((id): [string, string] => [id, "forest"]),
+    [county.rocks.sprite, "rocks"],
+    ...county.sea.sprites.map((id): [string, string] => [id, "sea"]),
+    ...county.outside.ground.map((id): [string, string] => [id, "outside"]),
+    ...Object.entries(county.buildings).flatMap(([type, b]) => (b?.sprites ?? []).map((id): [string, string] => [id, `buildings.${type}`])),
+    [localTextureId(county.rails.sprite), "rails"],
+  ];
+  for (const [id, where] of countyIds) sprite(id, `county.${where}`);
+  for (const [id, where] of countyIds.filter(([, w]) => w.startsWith("ground") || ["marsh", "crops", "sea", "outside"].includes(w))) {
+    if (tileset.sprites[id] && !tileset.sprites[id]!.opaque) errors.push(`ui.json › county.${where}: "${id}" no cubre la celda (opaque) y es un suelo`);
+  }
   const markerIds = [...Object.values(ui.markers.tasks), ...ui.markers.mood.map((m) => m.sprite)];
   for (const id of markerIds) {
     if (!(id in tileset.sprites)) errors.push(`ui.json › markers: no existe "${id}" en tileset.json`);

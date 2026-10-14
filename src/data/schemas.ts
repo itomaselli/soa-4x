@@ -586,6 +586,48 @@ export const UiSchema = z.object({
     /** Markers shown per district at most. */
     max: Int.positive(),
   }),
+  /**
+   * Political map drawn with the tileset (tile mode): terrain per district type, decorations, roads between
+   * adjacent districts, rivers on closed borders and the faction's control. Sprite values are texture ids
+   * ("local.grass_a", "county.crops_a"), except rails, which is a local-map sprite key. Densities are chances per cell.
+   */
+  county: z.object({
+    ground: z.record(ZoneTypeSchema, z.array(z.string()).min(1)),
+    /** Rural districts with this glyph are marshland. */
+    marsh: z.object({ glyph: z.string().length(1), sprite: z.string() }),
+    /** Crop fields in patches of patchSize × patchSize cells. */
+    crops: z.object({ types: z.array(ZoneTypeSchema), sprites: z.array(z.string()).min(1), patchSize: Int.positive(), chance: Probability }),
+    /** Trees per district type; districts with denseGlyph are forests. */
+    forest: z.object({
+      sprites: z.array(z.string()).min(1),
+      density: z.partialRecord(ZoneTypeSchema, Probability),
+      denseGlyph: z.string().length(1),
+      denseDensity: Probability,
+    }),
+    /** Rocks in districts with this glyph. */
+    rocks: z.object({ glyph: z.string().length(1), sprite: z.string(), density: Probability }),
+    /** Sea: cells outside the county within `reach` cells of a port district. */
+    sea: z.object({ sprites: z.array(z.string()).min(1), reach: z.number().positive() }),
+    /** Other cells outside the county: this ground, darkened. */
+    outside: z.object({ ground: z.array(z.string()).min(1), dim: Probability }),
+    /** Buildings around the center: chance density − falloff × distance (in cells). */
+    buildings: z.partialRecord(ZoneTypeSchema, z.object({ sprites: z.array(z.string()).min(1), density: Probability, falloff: z.number().nonnegative() })),
+    /** A horizontal railway across districts of these types, `row` cells from the center. */
+    rails: z.object({ types: z.array(ZoneTypeSchema), sprite: z.string(), row: Int }),
+    /** Autotile set (ui.localMap.autotile) for the roads between districts. */
+    road: z.enum(ROAD_KINDS),
+    control: z.object({ tintAlpha: Probability, band: z.number().positive(), selected: z.number().positive() }),
+    colors: z.object({
+      river: HexColorSchema,
+      riverLight: HexColorSchema,
+      open: HexColorSchema,
+      edge: HexColorSchema,
+      plate: HexColorSchema,
+      plateNeutral: HexColorSchema,
+      outside: HexColorSchema,
+    }),
+    lines: z.object({ river: z.number().positive(), open: z.number().positive(), edge: z.number().positive(), plateBorder: z.number().positive() }),
+  }),
   /** Political map: tiles farther than maxDistance from every district center are outside the county. */
   regions: z.object({ maxDistance: z.number().positive() }),
   /**

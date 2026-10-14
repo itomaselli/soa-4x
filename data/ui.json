@@ -612,5 +612,145 @@
       }
     ],
     "max": 3
+  },
+  "county": {
+    "ground": {
+      "town": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "road": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "rural": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "industrial": [
+        "local.dirt_a",
+        "local.dirt_b"
+      ],
+      "port": [
+        "local.pavement_a",
+        "local.pavement_b"
+      ]
+    },
+    "marsh": {
+      "glyph": "~",
+      "sprite": "county.marsh"
+    },
+    "crops": {
+      "types": [
+        "rural"
+      ],
+      "sprites": [
+        "county.crops_a",
+        "county.crops_b"
+      ],
+      "patchSize": 3,
+      "chance": 0.3
+    },
+    "forest": {
+      "sprites": [
+        "local.pine",
+        "local.forest"
+      ],
+      "density": {
+        "rural": 0.08,
+        "road": 0.03,
+        "town": 0.02
+      },
+      "denseGlyph": "\"",
+      "denseDensity": 0.3
+    },
+    "rocks": {
+      "glyph": "^",
+      "sprite": "local.rocks",
+      "density": 0.25
+    },
+    "sea": {
+      "sprites": [
+        "county.water_a",
+        "county.water_b"
+      ],
+      "reach": 4
+    },
+    "outside": {
+      "ground": [
+        "local.grass_a",
+        "local.grass_b"
+      ],
+      "dim": 0.6
+    },
+    "buildings": {
+      "town": {
+        "sprites": [
+          "local.house_1",
+          "local.house_2",
+          "local.house_3",
+          "local.house_4",
+          "local.house_5",
+          "local.house_6",
+          "local.house_7",
+          "local.house_8",
+          "local.house_9",
+          "local.house_10",
+          "local.house_11",
+          "local.house_12"
+        ],
+        "density": 0.85,
+        "falloff": 0.17
+      },
+      "port": {
+        "sprites": [
+          "local.warehouse_1",
+          "local.warehouse_2",
+          "local.shed",
+          "local.house_5",
+          "local.house_9"
+        ],
+        "density": 0.8,
+        "falloff": 0.2
+      },
+      "industrial": {
+        "sprites": [
+          "local.factory",
+          "local.warehouse_1",
+          "local.warehouse_2",
+          "local.silo"
+        ],
+        "density": 0.7,
+        "falloff": 0.2
+      }
+    },
+    "rails": {
+      "types": [
+        "industrial"
+      ],
+      "sprite": "rails",
+      "row": -2
+    },
+    "road": "asphalt",
+    "control": {
+      "tintAlpha": 0.16,
+      "band": 2,
+      "selected": 1
+    },
+    "colors": {
+      "river": "#4a7a9a",
+      "riverLight": "#5d82a6",
+      "open": "#d8c39a",
+      "edge": "#14141a",
+      "plate": "#14141a",
+      "plateNeutral": "#8a8478",
+      "outside": "#101014"
+    },
+    "lines": {
+      "river": 4,
+      "open": 1,
+      "edge": 2,
+      "plateBorder": 1
+    }
   }
 }

@@ -84,7 +84,6 @@ export function mapViewModel(
     const owner = zoneOwner(zone, data.balance);
     zones[def.id] = {
       ownerColor: owner ? (data.factions.find((f) => f.id === owner)?.color ?? null) : null,
-      ownerPatchId: owner ? (data.factions.find((f) => f.id === owner)?.patchId ?? null) : null,
       glyph: def.glyph,
       spriteId: `zone_type.${def.type}`,
       glyphColor: planned.has(def.id) ? colors.planned : data.ui.zoneTypeColors[def.type] ?? colors.glyph,
