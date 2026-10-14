@@ -202,23 +202,23 @@ function lotPositions(type: ZoneDef["type"], width: number, height: number): { x
   }
 }
 
-function paintTown(tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
-  const mid = Math.floor(h / 2);
-  for (let x = 0; x < w; x++) tiles[mid]![x] = { ...T.asphalt };
-  for (const sx of [Math.floor(w * 0.12), Math.floor(w * 0.38), Math.floor(w * 0.63), Math.floor(w * 0.88)]) {
-    for (let y = 0; y < h; y++) tiles[y]![sx] = { ...T.asphalt };
-  }
+function paintTown(data: GameData, tiles: LocalTile[][], rng: Rng, w: number, h: number): void {
+  const cfg = data.ui.localMap.town;
+  for (const fy of cfg.streetRows) for (let x = 0; x < w; x++) tiles[Math.floor(h * fy)]![x] = { ...T.asphalt };
+  for (const fx of cfg.streetColumns) for (let y = 0; y < h; y++) tiles[y]![Math.floor(w * fx)] = { ...T.asphalt };
   // Sidewalks along every street.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (tiles[y]![x]!.terrain !== "ground") continue;
     const nextToRoad = DIRECTIONS.some((d) => tiles[y + d.dy]?.[x + d.dx]?.terrain === "road");
     if (nextToRoad) tiles[y]![x] = { ...T.ground, terrain: "sidewalk", glyph: "," };
   }
+  // Packed blocks: buildings up to the street, a few trees.
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (tiles[y]![x]!.terrain !== "ground") continue;
+    const terrain = tiles[y]![x]!.terrain;
+    if (terrain !== "ground" && terrain !== "sidewalk") continue;
     const roll = rng.next();
-    if (roll < 0.16) tiles[y]![x] = { ...T.building };
-    else if (roll < 0.2) tiles[y]![x] = { ...T.tree };
+    if (roll < cfg.building) tiles[y]![x] = { ...T.building };
+    else if (roll < cfg.building + cfg.tree) tiles[y]![x] = { ...T.tree };
   }
 }
 
@@ -480,7 +480,8 @@ export function generateLocalMap(data: GameData, zoneId: string): LocalMap {
   const local = data.ui.localMap;
   const rng = createRng(zone.localSeed ?? hashId(zoneId));
   const tiles = blank(width, height, T.ground);
-  ({ town: paintTown, rural: paintRural, road: paintRoad, port: paintPort, industrial: paintIndustrial })[zone.type](tiles, rng, width, height);
+  if (zone.type === "town") paintTown(data, tiles, rng, width, height);
+  else ({ rural: paintRural, road: paintRoad, port: paintPort, industrial: paintIndustrial })[zone.type](tiles, rng, width, height);
   const mid = Math.floor(height / 2);
 
   // Lots: cleared 3×3 areas (they're drawn on top by the renderer), fenced on the side away from the street.

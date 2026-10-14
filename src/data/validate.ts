@@ -293,6 +293,7 @@ export function validateGameData(data: GameData): string[] {
       for (const id of ids) localSprite(id, `variants.${terrain}.${type}`);
     }
   }
+  if (local.town.building + local.town.tree > 1) errors.push("ui.json › localMap.town: building + tree no pueden pasar de 1");
   for (const [terrain, below] of Object.entries(local.underTerrain)) {
     if (!(below in local.variants)) errors.push(`ui.json › localMap.underTerrain.${terrain}: no hay variantes de "${below}"`);
   }
